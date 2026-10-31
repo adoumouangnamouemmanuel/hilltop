@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Lock, MapPin, Search, Star } from "lucide-react";
 import { getListing } from "@/lib/data";
 import { formatCedi } from "@/lib/format";
+import { Confetti } from "./confetti";
 import { cn } from "./ui";
 
 const STEP_MS = 3600;
@@ -261,27 +262,11 @@ function MeetScreen() {
   );
 }
 
-// Fixed confetti angles keep server and client output identical.
-const confetti = Array.from({ length: 14 }, (_, i) => ({
-  angle: (i / 14) * Math.PI * 2,
-  dist: 60 + (i % 3) * 16,
-  color: ["#a8323f", "#121010", "#d9b45a"][i % 3],
-}));
-
 function DoneScreen() {
   return (
     <div className="flex h-full flex-col items-center pt-10 text-center">
       <div className="relative">
-        {confetti.map((c, i) => (
-          <motion.span
-            key={i}
-            className="absolute top-1/2 left-1/2 size-1.5 rounded-full"
-            style={{ backgroundColor: c.color }}
-            initial={{ x: 0, y: 0, opacity: 0 }}
-            animate={{ x: Math.cos(c.angle) * c.dist, y: Math.sin(c.angle) * c.dist, opacity: [0, 1, 0] }}
-            transition={{ delay: 0.45, duration: 1.1, ease: "easeOut" }}
-          />
-        ))}
+        <Confetti count={14} spread={60} delay={0.45} size={6} />
         <motion.span
           className="relative grid size-16 place-items-center rounded-full bg-success text-white"
           initial={{ scale: 0 }}

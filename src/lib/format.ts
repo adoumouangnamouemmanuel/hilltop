@@ -36,3 +36,34 @@ export function firstName(name: string) {
 }
 
 export const ASHESI_EMAIL = /^[a-z0-9._%+-]+@ashesi\.edu\.gh$/i;
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const shortDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** "Just now", "5 min ago", "3 h ago", "Yesterday", "4 days ago", then a date. */
+export function relativeTime(at: number, now: number) {
+  const diff = Math.max(0, now - at);
+  if (diff < MINUTE) return "Just now";
+  if (diff < HOUR) return `${Math.floor(diff / MINUTE)} min ago`;
+  if (diff < DAY) return `${Math.floor(diff / HOUR)} h ago`;
+  if (diff < 2 * DAY) return "Yesterday";
+  if (diff < 7 * DAY) return `${Math.floor(diff / DAY)} days ago`;
+  return shortDate.format(at);
+}
+
+/** Whether same-day ordering is still open, given a "HH:MM" cut-off in Ghana time (UTC). */
+export function beforeCutoff(cutoff: string, now: number) {
+  const [h, m] = cutoff.split(":").map(Number);
+  const d = new Date(now);
+  return d.getUTCHours() * 60 + d.getUTCMinutes() < h * 60 + m;
+}
+
+/** "11:00" -> "11am", "15:30" -> "3:30pm". */
+export function formatClock(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const suffix = h >= 12 ? "pm" : "am";
+  const hour = h % 12 || 12;
+  return m ? `${hour}:${String(m).padStart(2, "0")}${suffix}` : `${hour}${suffix}`;
+}

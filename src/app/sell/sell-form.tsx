@@ -1,33 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
-import { makeCustomCategory, type AttributeDef } from "@/lib/catalog";
-import {
-  BOOST_PLANS,
-  conditions,
-  listings,
-  MOVE_OUT_SALE,
-  pickupSpots,
-  type AttrValue,
-  type Condition,
-  type Listing,
-  type PickupSpot,
-} from "@/lib/data";
+import { Check, Loader2, Plus, X } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
+import { BOOST_PLANS, conditions, listings as seedListings, MOVE_OUT_SALE, pickupSpots, type Condition } from "@/lib/data";
 import { formatCedi } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { useCatalog } from "@/lib/use-catalog";
-import { CategoryIcon } from "@/components/category-icon";
+import {
+  buildListingSchema,
+  DESCRIPTION_MAX,
+  draftProblem,
+  emptyListingForm,
+  fromListing,
+  TITLE_MAX,
+  toListing,
+  type ListingFormValues,
+} from "@/lib/validation";
+import { Checkbox } from "@/components/controls";
 import { buttonClass, cn } from "@/components/ui";
-
-const MAX_PHOTOS = 8;
-const newListingId = () => `my-${Date.now().toString(36)}`;
-const TITLE_MAX = 70;
+import { AttributeFields } from "./attribute-fields";
+import { CategoryPicker } from "./category-picker";
+import { borderFor, fieldClass, LabeledInput, Pill, Section } from "./form-bits";
+import { PhotoPicker } from "./photo-picker";
+import { Preview } from "./preview";
 
 const conditionHelp: Record<Condition, string> = {
   New: "Unused, still in the packaging",
@@ -36,125 +37,54 @@ const conditionHelp: Record<Condition, string> = {
   Fair: "Visible wear, still fully usable",
 };
 
-const field =
-  "w-full rounded-xl border border-line-strong bg-elevated px-4 text-[15px] text-ink-950 outline-none transition-colors placeholder:text-ink-400 hover:border-ink-400 focus:border-ink-950";
+const newListingId = () => `my-${Date.now().toString(36)}`;
 
 export function SellForm() {
   const router = useRouter();
-  const { user, addListing, addCategory } = useStore();
+  const editId = useSearchParams().get("edit");
+  const { user, myListings, saveListing } = useStore();
   const catalog = useCatalog();
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [title, setTitle] = useState("");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState<string | null>(null);
-  const [attrs, setAttrs] = useState<Record<string, AttrValue>>({});
-  const [extra, setExtra] = useState<[string, string][]>([]);
-  const [condition, setCondition] = useState<Condition | null>(null);
-  const [stock, setStock] = useState("");
-  const [price, setPrice] = useState("");
-  const [original, setOriginal] = useState("");
-  const [description, setDescription] = useState("");
-  const [pickup, setPickup] = useState<PickupSpot>(pickupSpots[0]);
-  const [boost, setBoost] = useState<string>("none");
-  const [moveOut, setMoveOut] = useState(false);
+  const editing = editId ? myListings.find((l) => l.id === editId) : undefined;
   const [status, setStatus] = useState<"idle" | "publishing" | "done">("idle");
-  const [touched, setTouched] = useState(false);
 
-  const category = categoryId ? catalog.get(categoryId) : null;
-  const priceNum = Number(price) || 0;
-  const originalNum = Number(original) || 0;
+  // The schema follows whichever category is picked, so its fields are validated too.
+  const resolver: Resolver<ListingFormValues> = (values, ctx, opts) =>
+    // The schema's input type marks optional fields differently from the form type; the shapes match.
+    zodResolver(buildListingSchema(values.category ? catalog.get(values.category) : null))(
+      values as never,
+      ctx,
+      opts as never,
+    ) as ReturnType<Resolver<ListingFormValues>>;
 
-  // Price guidance from similar items in the same category.
+  const form = useForm<ListingFormValues>({ defaultValues: emptyListingForm, resolver, mode: "onTouched" });
+  const { control, handleSubmit, formState, setValue, getValues, reset, setError } = form;
+  const errors = formState.errors;
+  const values = useWatch({ control }) as ListingFormValues;
+  const category = values.category ? catalog.get(values.category) : null;
+
+  // Load the listing being edited once it's available.
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  if (editing && loadedId !== editing.id) setLoadedId(editing.id);
+  useEffect(() => {
+    if (editing && loadedId === editing.id) reset(fromListing(editing));
+    // Only when switching to a different listing, not on every edit of it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedId, reset]);
+
   const guide = useMemo(() => {
-    if (!categoryId) return null;
-    const prices = listings
-      .filter((l) => l.category === categoryId)
+    if (!values.category) return null;
+    const prices = seedListings
+      .filter((l) => l.category === values.category)
       .map((l) => l.price)
       .sort((a, b) => a - b);
     if (prices.length < 3) return null;
     return { low: prices[Math.floor(prices.length * 0.25)], high: prices[Math.floor(prices.length * 0.75)] };
-  }, [categoryId]);
-
-  const errors = {
-    photos: photos.length === 0 && "Add at least one photo",
-    title: title.trim().length < 4 && "Give your item a clear title",
-    category: !category && "Pick a category",
-    condition: category && !category.noCondition && !condition && "Pick a condition",
-    price: priceNum <= 0 && "Set a price",
-  };
-  const firstError = Object.values(errors).find(Boolean);
-  const plan = BOOST_PLANS.find((p) => p.id === boost);
-
-  function pickCategory(id: string) {
-    setCategoryId(id);
-    // Values from another category's schema don't apply.
-    setAttrs({});
-  }
-
-  function createCategory() {
-    const label = newCategory?.trim();
-    if (!label) return;
-    const cat = makeCustomCategory(label);
-    addCategory(cat);
-    pickCategory(cat.id);
-    setNewCategory(null);
-    toast(`“${cat.label}” added as a new category`, { tone: "success" });
-  }
-
-  async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []).slice(0, MAX_PHOTOS - photos.length);
-    const urls = await Promise.all(
-      files.map(
-        (f) =>
-          new Promise<string>((resolve) => {
-            const r = new FileReader();
-            r.onload = () => resolve(r.result as string);
-            r.readAsDataURL(f);
-          }),
-      ),
-    );
-    setPhotos((p) => [...p, ...urls].slice(0, MAX_PHOTOS));
-    e.target.value = "";
-  }
-
-  function publish(e: React.FormEvent) {
-    e.preventDefault();
-    setTouched(true);
-    if (firstError || !category) return;
-    setStatus("publishing");
-    const cleanAttrs = Object.fromEntries(Object.entries(attrs).filter(([, v]) => v !== ""));
-    const listing: Listing = {
-      id: newListingId(),
-      title: title.trim(),
-      price: priceNum,
-      originalPrice: originalNum > priceNum ? originalNum : undefined,
-      category: category.id,
-      condition: category.noCondition ? undefined : (condition ?? undefined),
-      attributes: cleanAttrs,
-      extra: extra.filter(([k, v]) => k.trim() && v.trim()),
-      stock: stock ? Number(stock) : undefined,
-      pickup,
-      description: description.trim() || "No description yet.",
-      images: photos,
-      sellerId: "me",
-      postedDaysAgo: 0,
-      promoted: boost !== "none",
-      moveOut,
-      saves: 0,
-      views: 0,
-    };
-    setTimeout(() => {
-      addListing(listing);
-      setStatus("done");
-      toast("Your listing is live", { tone: "success" });
-      setTimeout(() => router.push(`/listing/${listing.id}`), 700);
-    }, 700);
-  }
+  }, [values.category]);
 
   if (!user) {
     return (
       <div className="mt-8 max-w-lg rounded-2xl border border-line p-8">
-        <h2 className="text-lg font-semibold text-ink-950">Log in to start selling</h2>
+        <h1 className="text-lg font-semibold text-ink-950">Log in to start selling</h1>
         <p className="mt-1.5 text-sm leading-6 text-ink-500">
           Only verified Ashesi students can list items. It&rsquo;s what makes buyers trust you.
         </p>
@@ -165,549 +95,379 @@ export function SellForm() {
     );
   }
 
-  const show = (key: keyof typeof errors) => touched && errors[key];
+  const isDraft = editing?.status === "draft";
+  const publishLabel = editing && !isDraft ? "Save changes" : "Publish listing";
+  const plan = BOOST_PLANS.find((p) => p.id === values.boost);
+
+  const publish = handleSubmit(
+    (v) => {
+      setStatus("publishing");
+      const listing = toListing(v, { id: editing?.id ?? newListingId(), status: "active", previous: editing }, category?.noCondition);
+      setTimeout(() => {
+        saveListing(listing);
+        setStatus("done");
+        toast(editing && !isDraft ? "Changes saved" : "Your listing is live", { tone: "success" });
+        setTimeout(() => router.push(`/listing/${listing.id}`), 600);
+      }, 600);
+    },
+    () => {
+      toast("Some details need fixing before you can publish");
+      requestAnimationFrame(() =>
+        document.querySelector('[data-invalid="true"], [aria-invalid="true"]')?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      );
+    },
+  );
+
+  function saveDraft() {
+    const v = getValues();
+    const problem = draftProblem(v);
+    if (problem) {
+      setError("title", { message: problem });
+      return;
+    }
+    const listing = toListing(v, { id: editing?.id ?? newListingId(), status: "draft", previous: editing }, category?.noCondition);
+    saveListing(listing);
+    toast("Draft saved", { tone: "success", action: { label: "View drafts", href: "/me?tab=selling" } });
+    if (!editing) router.replace(`/sell?edit=${listing.id}`, { scroll: false });
+  }
 
   return (
-    <form onSubmit={publish} noValidate className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
-      <div className="divide-y divide-line">
-        <Section title="Photos" hint={`${photos.length}/${MAX_PHOTOS}. Tap a photo to make it the cover.`} error={show("photos")}>
-          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5">
-            <AnimatePresence initial={false}>
-              {photos.map((src, i) => (
-                <motion.div
-                  key={src.slice(-48) + i}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="relative aspect-square overflow-hidden rounded-xl bg-surface"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setPhotos((p) => [p[i], ...p.filter((_, j) => j !== i)])}
-                    className="absolute inset-0"
-                    aria-label={`Make photo ${i + 1} the cover`}
-                  >
-                    <Image src={src} alt={`Photo ${i + 1}`} fill unoptimized className="object-cover" />
-                  </button>
-                  {i === 0 && (
-                    <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#121010]">
-                      Cover
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
-                    aria-label={`Remove photo ${i + 1}`}
-                    className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            {photos.length < MAX_PHOTOS && (
-              <label className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong text-ink-500 transition-colors hover:border-ink-900 hover:text-ink-950">
-                <ImagePlus className="size-5" aria-hidden />
-                <span className="text-xs font-medium">Add photos</span>
-                <input type="file" accept="image/*" multiple onChange={onFiles} className="sr-only" />
-              </label>
-            )}
-          </div>
-        </Section>
+    <>
+      <h1 className="text-2xl font-semibold tracking-[-0.025em] text-ink-950 sm:text-3xl">
+        {editing ? (isDraft ? "Finish your draft" : "Edit listing") : "List an item"}
+      </h1>
+      <p className="mt-1.5 text-sm text-ink-500">Free to list. You&rsquo;re paid as soon as the buyer confirms collection.</p>
 
-        <Section title="Category" error={show("category")}>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-            {catalog.categories.map((c) => (
-              <motion.button
-                key={c.id}
-                type="button"
-                layout
-                whileTap={{ scale: 0.95 }}
-                onClick={() => pickCategory(c.id)}
-                aria-pressed={categoryId === c.id}
-                className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border px-2 py-3 text-center text-xs font-medium transition-colors",
-                  categoryId === c.id ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-400",
-                )}
-              >
-                <CategoryIcon name={c.icon} className="size-5" />
-                <span className="leading-tight">{c.label}</span>
-              </motion.button>
-            ))}
-            {newCategory === null ? (
-              <button
-                type="button"
-                onClick={() => setNewCategory("")}
-                className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-2 py-3 text-xs font-medium text-ink-500 hover:border-ink-900 hover:text-ink-950"
-              >
-                <Plus className="size-5" aria-hidden />
-                New category
-              </button>
-            ) : null}
-          </div>
-          <AnimatePresence>
-            {newCategory !== null && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-3 flex gap-2">
+      <form onSubmit={publish} noValidate className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
+        <div className="divide-y divide-line">
+          <Section title="Photos" hint={`${values.photos.length}/8. Tap a photo to make it the cover.`} error={errors.photos?.message}>
+            <Controller
+              control={control}
+              name="photos"
+              render={({ field }) => <PhotoPicker value={field.value} onChange={field.onChange} />}
+            />
+          </Section>
+
+          <Section title="Category" error={errors.category?.message}>
+            <Controller
+              control={control}
+              name="category"
+              render={({ field }) => (
+                <CategoryPicker
+                  value={field.value}
+                  onChange={(id) => {
+                    field.onChange(id);
+                    // Values from another category's schema don't apply.
+                    if (id !== field.value) setValue("attributes", {});
+                  }}
+                />
+              )}
+            />
+          </Section>
+
+          <Section title="Title" error={errors.title?.message}>
+            <div className="relative">
+              <Controller
+                control={control}
+                name="title"
+                render={({ field }) => (
                   <input
-                    autoFocus
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value.slice(0, 32))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        createCategory();
-                      }
-                    }}
-                    placeholder="e.g. Musical instruments"
-                    className={cn(field, "h-11")}
-                    aria-label="New category name"
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value.slice(0, TITLE_MAX))}
+                    placeholder={values.category === "food" ? "e.g. Jollof with chicken, serves 1" : "e.g. iPhone 12, 128GB, unlocked"}
+                    aria-label="Title"
+                    aria-invalid={!!errors.title}
+                    className={cn(fieldClass, borderFor(errors.title), "h-12 pr-16")}
                   />
-                  <button type="button" onClick={createCategory} disabled={!newCategory.trim()} className={buttonClass("dark", "md")}>
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewCategory(null)}
-                    className={buttonClass("ghost", "md", "px-3")}
-                    aria-label="Cancel"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-ink-500">It becomes available to everyone once your listing is published.</p>
+                )}
+              />
+              <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-ink-500 tabular">
+                {values.title.length}/{TITLE_MAX}
+              </span>
+            </div>
+          </Section>
+
+          <AnimatePresence mode="wait" initial={false}>
+            {category && (
+              <motion.div
+                key={category.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Section title={`${category.label} details`} hint="Buyers filter by these, so fill in what you can">
+                  <AttributeFields category={category} control={control} errors={errors} />
+                </Section>
               </motion.div>
             )}
           </AnimatePresence>
-        </Section>
 
-        <Section title="Title" error={show("title")}>
-          <div className="relative">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
-              placeholder={category?.id === "food" ? "e.g. Jollof with chicken, serves 1" : "e.g. iPhone 12, 128GB, unlocked"}
-              className={cn(field, "h-12 pr-16")}
-              aria-label="Title"
+          {category && !category.noCondition && (
+            <Section title="Condition" error={errors.condition?.message}>
+              <Controller
+                control={control}
+                name="condition"
+                render={({ field }) => (
+                  <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Condition" aria-invalid={!!errors.condition}>
+                    {conditions.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        role="radio"
+                        aria-checked={field.value === c}
+                        onClick={() => field.onChange(c)}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors",
+                          field.value === c ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-2",
+                            field.value === c ? "border-ink-950" : "border-line-strong",
+                          )}
+                        >
+                          {field.value === c && <motion.span layoutId="cond-dot" className="size-2 rounded-full bg-ink-950" />}
+                        </span>
+                        <span>
+                          <span className="block text-sm font-medium text-ink-950">{c}</span>
+                          <span className="text-xs text-ink-500">{conditionHelp[c]}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              />
+            </Section>
+          )}
+
+          {values.category === "food" && <FoodFields form={form} />}
+
+          <Section title="Price">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Controller
+                control={control}
+                name="price"
+                render={({ field }) => (
+                  <LabeledInput
+                    {...field}
+                    label={category?.noCondition ? "Price each" : "Your price"}
+                    prefix="GH₵"
+                    placeholder="0"
+                    error={errors.price?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="originalPrice"
+                render={({ field }) => (
+                  <LabeledInput
+                    {...field}
+                    label="Original price"
+                    prefix="GH₵"
+                    placeholder="Optional"
+                    error={errors.originalPrice?.message}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="stock"
+                render={({ field }) => (
+                  <LabeledInput {...field} label="Quantity" placeholder="1" inputMode="numeric" error={errors.stock?.message} />
+                )}
+              />
+            </div>
+            {guide && (
+              <p className="mt-3 text-xs text-ink-500">
+                Similar items sell for{" "}
+                <span className="font-medium text-ink-950">
+                  {formatCedi(guide.low)} to {formatCedi(guide.high)}
+                </span>
+                .
+              </p>
+            )}
+          </Section>
+
+          <Section title="Description" hint="Optional" error={errors.description?.message}>
+            <Controller
+              control={control}
+              name="description"
+              render={({ field }) => (
+                <textarea
+                  {...field}
+                  onChange={(e) => field.onChange(e.target.value.slice(0, DESCRIPTION_MAX))}
+                  placeholder={
+                    values.category === "food"
+                      ? "Ingredients, how it's packed, when it's ready"
+                      : "How old is it? Any marks or missing parts? What's included?"
+                  }
+                  rows={5}
+                  aria-label="Description"
+                  className={cn(fieldClass, borderFor(errors.description), "resize-none py-3 leading-6")}
+                />
+              )}
             />
-            <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-ink-400 tabular">
-              {title.length}/{TITLE_MAX}
-            </span>
-          </div>
-        </Section>
+            <p className="mt-1.5 text-right text-xs text-ink-500 tabular">
+              {values.description.length}/{DESCRIPTION_MAX}
+            </p>
+          </Section>
 
-        {/* Fields generated from the category schema */}
-        <AnimatePresence mode="wait" initial={false}>
-          {category && (
-            <motion.div
-              key={category.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Section title={`${category.label} details`} hint="Buyers filter by these, so fill in what you can">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {category.attributes.map((a) => (
-                    <AttributeField key={a.key} def={a} value={attrs[a.key]} onChange={(v) => setAttrs((s) => ({ ...s, [a.key]: v }))} />
+          <Section title="Pickup spot" hint="Where buyers meet you">
+            <Controller
+              control={control}
+              name="pickup"
+              render={({ field }) => (
+                <div className="flex flex-wrap gap-2">
+                  {pickupSpots.map((p) => (
+                    <Pill key={p} active={field.value === p} onClick={() => field.onChange(p)}>
+                      {p}
+                    </Pill>
                   ))}
                 </div>
-                <ExtraDetails rows={extra} onChange={setExtra} />
-              </Section>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {category && !category.noCondition && (
-          <Section title="Condition" error={show("condition")}>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {conditions.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCondition(c)}
-                  aria-pressed={condition === c}
-                  className={cn(
-                    "flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors",
-                    condition === c ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-2",
-                      condition === c ? "border-ink-950" : "border-line-strong",
-                    )}
-                  >
-                    {condition === c && <motion.span layoutId="cond-dot" className="size-2 rounded-full bg-ink-950" />}
-                  </span>
-                  <span>
-                    <span className="block text-sm font-medium text-ink-950">{c}</span>
-                    <span className="text-xs text-ink-500">{conditionHelp[c]}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        <Section title="Price" error={show("price")}>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MoneyInput label={category?.noCondition ? "Price each" : "Your price"} value={price} onChange={setPrice} />
-            <MoneyInput label="Original price" value={original} onChange={setOriginal} placeholder="Optional" />
-            <label className="block">
-              <span className="mb-1.5 block text-xs text-ink-500">Quantity</span>
-              <input
-                value={stock}
-                onChange={(e) => setStock(e.target.value.replace(/\D/g, ""))}
-                inputMode="numeric"
-                placeholder="1"
-                className={cn(field, "h-12 tabular")}
-              />
-            </label>
-          </div>
-          {guide && (
-            <p className="mt-3 text-xs text-ink-500">
-              Similar items sell for{" "}
-              <span className="font-medium text-ink-950">
-                {formatCedi(guide.low)} to {formatCedi(guide.high)}
-              </span>
-              .
-            </p>
-          )}
-        </Section>
-
-        <Section title="Description" hint="Optional">
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value.slice(0, 800))}
-            placeholder={
-              category?.id === "food"
-                ? "Ingredients, how it's packed, when it's ready"
-                : "How old is it? Any marks or missing parts? What's included?"
-            }
-            rows={5}
-            className={cn(field, "resize-none py-3 leading-6")}
-            aria-label="Description"
-          />
-          <p className="mt-1.5 text-right text-xs text-ink-400 tabular">{description.length}/800</p>
-        </Section>
-
-        <Section title="Pickup spot" hint="Where buyers meet you">
-          <div className="flex flex-wrap gap-2">
-            {pickupSpots.map((p) => (
-              <Pill key={p} active={pickup === p} onClick={() => setPickup(p)}>
-                {p}
-              </Pill>
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Promote" hint="Optional" id="promote">
-          <div className="grid gap-2 sm:grid-cols-3">
-            {[{ id: "none", label: "No promotion", price: 0, reach: "Standard placement" }, ...BOOST_PLANS].map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setBoost(p.id)}
-                aria-pressed={boost === p.id}
-                className={cn(
-                  "rounded-xl border p-3.5 text-left transition-colors",
-                  boost === p.id ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
-                )}
-              >
-                <span className="flex items-center justify-between text-sm font-medium text-ink-950">
-                  {p.label}
-                  <span className="tabular">{p.price ? formatCedi(p.price) : "Free"}</span>
-                </span>
-                <span className="mt-0.5 block text-xs text-ink-500">{p.reach}</span>
-              </button>
-            ))}
-          </div>
-          <label className="mt-4 flex items-start gap-3 rounded-xl border border-line-strong p-4">
-            <input
-              type="checkbox"
-              checked={moveOut}
-              onChange={(e) => setMoveOut(e.target.checked)}
-              className="mt-0.5 size-[18px] accent-ink-950"
+              )}
             />
-            <span>
-              <span className="block text-sm font-medium text-ink-950">Add to the {MOVE_OUT_SALE.name}</span>
-              <span className="text-xs text-ink-500">Featured to everyone shopping the end-of-semester sale.</span>
-            </span>
-          </label>
-        </Section>
-      </div>
+          </Section>
 
-      {/* Preview and publish */}
-      <aside className="lg:sticky lg:top-[132px] lg:self-start">
-        <div className="rounded-2xl border border-line p-4">
-          <p className="mb-3 text-xs font-medium text-ink-500">Live preview</p>
-          <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-surface">
-            <AnimatePresence mode="wait">
-              {photos[0] ? (
-                <motion.div
-                  key={photos[0].slice(-40)}
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <Image src={photos[0]} alt="" fill unoptimized className="object-cover" />
-                </motion.div>
-              ) : (
-                <div className="grid h-full place-items-center text-ink-300">
-                  {category ? <CategoryIcon name={category.icon} className="size-10" /> : <ImagePlus className="size-8" aria-hidden />}
+          <Section title="Promote" hint="Optional" id="promote">
+            <Controller
+              control={control}
+              name="boost"
+              render={({ field }) => (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[{ id: "none" as const, label: "No promotion", price: 0, reach: "Standard placement" }, ...BOOST_PLANS].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => field.onChange(p.id)}
+                      aria-pressed={field.value === p.id}
+                      className={cn(
+                        "rounded-xl border p-3.5 text-left transition-colors",
+                        field.value === p.id ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
+                      )}
+                    >
+                      <span className="flex items-center justify-between text-sm font-medium text-ink-950">
+                        {p.label}
+                        <span className="tabular">{p.price ? formatCedi(p.price) : "Free"}</span>
+                      </span>
+                      <span className="mt-0.5 block text-xs text-ink-500">{p.reach}</span>
+                    </button>
+                  ))}
                 </div>
               )}
-            </AnimatePresence>
-          </div>
-          <div className="mt-3 space-y-0.5 px-0.5">
-            <p className="text-[15px] font-semibold text-ink-950 tabular">{formatCedi(priceNum)}</p>
-            <p className="truncate text-[13px] text-ink-700">{title || "Your item title"}</p>
-            <p className="truncate text-xs text-ink-400">
-              {[condition, category?.label, pickup].filter(Boolean).join(" · ")}
-              {boost !== "none" && " · Promoted"}
-            </p>
-          </div>
-        </div>
-
-        <dl className="mt-4 space-y-2 px-1 text-sm">
-          <div className="flex justify-between text-ink-500">
-            <dt>You receive</dt>
-            <dd className="font-medium text-ink-950 tabular">{formatCedi(priceNum)}</dd>
-          </div>
-          {plan && (
-            <div className="flex justify-between text-ink-500">
-              <dt>Promotion, {plan.label}</dt>
-              <dd className="text-ink-950 tabular">{formatCedi(plan.price)}</dd>
-            </div>
-          )}
-          <p className="text-xs leading-5 text-ink-400">The 4% buyer protection fee is paid by the buyer, not you.</p>
-        </dl>
-
-        <button type="submit" disabled={status !== "idle"} className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}>
-          {status === "publishing" ? (
-            <>
-              <Loader2 className="size-4 animate-spin" aria-hidden /> Publishing
-            </>
-          ) : status === "done" ? (
-            <>
-              <Check className="size-4" aria-hidden /> Listed
-            </>
-          ) : plan ? (
-            `Publish and pay ${formatCedi(plan.price)}`
-          ) : (
-            "Publish listing"
-          )}
-        </button>
-        <AnimatePresence>
-          {touched && firstError && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mt-2 text-center text-xs text-maroon-700"
-            >
-              {firstError}
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </aside>
-    </form>
-  );
-}
-
-/** One input for a category attribute, chosen by the attribute's type. */
-function AttributeField({ def, value, onChange }: { def: AttributeDef; value: AttrValue | undefined; onChange: (v: AttrValue) => void }) {
-  if (def.type === "boolean") {
-    const on = value === true;
-    return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-line-strong px-4 py-3 sm:col-span-1">
-        <span className="text-sm text-ink-950">{def.label}</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={def.label}
-          onClick={() => onChange(!on)}
-          className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors", on ? "bg-ink-950" : "bg-line-strong")}
-        >
-          <motion.span
-            className="absolute top-0.5 size-5 rounded-full bg-canvas shadow-sm"
-            animate={{ left: on ? 18 : 2 }}
-            transition={{ type: "spring", stiffness: 500, damping: 34 }}
-          />
-        </button>
-      </div>
-    );
-  }
-  if (def.type === "select" && def.options) {
-    return (
-      <div className="sm:col-span-2">
-        <span className="mb-1.5 block text-xs text-ink-500">{def.label}</span>
-        <div className="flex flex-wrap gap-1.5">
-          {def.options.map((o) => (
-            <button
-              key={o}
-              type="button"
-              onClick={() => onChange(value === o ? "" : o)}
-              aria-pressed={value === o}
-              className={cn(
-                "h-9 rounded-lg border px-3 text-[13px] transition-colors",
-                value === o ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900",
+            />
+            <Controller
+              control={control}
+              name="moveOut"
+              render={({ field }) => (
+                <Checkbox checked={field.value} onChange={field.onChange} className="mt-4 rounded-xl border border-line-strong p-4">
+                  <span className="block font-medium text-ink-950">Add to the {MOVE_OUT_SALE.name}</span>
+                  <span className="text-xs text-ink-500">Featured to everyone shopping the end-of-semester sale.</span>
+                </Checkbox>
               )}
-            >
-              {o}
-            </button>
-          ))}
+            />
+          </Section>
         </div>
-      </div>
-    );
-  }
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs text-ink-500">{def.label}</span>
-      <span className="relative block">
-        <input
-          value={value === undefined ? "" : String(value)}
-          onChange={(e) =>
-            onChange(def.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value.replace(/\D/g, ""))) : e.target.value)
-          }
-          inputMode={def.type === "number" ? "numeric" : undefined}
-          placeholder={def.placeholder}
-          className={cn(field, "h-11", def.unit && "pr-10")}
-        />
-        {def.unit && <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-ink-400">{def.unit}</span>}
-      </span>
-    </label>
+
+        <aside className="lg:sticky lg:top-[132px] lg:self-start">
+          <Preview values={values} category={category} />
+          <button type="submit" disabled={status !== "idle"} className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}>
+            {status === "publishing" ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Publishing
+              </>
+            ) : status === "done" ? (
+              <>
+                <Check className="size-4" aria-hidden /> Done
+              </>
+            ) : plan && !editing ? (
+              `Publish and pay ${formatCedi(plan.price)}`
+            ) : (
+              publishLabel
+            )}
+          </button>
+          {(!editing || isDraft) && (
+            <button type="button" onClick={saveDraft} disabled={status !== "idle"} className={buttonClass("ghost", "md", "mt-2 w-full")}>
+              Save as draft
+            </button>
+          )}
+        </aside>
+      </form>
+    </>
   );
 }
 
-/** Seller-defined details for anything the schema doesn't cover. */
-function ExtraDetails({ rows, onChange }: { rows: [string, string][]; onChange: (rows: [string, string][]) => void }) {
+/** Cut-off time and pickup windows for made-to-order food. */
+function FoodFields({ form }: { form: ReturnType<typeof useForm<ListingFormValues>> }) {
+  const { control, formState, setValue } = form;
+  const slots = useWatch({ control, name: "foodSlots" });
+  const errors = formState.errors;
   return (
-    <div className="mt-5">
-      <AnimatePresence initial={false}>
-        {rows.map(([k, v], i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="mb-2 grid grid-cols-[1fr_1.4fr_auto] gap-2">
-              <input
-                value={k}
-                onChange={(e) => onChange(rows.map((r, j) => (j === i ? [e.target.value, r[1]] : r)))}
-                placeholder="Detail, e.g. Warranty"
-                className={cn(field, "h-11 text-sm")}
-                aria-label="Detail name"
-              />
-              <input
-                value={v}
-                onChange={(e) => onChange(rows.map((r, j) => (j === i ? [r[0], e.target.value] : r)))}
-                placeholder="e.g. 6 months left"
-                className={cn(field, "h-11 text-sm")}
-                aria-label="Detail value"
-              />
+    <Section
+      title="Ordering"
+      hint="Buyers pick a pickup window at checkout"
+      error={errors.foodSlots?.message ?? errors.foodCutoff?.message}
+    >
+      <Controller
+        control={control}
+        name="foodCutoff"
+        render={({ field }) => (
+          <div className="max-w-xs">
+            <label htmlFor="cutoff" className="mb-1.5 block text-xs text-ink-500">
+              Same-day orders close at
+            </label>
+            <input id="cutoff" type="time" {...field} className={cn(fieldClass, borderFor(errors.foodCutoff), "h-12")} />
+            <p className="mt-1.5 text-xs text-ink-500">Later orders become pre-orders for the next day.</p>
+          </div>
+        )}
+      />
+      <p className="mt-5 mb-1.5 text-xs text-ink-500">Pickup windows</p>
+      <div className="space-y-2">
+        {slots.map((s, i) => (
+          <div key={i} className="flex gap-2">
+            <input
+              value={s}
+              onChange={(e) =>
+                setValue(
+                  "foodSlots",
+                  slots.map((x, j) => (j === i ? e.target.value : x)),
+                  { shouldValidate: true },
+                )
+              }
+              placeholder="e.g. 12:00 to 13:00"
+              aria-label={`Pickup window ${i + 1}`}
+              className={cn(fieldClass, borderFor(), "h-11 text-sm")}
+            />
+            {slots.length > 1 && (
               <button
                 type="button"
-                onClick={() => onChange(rows.filter((_, j) => j !== i))}
-                className="grid size-11 place-items-center rounded-xl text-ink-500 hover:bg-surface hover:text-ink-950"
-                aria-label="Remove detail"
+                onClick={() =>
+                  setValue(
+                    "foodSlots",
+                    slots.filter((_, j) => j !== i),
+                    { shouldValidate: true },
+                  )
+                }
+                className="grid size-11 shrink-0 place-items-center rounded-xl text-ink-500 hover:bg-surface hover:text-ink-950"
+                aria-label="Remove window"
               >
-                <Trash2 className="size-4" />
+                <X className="size-4" />
               </button>
-            </div>
-          </motion.div>
+            )}
+          </div>
         ))}
-      </AnimatePresence>
-      <button
-        type="button"
-        onClick={() => onChange([...rows, ["", ""]])}
-        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-950 underline underline-offset-4"
-      >
-        <Plus className="size-3.5" aria-hidden /> Add your own detail
-      </button>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  hint,
-  error,
-  id,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  error?: string | false | null;
-  id?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} className="scroll-mt-36 py-7 first:pt-0">
-      <div className="mb-3.5 flex items-baseline justify-between gap-4">
-        <h2 className="text-[15px] font-semibold text-ink-950">{title}</h2>
-        {error ? (
-          <span className="text-xs text-maroon-700">{error}</span>
-        ) : (
-          hint && <span className="text-right text-xs text-ink-400">{hint}</span>
-        )}
       </div>
-      {children}
-    </section>
-  );
-}
-
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "h-10 rounded-xl border px-4 text-sm transition-colors",
-        active ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900",
+      {slots.length < 4 && (
+        <button
+          type="button"
+          onClick={() => setValue("foodSlots", [...slots, ""])}
+          className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-950 underline underline-offset-4"
+        >
+          <Plus className="size-3.5" aria-hidden /> Add a window
+        </button>
       )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function MoneyInput({
-  label,
-  value,
-  onChange,
-  placeholder = "0",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs text-ink-500">{label}</span>
-      <span className="relative block">
-        <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[15px] text-ink-500">GH₵</span>
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-          inputMode="numeric"
-          placeholder={placeholder}
-          className={cn(field, "h-12 pl-14 tabular")}
-        />
-      </span>
-    </label>
+    </Section>
   );
 }

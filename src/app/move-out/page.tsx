@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { listings, MOVE_OUT_SALE } from "@/lib/data";
+import { getListings } from "@/lib/api";
+import { MOVE_OUT_SALE } from "@/lib/data";
 import { formatCedi } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 import { ListingCard } from "@/components/listing-card";
@@ -7,8 +8,8 @@ import { ButtonLink, SectionHeader } from "@/components/ui";
 
 export const metadata: Metadata = { title: MOVE_OUT_SALE.name };
 
-export default function MoveOutPage() {
-  const items = listings.filter((l) => l.moveOut);
+export default async function MoveOutPage() {
+  const items = await getListings({ moveOut: true });
   const value = items.reduce((sum, l) => sum + l.price, 0);
 
   return (

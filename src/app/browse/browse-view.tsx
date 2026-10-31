@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { SearchX, SlidersHorizontal, X } from "lucide-react";
+import { BellPlus, BellRing, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { formatCedi } from "@/lib/format";
 import {
   applyFilters,
@@ -20,27 +20,73 @@ import {
   type SortKey,
 } from "@/lib/search";
 import { useCatalog } from "@/lib/use-catalog";
+import { useInView } from "@/lib/hooks";
 import { useStore } from "@/lib/store";
+import { toast } from "@/lib/toast";
 import { CategoryIcon } from "@/components/category-icon";
 import { Dropdown } from "@/components/dropdown";
-import { ListingCard } from "@/components/listing-card";
+import { ListingCard, ListingCardSkeleton } from "@/components/listing-card";
 import { Sheet } from "@/components/sheet";
 import { buttonClass, cn } from "@/components/ui";
 import { FilterPanel } from "./filter-panel";
+
+const PAGE_SIZE = 12;
 
 export function BrowseView() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { allListings } = useStore();
+  // Only listings that are on sale; drafts and sold items never show in search.
+  const { activeListings: allListings, savedSearches, saveSearch, removeSearch } = useStore();
   const catalog = useCatalog();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
 
   const filters = useMemo(() => parseFilters(new URLSearchParams(params.toString())), [params]);
   const labelOf = (id: string) => catalog.get(id).label;
   const results = useMemo(() => applyFilters(allListings, filters, (id) => catalog.get(id).label), [allListings, filters, catalog]);
   const active = countActive(filters);
   const current = filters.category ? catalog.get(filters.category) : null;
+
+  // Back to the first page whenever the filters change.
+  const queryKey = filtersToQuery({ ...filters, sort: "relevance" });
+  const [lastQuery, setLastQuery] = useState(queryKey);
+  if (lastQuery !== queryKey) {
+    setLastQuery(queryKey);
+    setPage(1);
+  }
+  const shown = results.slice(0, page * PAGE_SIZE);
+  const hasMore = shown.length < results.length;
+  useInView(
+    sentinel,
+    () => {
+      if (loadingMore) return;
+      setLoadingMore(true);
+      // Mirrors fetching the next page from the API.
+      setTimeout(() => {
+        setPage((p) => p + 1);
+        setLoadingMore(false);
+      }, 350);
+    },
+    hasMore,
+  );
+
+  const searchQuery = filtersToQuery({ ...filters, sort: "relevance" });
+  const savedSearch = savedSearches.find((x) => x.query === searchQuery);
+  function toggleSavedSearch() {
+    if (savedSearch) {
+      removeSearch(savedSearch.id);
+      toast("Search removed");
+      return;
+    }
+    const parts = [filters.q && `“${filters.q}”`, current?.label, filters.max !== null && `under ${formatCedi(filters.max)}`].filter(
+      Boolean,
+    );
+    saveSearch({ label: parts.join(", ") || "All items", query: searchQuery, seenIds: results.map((l) => l.id) });
+    toast("Search saved. We'll tell you about new matches.", { tone: "success", action: { label: "View", href: "/saved?tab=searches" } });
+  }
 
   function replace(next: Filters) {
     const qs = filtersToQuery(next);
@@ -220,13 +266,16 @@ export function BrowseView() {
                 </button>
               )}
             </div>
-            <Dropdown<SortKey>
-              label="Sort"
-              value={filters.sort}
-              options={sortOptions}
-              onChange={(sort) => update({ sort })}
-              className="ml-auto"
-            />
+            <button
+              type="button"
+              onClick={toggleSavedSearch}
+              aria-pressed={!!savedSearch}
+              className={buttonClass("outline", "md", cn("ml-auto h-10 px-3.5 text-[13px]", savedSearch && "border-ink-950"))}
+            >
+              {savedSearch ? <BellRing className="size-4" aria-hidden /> : <BellPlus className="size-4" aria-hidden />}
+              <span className="max-sm:sr-only">{savedSearch ? "Saved" : "Save search"}</span>
+            </button>
+            <Dropdown<SortKey> label="Sort" value={filters.sort} options={sortOptions} onChange={(sort) => update({ sort })} />
           </div>
 
           {chips.length > 0 && (
@@ -242,7 +291,7 @@ export function BrowseView() {
           {results.length > 0 ? (
             <motion.div layout className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4">
               <AnimatePresence mode="popLayout" initial={false}>
-                {results.map((l, i) => (
+                {shown.map((l, i) => (
                   <motion.div
                     key={l.id}
                     layout
@@ -258,6 +307,19 @@ export function BrowseView() {
             </motion.div>
           ) : (
             <EmptyState hasFilters={active > 0} onClear={clearAll} />
+          )}
+
+          {hasMore && (
+            <div ref={sentinel} className="mt-8 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4" aria-hidden>
+              {Array.from({ length: 4 }, (_, i) => (
+                <ListingCardSkeleton key={i} />
+              ))}
+            </div>
+          )}
+          {results.length > PAGE_SIZE && (
+            <p className="mt-8 text-center text-xs text-ink-500" aria-live="polite">
+              Showing {shown.length} of {results.length}
+            </p>
           )}
         </div>
       </div>

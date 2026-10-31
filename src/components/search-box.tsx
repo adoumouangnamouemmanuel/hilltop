@@ -18,7 +18,7 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
   const router = useRouter();
   const pathname = usePathname();
   const urlQuery = useSearchParams().get("q") ?? "";
-  const { allListings, recentSearches, addRecentSearch, clearRecentSearches } = useStore();
+  const { activeListings: allListings, recentSearches, addRecentSearch, clearRecentSearches } = useStore();
   const [query, setQuery] = useState(urlQuery);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);

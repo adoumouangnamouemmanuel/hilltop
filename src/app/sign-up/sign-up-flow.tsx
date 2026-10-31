@@ -8,6 +8,7 @@ import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { ASHESI_EMAIL, firstName } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { MicrosoftButton, OrDivider } from "@/components/auth-shell";
+import { Confetti } from "@/components/confetti";
 import { buttonClass, cn } from "@/components/ui";
 import { CodeStep, safeNext } from "../sign-in/sign-in-flow";
 
@@ -29,13 +30,6 @@ const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transiti
 
 const field =
   "h-12 w-full rounded-xl border bg-elevated px-4 text-[15px] text-ink-950 outline-none transition-colors placeholder:text-ink-400 focus:border-ink-950";
-
-// Fixed confetti angles keep server and client output identical.
-const confetti = Array.from({ length: 18 }, (_, i) => ({
-  a: (i / 18) * Math.PI * 2,
-  d: 70 + (i % 3) * 22,
-  c: ["#a8323f", "#d9b45a", "#1f7a4d"][i % 3],
-}));
 
 export function SignUpFlow() {
   const router = useRouter();
@@ -220,16 +214,7 @@ export function SignUpFlow() {
           className="flex flex-col items-center py-10 text-center"
         >
           <div className="relative">
-            {confetti.map((c, i) => (
-              <motion.span
-                key={i}
-                className="absolute top-1/2 left-1/2 size-2 rounded-full"
-                style={{ backgroundColor: c.c }}
-                initial={{ x: 0, y: 0, opacity: 0 }}
-                animate={{ x: Math.cos(c.a) * c.d, y: Math.sin(c.a) * c.d, opacity: [0, 1, 0] }}
-                transition={{ delay: 0.3, duration: 1.2, ease: "easeOut" }}
-              />
-            ))}
+            <Confetti count={18} spread={70} />
             <motion.span
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}

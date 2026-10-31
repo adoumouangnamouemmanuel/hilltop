@@ -87,7 +87,8 @@
   --ink-900: #1c1918;
   --ink-700: #44403e;
   --ink-500: #6f6a67;
-  --ink-400: #98928e;
+  /* Meets WCAG AA (4.5:1) for small text on canvas and surface. */
+  --ink-400: #736d69;
   --ink-300: #c3bdb9;
 
   --maroon-50: #fbf4f4;
@@ -121,7 +122,7 @@
   --ink-900: #ebe7e4;
   --ink-700: #c8c2be;
   --ink-500: #9a938f;
-  --ink-400: #7b7571;
+  --ink-400: #948e8a;
   --ink-300: #534e4b;
 
   --maroon-50: #241113;
@@ -233,4 +234,32 @@ body {
     box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
     cursor: grab;
   }
+}
+
+/* Respect "reduce motion": stop decorative CSS loops. Framer Motion animations follow MotionConfig. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-ken-burns,
+  .animate-ping,
+  .animate-pulse,
+  .animate-shimmer {
+    animation: none !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * In dark mode the maroon used for buttons is too dark to read as text on near-black,
+ * so maroon text gets its own lighter tone (about 6:1 on the dark canvas).
+ */
+.dark .text-maroon-700,
+.dark .text-maroon-600 {
+  color: #e2808a;
 }

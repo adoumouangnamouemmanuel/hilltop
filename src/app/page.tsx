@@ -2,21 +2,17 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck } from "lucide-react";
-import { listings, MOVE_OUT_SALE } from "@/lib/data";
+import { getListings } from "@/lib/api";
+import { MOVE_OUT_SALE } from "@/lib/data";
 import { popularSearches } from "@/lib/search";
 import { Countdown } from "@/components/countdown";
 import { ActivityTicker, CategoryGrid, RotatingWord } from "@/components/home-bits";
 import { HowItWorks } from "@/components/how-it-works";
-import { ListingRail } from "@/components/rail";
+import { HomeRails } from "@/components/home-rails";
 import { SearchBox } from "@/components/search-box";
 
-export default function Home() {
-  const trending = [...listings].sort((a, b) => Number(!!b.promoted) - Number(!!a.promoted) || b.saves - a.saves).slice(0, 12);
-  const fresh = listings.filter((l) => l.postedDaysAgo <= 1);
-  const food = listings.filter((l) => l.category === "food");
-  const accessories = listings.filter((l) => ["jewellery", "eyewear", "beauty"].includes(l.category));
-  const cheap = listings.filter((l) => l.price <= 200).sort((a, b) => a.price - b.price);
-  const saleCovers = listings.filter((l) => l.moveOut).slice(0, 3);
+export default async function Home() {
+  const saleCovers = await getListings({ moveOut: true, limit: 3 });
 
   return (
     <div className="space-y-16 pb-8 sm:space-y-20">
@@ -63,8 +59,7 @@ export default function Home() {
       </section>
 
       <div className="container-page space-y-16 sm:space-y-20">
-        <ListingRail title="Trending on campus" href="/browse?sort=popular" listings={trending} />
-        <ListingRail title="Just listed" href="/browse?sort=newest" listings={fresh} />
+        <HomeRails part="top" />
 
         {/* Move-Out Sale */}
         <Link href="/move-out" className="group relative block overflow-hidden rounded-3xl bg-maroon-800 text-white">
@@ -93,9 +88,7 @@ export default function Home() {
           </div>
         </Link>
 
-        <ListingRail title="Homemade food" subtitle="Cooked and baked by students" href="/browse?category=food" listings={food} />
-        <ListingRail title="Jewellery, glasses & beauty" href="/browse?category=jewellery" listings={accessories} />
-        <ListingRail title="Under GH₵200" href="/browse?max=200&sort=price-asc" listings={cheap} />
+        <HomeRails part="bottom" />
 
         {/* Sell CTA */}
         <Link

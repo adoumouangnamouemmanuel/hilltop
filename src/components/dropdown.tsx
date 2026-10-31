@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
+import { useDismiss } from "@/lib/hooks";
 import { cn } from "./ui";
 
+/** Select-style dropdown with listbox keyboard support: arrows, Home/End, Enter and Escape. */
 export function Dropdown<T extends string>({
   label,
   value,
@@ -20,28 +22,60 @@ export function Dropdown<T extends string>({
   align?: "left" | "right";
   className?: string;
 }) {
+  const keys = Object.keys(options) as T[];
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const listId = useId();
+  useDismiss(ref, open, () => setOpen(false));
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  function openAt(index: number) {
+    setActive(index);
+    setOpen(true);
+  }
+
+  function choose(key: T) {
+    onChange(key);
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    const current = keys.indexOf(value);
+    if (!open) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        openAt(Math.max(0, current));
+      }
+      return;
+    }
+    const moves: Record<string, number> = { ArrowDown: active + 1, ArrowUp: active - 1, Home: 0, End: keys.length - 1 };
+    if (e.key in moves) {
+      e.preventDefault();
+      setActive(Math.min(keys.length - 1, Math.max(0, moves[e.key])));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      choose(keys[active]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    } else if (e.key === "Tab") setOpen(false);
+  }
 
   return (
     <div ref={ref} className={cn("relative", className)}>
       <button
+        ref={trigger}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? setOpen(false) : openAt(Math.max(0, keys.indexOf(value))))}
+        onKeyDown={onKeyDown}
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={listId}
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
+        aria-label={`${label}: ${options[value]}`}
         className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-line-strong bg-elevated px-3.5 text-[13px] text-ink-900 transition-colors hover:border-ink-900"
       >
         <span className="truncate">
@@ -53,7 +87,9 @@ export function Dropdown<T extends string>({
       <AnimatePresence>
         {open && (
           <motion.ul
+            id={listId}
             role="listbox"
+            aria-label={label}
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -63,21 +99,22 @@ export function Dropdown<T extends string>({
               align === "right" ? "right-0" : "left-0",
             )}
           >
-            {(Object.keys(options) as T[]).map((key) => (
-              <li key={key}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={key === value}
-                  onClick={() => {
-                    onChange(key);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-[13px] text-ink-700 hover:bg-surface hover:text-ink-950"
-                >
-                  {options[key]}
-                  {key === value && <Check className="size-4 text-ink-950" aria-hidden />}
-                </button>
+            {keys.map((key, i) => (
+              <li
+                key={key}
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={key === value}
+                onMouseEnter={() => setActive(i)}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => choose(key)}
+                className={cn(
+                  "flex items-center justify-between gap-6 rounded-lg px-3 py-2 text-[13px]",
+                  i === active ? "bg-surface text-ink-950" : "text-ink-700",
+                )}
+              >
+                {options[key]}
+                {key === value && <Check className="size-4 text-ink-950" aria-hidden />}
               </li>
             ))}
           </motion.ul>

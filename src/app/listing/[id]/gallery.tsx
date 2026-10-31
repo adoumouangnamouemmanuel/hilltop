@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Expand, ScanSearch, X, ZoomIn, ZoomOut } from "lucide-react";
+import { useBodyScrollLock, useFocusTrap } from "@/lib/hooks";
+import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/components/ui";
 
 const LENS = 200;
@@ -140,7 +142,7 @@ function LensViewer({
     >
       {/* All photos stay mounted so switching is instant once loaded. */}
       {images.map((src, i) => (
-        <Image
+        <SafeImage
           key={src}
           src={src}
           alt={i === index ? title : ""}
@@ -249,6 +251,9 @@ function Lightbox({
   const [zoomed, setZoomed] = useState(false);
   const [origin, setOrigin] = useState("50% 50%");
   const lastTap = useRef(0);
+  const dialog = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(open);
+  useFocusTrap(dialog, open);
 
   // Reset zoom whenever the photo changes.
   const [lastIndex, setLastIndex] = useState(index);
@@ -259,17 +264,13 @@ function Lightbox({
 
   useEffect(() => {
     if (!open) return;
-    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight") setIndex(index + 1);
       if (e.key === "ArrowLeft") setIndex(index - 1);
     };
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = "";
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose, index, setIndex]);
 
   function toggleZoom(e: React.MouseEvent) {
@@ -289,9 +290,11 @@ function Lightbox({
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={dialog}
           role="dialog"
           aria-modal="true"
           aria-label={`${title} photos`}
+          tabIndex={-1}
           className="fixed inset-0 z-[80] flex flex-col bg-[#0a0909]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

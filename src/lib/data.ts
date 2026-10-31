@@ -20,6 +20,15 @@ export type Seller = {
   joined: string;
 };
 
+export type ListingStatus = "active" | "sold" | "draft";
+
+export type FoodOrdering = {
+  /** Same-day orders close at this time (24h "HH:MM"). Later orders are for the next day. */
+  cutoff: string;
+  /** Pickup windows offered to the buyer. */
+  slots: string[];
+};
+
 export type Listing = {
   id: string;
   title: string;
@@ -40,6 +49,10 @@ export type Listing = {
   moveOut?: boolean;
   /** For items sold in batches, like food. */
   stock?: number;
+  /** Defaults to "active". Drafts are only visible to their owner. */
+  status?: ListingStatus;
+  /** Ordering rules for made-to-order items like food. */
+  food?: FoodOrdering;
   saves: number;
   views: number;
 };
@@ -787,6 +800,7 @@ export const listings: Listing[] = [
   // Food
   L({
     id: "choc-chip-cookies",
+    food: { cutoff: "11:00", slots: ["12:00 to 13:00", "16:00 to 18:00"] },
     title: "Chocolate chip cookies, box of 6",
     price: 35,
     category: "food",
@@ -807,6 +821,7 @@ export const listings: Listing[] = [
   }),
   L({
     id: "grain-bowl",
+    food: { cutoff: "10:30", slots: ["12:30 to 14:00"] },
     title: "Grilled chicken grain bowl",
     price: 55,
     category: "food",
@@ -827,6 +842,7 @@ export const listings: Listing[] = [
   }),
   L({
     id: "veggie-bowl",
+    food: { cutoff: "10:00", slots: ["12:00 to 13:30"] },
     title: "Rainbow veggie bowl",
     price: 45,
     category: "food",
@@ -840,6 +856,7 @@ export const listings: Listing[] = [
   }),
   L({
     id: "kontomire",
+    food: { cutoff: "09:00", slots: ["12:30 to 14:00", "18:00 to 19:30"] },
     title: "Kontomire stew with boiled yam",
     price: 40,
     category: "food",
@@ -860,6 +877,7 @@ export const listings: Listing[] = [
   }),
   L({
     id: "pizza",
+    food: { cutoff: "15:00", slots: ["18:00 to 20:00"] },
     title: "Homemade margherita pizza",
     price: 90,
     category: "food",
@@ -879,6 +897,7 @@ export const listings: Listing[] = [
   }),
   L({
     id: "pancakes",
+    food: { cutoff: "21:00", slots: ["08:00 to 10:00"] },
     title: "Weekend pancake stack",
     price: 30,
     category: "food",

@@ -1,0 +1,98 @@
+import Link from "next/link";
+import { Clock, MapPin } from "lucide-react";
+import type { Listing, Seller } from "@/lib/data";
+import { firstName, formatClock } from "@/lib/format";
+import { sellerStats } from "@/lib/model";
+import type { Review } from "@/lib/types";
+import { Avatar, buttonClass, Rating, Verified } from "@/components/ui";
+
+export function About({ listing, facts }: { listing: Listing; facts: [string, string][] }) {
+  return (
+    <div className="space-y-10 lg:mt-12">
+      <section>
+        <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink-950">About this item</h2>
+        <p className="mt-3 max-w-2xl text-[15px] leading-7 text-ink-700">{listing.description}</p>
+      </section>
+      <section>
+        <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink-950">Details</h2>
+        <dl className="mt-3 max-w-2xl divide-y divide-line border-y border-line">
+          {facts.map(([k, v]) => (
+            <div key={k} className="grid grid-cols-[140px_1fr] gap-4 py-3 text-sm">
+              <dt className="text-ink-500">{k}</dt>
+              <dd className="text-ink-950">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      {listing.food && (
+        <section className="max-w-2xl rounded-2xl border border-line p-5">
+          <div className="flex gap-3">
+            <Clock className="mt-0.5 size-5 shrink-0 text-ink-950" aria-hidden />
+            <div>
+              <h2 className="text-sm font-semibold text-ink-950">How ordering works</h2>
+              <p className="mt-1 text-sm leading-6 text-ink-500">
+                Same-day orders close at {formatClock(listing.food.cutoff)}. After that, your order is for the next day. Pickup windows:{" "}
+                {listing.food.slots.join(", ")}.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+      <section className="max-w-2xl rounded-2xl bg-surface p-5">
+        <div className="flex gap-3">
+          <MapPin className="mt-0.5 size-5 shrink-0 text-ink-950" aria-hidden />
+          <div>
+            <h2 className="text-sm font-semibold text-ink-950">Meet at {listing.pickup}</h2>
+            <p className="mt-1 text-sm leading-6 text-ink-500">
+              Check the item in person before you confirm. Only confirm collection once you&rsquo;re happy, and never pay outside Hilltop.
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function SellerCard({ seller, isMe, extraReviews }: { seller: Seller; isMe: boolean; extraReviews: Review[] }) {
+  const stats = sellerStats(seller, extraReviews);
+  return (
+    <div className="mt-4 rounded-2xl border border-line p-5">
+      <div className="flex items-center gap-3.5">
+        <Avatar name={seller.name} size={48} />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 font-semibold text-ink-950">
+            {seller.name}
+            <Verified />
+          </p>
+          <p className="truncate text-[13px] text-ink-500">
+            {seller.major} · Class of {seller.classOf}
+          </p>
+        </div>
+      </div>
+      <dl className="mt-4 grid grid-cols-3 divide-x divide-line rounded-xl bg-surface py-3 text-center">
+        <div>
+          <dt className="sr-only">Rating</dt>
+          <dd className="text-sm">
+            <Rating value={stats.rating} />
+          </dd>
+          <dd className="mt-0.5 text-[11px] text-ink-500">{stats.reviews} reviews</dd>
+        </div>
+        <div>
+          <dt className="sr-only">Sold</dt>
+          <dd className="text-sm font-medium text-ink-950 tabular">{seller.sales}</dd>
+          <dd className="mt-0.5 text-[11px] text-ink-500">items sold</dd>
+        </div>
+        <div>
+          <dt className="sr-only">Response time</dt>
+          <dd className="text-sm font-medium text-ink-950">{seller.responseTime.replace("within ", "")}</dd>
+          <dd className="mt-0.5 text-[11px] text-ink-500">to reply</dd>
+        </div>
+      </dl>
+      {!isMe && (
+        <Link href={`/seller/${seller.id}`} className={buttonClass("ghost", "md", "mt-3 w-full")}>
+          View {firstName(seller.name)}&rsquo;s profile
+        </Link>
+      )}
+    </div>
+  );
+}

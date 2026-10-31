@@ -39,7 +39,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <Providers>
           <Header />
-          <main className="flex-1 pb-28 md:pb-0">{children}</main>
+          <main id="main" className="flex-1 pb-28 md:pb-0">
+            {children}
+          </main>
           <Footer />
           <MobileTabBar />
           <Toaster />

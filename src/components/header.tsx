@@ -5,12 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, ChevronDown, Heart, LayoutGrid, LogOut, Package, Plus, Search, Store } from "lucide-react";
+import { ArrowRight, ChevronDown, Heart, LayoutGrid, LogOut, MessageCircle, Package, Plus, Search, Store } from "lucide-react";
 import { getListing } from "@/lib/data";
+import { useDismiss, useOnNavigate } from "@/lib/hooks";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { CategoryIcon } from "./category-icon";
 import { Logo } from "./logo";
+import { NotificationBell } from "./notifications";
 import { SearchBox } from "./search-box";
 import { ThemeSegmented, ThemeToggle } from "./theme-toggle";
 import { Avatar, buttonClass, cn } from "./ui";
@@ -20,6 +22,7 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
+  const megaTrigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let last = window.scrollY;
@@ -38,15 +41,18 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const [lastPath, setLastPath] = useState(pathname);
-  if (pathname !== lastPath) {
-    setLastPath(pathname);
+  useOnNavigate(() => {
     setMegaOpen(false);
     setHidden(false);
-  }
+  });
 
   // Auth screens are focused pages with their own minimal chrome.
   if (pathname.startsWith("/sign")) return null;
+
+  function closeMega(returnFocus = false) {
+    setMegaOpen(false);
+    if (returnFocus) megaTrigger.current?.focus();
+  }
 
   return (
     <motion.header
@@ -55,13 +61,28 @@ export function Header() {
       className={cn("sticky top-0 z-40 bg-canvas/85 backdrop-blur-xl transition-shadow", scrolled && "shadow-[0_1px_0_var(--line)]")}
       onMouseLeave={() => setMegaOpen(false)}
     >
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-ink-950 focus:px-3 focus:py-2 focus:text-canvas"
+      >
+        Skip to content
+      </a>
       <div className="container-page flex h-16 items-center gap-3 lg:gap-6">
         <Logo />
         <button
+          ref={megaTrigger}
           type="button"
           onClick={() => setMegaOpen((o) => !o)}
           onMouseEnter={() => setMegaOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setMegaOpen(true);
+              requestAnimationFrame(() => document.querySelector<HTMLElement>("#mega-menu a")?.focus());
+            }
+          }}
           aria-expanded={megaOpen}
+          aria-controls="mega-menu"
           className={cn(
             "hidden h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors lg:flex",
             megaOpen ? "bg-surface text-ink-950" : "text-ink-700 hover:bg-surface hover:text-ink-950",
@@ -92,7 +113,7 @@ export function Header() {
         <CategoryNav />
       </Suspense>
 
-      <AnimatePresence>{megaOpen && <MegaMenu onClose={() => setMegaOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{megaOpen && <MegaMenu onClose={closeMega} />}</AnimatePresence>
     </motion.header>
   );
 }
@@ -105,11 +126,30 @@ function SearchFallback({ className }: { className?: string }) {
   );
 }
 
-function MegaMenu({ onClose }: { onClose: () => void }) {
+/** Moves focus between links in a CSS grid with the arrow keys. */
+function onGridKeys(e: React.KeyboardEvent<HTMLElement>, onEscape: () => void) {
+  if (e.key === "Escape") return onEscape();
+  const keys: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 0, ArrowUp: 0 };
+  if (!(e.key in keys)) return;
+  const grid = e.currentTarget;
+  const links = Array.from(grid.querySelectorAll<HTMLElement>("a"));
+  const i = links.indexOf(document.activeElement as HTMLElement);
+  if (i < 0) return;
+  const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+  const step = e.key === "ArrowDown" ? cols : e.key === "ArrowUp" ? -cols : keys[e.key];
+  const next = links[i + step];
+  if (next) {
+    e.preventDefault();
+    next.focus();
+  }
+}
+
+function MegaMenu({ onClose }: { onClose: (returnFocus?: boolean) => void }) {
   const { categories, counts } = useCatalog();
   const feature = getListing("mini-fridge")!;
   return (
     <motion.div
+      id="mega-menu"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
@@ -117,13 +157,17 @@ function MegaMenu({ onClose }: { onClose: () => void }) {
       className="absolute inset-x-0 top-16 z-50 hidden border-y border-line bg-elevated shadow-pop lg:block"
     >
       <div className="container-page grid grid-cols-[1fr_280px] gap-10 py-8">
-        <div className="grid grid-cols-3 gap-1 xl:grid-cols-4">
+        <nav
+          aria-label="All categories"
+          className="grid grid-cols-3 gap-1 xl:grid-cols-4"
+          onKeyDown={(e) => onGridKeys(e, () => onClose(true))}
+        >
           {categories.map((c, i) => (
             <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.015 }}>
               <Link
                 href={`/browse?category=${c.id}`}
-                onClick={onClose}
-                className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface"
+                onClick={() => onClose()}
+                className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface focus-visible:bg-surface"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-ink-950 transition-colors group-hover:bg-ink-950 group-hover:text-canvas">
                   <CategoryIcon name={c.icon} className="size-[18px]" />
@@ -135,8 +179,13 @@ function MegaMenu({ onClose }: { onClose: () => void }) {
               </Link>
             </motion.div>
           ))}
-        </div>
-        <Link href="/move-out" onClick={onClose} className="group relative overflow-hidden rounded-2xl bg-maroon-800 p-5 text-white">
+        </nav>
+        <Link
+          href="/move-out"
+          onClick={() => onClose()}
+          onKeyDown={(e) => e.key === "Escape" && onClose(true)}
+          className="group relative overflow-hidden rounded-2xl bg-maroon-800 p-5 text-white"
+        >
           <Image
             src={feature.images[0]}
             alt=""
@@ -173,10 +222,7 @@ function CategoryNav() {
     <nav className="border-b border-line" aria-label="Categories">
       <div className="container-page">
         <div className="-mx-1 no-scrollbar flex items-center gap-0.5 overflow-x-auto">
-          <Link
-            href="/move-out"
-            className={cn("relative shrink-0 px-3 py-3 text-[13px] font-semibold text-maroon-700 hover:text-maroon-600")}
-          >
+          <Link href="/move-out" className="relative shrink-0 px-3 py-3 text-[13px] font-semibold text-maroon-700 hover:text-maroon-600">
             Move-Out Sale
             {pathname === "/move-out" && (
               <motion.span layoutId="cat-underline" className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-maroon-700" />
@@ -189,6 +235,7 @@ function CategoryNav() {
               <Link
                 key={item.key}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative flex shrink-0 items-center gap-1.5 px-3 py-3 text-[13px] font-medium transition-colors",
                   active ? "text-ink-950" : "text-ink-500 hover:text-ink-950",
@@ -206,31 +253,45 @@ function CategoryNav() {
   );
 }
 
+function CountBadge({ count }: { count: number }) {
+  return (
+    <AnimatePresence>
+      {count > 0 && (
+        <motion.span
+          key={count}
+          initial={{ scale: 0.4 }}
+          animate={{ scale: 1 }}
+          exit={{ scale: 0 }}
+          transition={{ type: "spring", stiffness: 600, damping: 15 }}
+          className="absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-maroon-700 px-1 text-[10px] leading-4 font-semibold text-white"
+        >
+          {count}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function HeaderActions() {
-  const { user, saved } = useStore();
+  const { user, saved, conversations } = useStore();
+  const unreadChats = conversations.reduce((n, c) => n + c.unread, 0);
+  const iconLink = "relative size-10 place-items-center rounded-xl text-ink-700 transition-colors hover:bg-surface hover:text-ink-950";
 
   return (
     <>
-      <Link
-        href="/saved"
-        className="relative hidden size-10 place-items-center rounded-xl text-ink-700 transition-colors hover:bg-surface hover:text-ink-950 md:grid"
-        aria-label={`Saved items (${saved.length})`}
-      >
+      <Link href="/saved" className={cn(iconLink, "hidden md:grid")} aria-label={`Saved items (${saved.length})`}>
         <Heart className="size-5" aria-hidden />
-        <AnimatePresence>
-          {saved.length > 0 && (
-            <motion.span
-              key={saved.length}
-              initial={{ scale: 0.4 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 600, damping: 15 }}
-              className="absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-maroon-700 px-1 text-[10px] leading-4 font-semibold text-white"
-            >
-              {saved.length}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        <CountBadge count={saved.length} />
       </Link>
+      {user && (
+        <>
+          <Link href="/inbox" className={cn(iconLink, "grid")} aria-label={`Messages (${unreadChats} unread)`}>
+            <MessageCircle className="size-5" aria-hidden />
+            <CountBadge count={unreadChats} />
+          </Link>
+          <NotificationBell />
+        </>
+      )}
       <Link href="/sell" className={buttonClass("dark", "md", "ml-1 h-10 max-md:hidden")}>
         <Plus className="size-4" aria-hidden /> Sell
       </Link>
@@ -247,32 +308,16 @@ function HeaderActions() {
 
 function AccountMenu({ name, email }: { name: string; email: string }) {
   const { signOut } = useStore();
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  const [lastPath, setLastPath] = useState(pathname);
-  if (pathname !== lastPath) {
-    setLastPath(pathname);
-    setOpen(false);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
+  useOnNavigate(() => setOpen(false));
 
   const links = [
     { href: "/me", label: "Purchases", icon: Package },
-    { href: "/me?tab=selling", label: "Your listings", icon: Store },
-    { href: "/saved", label: "Saved items", icon: Heart },
+    { href: "/me?tab=selling", label: "Selling", icon: Store },
+    { href: "/inbox", label: "Messages", icon: MessageCircle },
+    { href: "/saved", label: "Saved", icon: Heart },
     { href: "/sell", label: "Sell an item", icon: Plus },
   ];
 

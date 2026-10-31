@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Heart } from "lucide-react";
@@ -8,6 +7,8 @@ import type { Listing } from "@/lib/data";
 import { discountPercent, formatCedi } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
+import { isActive, isSoldOut } from "@/lib/model";
+import { SafeImage } from "./safe-image";
 import { cn } from "./ui";
 
 // Attribute keys worth surfacing on a card, most informative first.
@@ -37,6 +38,7 @@ export function ListingCard({
   const isSaved = saved.includes(listing.id);
   const off = discountPercent(listing.price, listing.originalPrice);
   const [first, second] = listing.images;
+  const available = isActive(listing) && !isSoldOut(listing);
   const spec = cardSpec(listing);
   const meta = [listing.condition, ...spec].filter(Boolean).slice(0, 2).join(" · ");
 
@@ -49,11 +51,12 @@ export function ListingCard({
     <motion.article whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 600, damping: 30 }} className="group relative">
       <Link href={`/listing/${listing.id}`} className="block rounded-xl">
         <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-surface">
-          <Image
+          <SafeImage
             src={first}
             alt={listing.title}
             fill
             priority={priority}
+            unoptimized={first.startsWith("data:")}
             sizes={sizes}
             className={cn(
               "object-cover transition duration-500 ease-out",
@@ -61,10 +64,11 @@ export function ListingCard({
             )}
           />
           {second && (
-            <Image
+            <SafeImage
               src={second}
               alt=""
               fill
+              unoptimized={second.startsWith("data:")}
               sizes={sizes}
               className="hidden object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100 md:block"
             />
@@ -80,7 +84,14 @@ export function ListingCard({
               ))}
             </div>
           )}
-          {listing.stock !== undefined && listing.stock <= 12 && (
+          {!available && (
+            <span className="absolute inset-0 grid place-items-center bg-black/35">
+              <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#121010]">
+                {isSoldOut(listing) ? "Sold out" : "Sold"}
+              </span>
+            </span>
+          )}
+          {available && listing.stock !== undefined && listing.stock <= 12 && (
             <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">
               {listing.stock} left
             </span>
