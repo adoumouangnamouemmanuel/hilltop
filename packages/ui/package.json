@@ -1,0 +1,42 @@
+{
+  "name": "@hilltop/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hilltop design system: tokens, primitives, charts, sheets and hooks shared by the marketplace and admin.",
+  "exports": {
+    "./styles.css": "./src/styles.css",
+    "./category-icon": "./src/category-icon.tsx",
+    "./charts": "./src/charts.tsx",
+    "./confetti": "./src/confetti.tsx",
+    "./controls": "./src/controls.tsx",
+    "./dropdown": "./src/dropdown.tsx",
+    "./hooks": "./src/hooks.ts",
+    "./logo": "./src/logo.tsx",
+    "./safe-image": "./src/safe-image.tsx",
+    "./sheet": "./src/sheet.tsx",
+    "./theme-toggle": "./src/theme-toggle.tsx",
+    "./theme": "./src/theme.ts",
+    "./toast": "./src/toast.ts",
+    "./toaster": "./src/toaster.tsx",
+    "./ui": "./src/ui.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hilltop/shared": "*",
+    "clsx": "^2.1.1",
+    "framer-motion": "^14.9.0",
+    "lucide-react": "^1.66.0"
+  },
+  "peerDependencies": {
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

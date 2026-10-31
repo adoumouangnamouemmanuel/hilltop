@@ -1,0 +1,5 @@
+@import "tailwindcss";
+/* Design tokens and base styles shared with the admin portal. */
+@import "../../../../packages/ui/src/styles.css";
+/* Scan the shared component packages for class names too. */
+@source "../../../../packages/ui/src";

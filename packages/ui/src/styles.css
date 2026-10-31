@@ -1,0 +1,271 @@
+/* Hilltop design tokens and base styles, shared by the marketplace and admin apps. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Semantic colour tokens. Components only use these names, and the values flip
+ * between light and dark below, so every screen supports both themes for free.
+ * Ashesi maroon is reserved for primary actions and key states.
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-elevated: var(--elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-700: var(--ink-700);
+  --color-ink-500: var(--ink-500);
+  --color-ink-400: var(--ink-400);
+  --color-ink-300: var(--ink-300);
+
+  --color-maroon-50: var(--maroon-50);
+  --color-maroon-100: var(--maroon-100);
+  --color-maroon-200: var(--maroon-200);
+  --color-maroon-300: #d4979c;
+  --color-maroon-400: #b8616a;
+  --color-maroon-500: #9c3a44;
+  --color-maroon-600: var(--maroon-600);
+  --color-maroon-700: var(--maroon-700);
+  --color-maroon-800: var(--maroon-800);
+  --color-maroon-900: var(--maroon-900);
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+
+  --font-sans: var(--font-poppins);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  --color-chart: var(--chart);
+}
+
+@theme {
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-ken-burns: ken-burns 24s ease-in-out infinite alternate;
+
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes ken-burns {
+    from {
+      transform: scale(1.02) translate(0, 0);
+    }
+    to {
+      transform: scale(1.12) translate(-1.5%, -1%);
+    }
+  }
+}
+
+:root {
+  --canvas: #ffffff;
+  --elevated: #ffffff;
+  --surface: #f6f4f2;
+  --surface-2: #eeeae6;
+  --line: #ebe7e4;
+  --line-strong: #dad4d0;
+
+  --ink-950: #121010;
+  --ink-900: #1c1918;
+  --ink-700: #44403e;
+  --ink-500: #6f6a67;
+  /* Meets WCAG AA (4.5:1) for small text on canvas and surface. */
+  --ink-400: #736d69;
+  --ink-300: #c3bdb9;
+
+  --maroon-50: #fbf4f4;
+  --maroon-100: #f5e3e4;
+  --maroon-200: #e8c3c6;
+  --maroon-600: #87262f;
+  --maroon-700: #761d27;
+  --maroon-800: #5e1720;
+  --maroon-900: #441119;
+
+  /* Single-series chart mark: at least 3:1 against the chart surface in each theme. */
+  --chart: #761d27;
+
+  --success: #1f7a4d;
+  --success-bg: #e9f5ee;
+  --warning: #9a6200;
+  --warning-bg: #fdf3e1;
+
+  --shadow-card: 0 1px 2px rgb(18 16 16 / 0.04), 0 4px 16px -4px rgb(18 16 16 / 0.08);
+  --shadow-pop: 0 4px 12px rgb(18 16 16 / 0.06), 0 24px 48px -12px rgb(18 16 16 / 0.18);
+
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0d0c0c;
+  --elevated: #171515;
+  --surface: #1b1918;
+  --surface-2: #252221;
+  --line: #262322;
+  --line-strong: #393533;
+
+  --ink-950: #f6f3f1;
+  --ink-900: #ebe7e4;
+  --ink-700: #c8c2be;
+  --ink-500: #9a938f;
+  --ink-400: #948e8a;
+  --ink-300: #534e4b;
+
+  --maroon-50: #241113;
+  --maroon-100: #33171b;
+  --maroon-200: #4d2027;
+  --maroon-600: #c2505c;
+  --maroon-700: #a8323f;
+  --maroon-800: #7c1f2a;
+  --maroon-900: #5e1720;
+
+  --chart: #e2808a;
+
+  --success: #5fcf95;
+  --success-bg: #12261c;
+  --warning: #f0b45a;
+  --warning-bg: #2b2112;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px -4px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 4px 12px rgb(0 0 0 / 0.4), 0 24px 48px -12px rgb(0 0 0 / 0.7);
+
+  color-scheme: dark;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink-900);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.25s ease;
+}
+
+::selection {
+  background: var(--maroon-100);
+  color: var(--ink-950);
+}
+
+@layer base {
+  /* Tailwind v4 resets buttons to the default cursor; interactive elements should feel clickable. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="switch"],
+  a[href],
+  label:has(input:not(:disabled)),
+  select,
+  summary,
+  input[type="file"],
+  input[type="range"] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Layered so utilities like outline-none on inputs can override it. */
+  :focus-visible {
+    outline: 2px solid var(--maroon-600);
+    outline-offset: 2px;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 82rem;
+  padding-inline: 1rem;
+  @media (min-width: 40rem) {
+    padding-inline: 1.5rem;
+  }
+  @media (min-width: 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dual-thumb price slider: two stacked range inputs where only the thumbs take pointer events. */
+@utility range-thumb {
+  appearance: none;
+  pointer-events: none;
+  background: transparent;
+  &::-webkit-slider-thumb {
+    appearance: none;
+    pointer-events: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: var(--elevated);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+    cursor: grab;
+  }
+  &::-moz-range-thumb {
+    pointer-events: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: var(--elevated);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+    cursor: grab;
+  }
+}
+
+/* Respect "reduce motion": stop decorative CSS loops. Framer Motion animations follow MotionConfig. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-ken-burns,
+  .animate-ping,
+  .animate-pulse,
+  .animate-shimmer {
+    animation: none !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * In dark mode the maroon used for buttons is too dark to read as text on near-black,
+ * so maroon text gets its own lighter tone (about 6:1 on the dark canvas).
+ */
+.dark .text-maroon-700,
+.dark .text-maroon-600 {
+  color: #e2808a;
+}
