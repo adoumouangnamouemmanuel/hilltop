@@ -1,0 +1,187 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import { ASHESI_EMAIL } from "@/lib/format";
+import { useStore } from "@/lib/store";
+import { toast } from "@/lib/toast";
+import { MicrosoftButton, OrDivider, OtpInput } from "@/components/auth-shell";
+import { buttonClass, cn } from "@/components/ui";
+
+export function safeNext(next: string | null, fallback = "/") {
+  return next?.startsWith("/") && !next.startsWith("//") ? next : fallback;
+}
+
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
+
+export function SignInFlow() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const destination = safeNext(params.get("next"));
+  const { signIn } = useStore();
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [email, setEmail] = useState("");
+  // The address the code went to; kept apart from the input, which is still mounted while it animates out.
+  const [sentTo, setSentTo] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"sso" | "code" | "verify" | null>(null);
+
+  function finish(address: string) {
+    signIn(address);
+    toast("Welcome back", { tone: "success" });
+    router.push(destination);
+  }
+
+  function submitEmail(e: React.FormEvent) {
+    e.preventDefault();
+    const value = email.trim().toLowerCase();
+    if (!ASHESI_EMAIL.test(value)) {
+      setError("Use your Ashesi email address, ending in @ashesi.edu.gh");
+      return;
+    }
+    setError(null);
+    setBusy("code");
+    setTimeout(() => {
+      setSentTo(value);
+      setBusy(null);
+      setStep("code");
+    }, 600);
+  }
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {step === "email" ? (
+        <motion.form key="email" onSubmit={submitEmail} variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, x: -16 }} noValidate>
+          <motion.h1 variants={item} className="text-[30px] font-semibold tracking-[-0.035em] text-ink-950">
+            Welcome back
+          </motion.h1>
+          <motion.p variants={item} className="mt-2 text-[15px] text-ink-500">
+            Log in with your Ashesi account to buy and sell.
+          </motion.p>
+
+          <motion.div variants={item} className="mt-8">
+            <MicrosoftButton
+              loading={busy === "sso"}
+              onClick={() => {
+                setBusy("sso");
+                setTimeout(() => finish("kofi.darko@ashesi.edu.gh"), 900);
+              }}
+            />
+          </motion.div>
+          <motion.div variants={item}>
+            <OrDivider />
+          </motion.div>
+
+          <motion.div variants={item}>
+            <label htmlFor="email" className="block text-sm font-medium text-ink-950">
+              Ashesi email
+            </label>
+            <div
+              className={cn(
+                "mt-2 flex h-12 items-center gap-2.5 rounded-xl border bg-elevated px-4 transition-colors focus-within:border-ink-950",
+                error ? "border-maroon-600" : "border-line-strong hover:border-ink-400",
+              )}
+            >
+              <Mail className="size-4 shrink-0 text-ink-400" aria-hidden />
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                }}
+                placeholder="firstname.lastname@ashesi.edu.gh"
+                aria-invalid={!!error}
+                aria-describedby={error ? "email-error" : undefined}
+                className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-ink-950 outline-none placeholder:text-ink-400"
+              />
+            </div>
+            <AnimatePresence>
+              {error && (
+                <motion.p id="email-error" role="alert" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-2 text-[13px] text-maroon-700">
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          <motion.div variants={item}>
+            <button type="submit" disabled={busy === "code"} className={buttonClass("dark", "lg", "mt-5 w-full")}>
+              {busy === "code" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Email me a code"}
+            </button>
+          </motion.div>
+
+          <motion.p variants={item} className="mt-8 text-center text-sm text-ink-500">
+            New to Hilltop?{" "}
+            <Link href={`/sign-up${params.get("next") ? `?next=${encodeURIComponent(destination)}` : ""}`} className="font-medium text-ink-950 underline underline-offset-4">
+              Create an account
+            </Link>
+          </motion.p>
+        </motion.form>
+      ) : (
+        <CodeStep
+          key="code"
+          email={sentTo}
+          busy={busy === "verify"}
+          onBack={() => setStep("email")}
+          onComplete={() => {
+            setBusy("verify");
+            setTimeout(() => finish(sentTo), 900);
+          }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function CodeStep({ email, busy, onBack, onComplete }: { email: string; busy: boolean; onBack: () => void; onComplete: () => void }) {
+  const [resent, setResent] = useState(false);
+  return (
+    <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.25 }}>
+      <button type="button" onClick={onBack} className="-ml-1 inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-950">
+        <ArrowLeft className="size-4" aria-hidden /> Back
+      </button>
+      <motion.span
+        initial={{ scale: 0.6, rotate: -10, opacity: 0 }}
+        animate={{ scale: 1, rotate: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+        className="mt-6 grid size-14 place-items-center rounded-2xl bg-surface text-ink-950"
+      >
+        <Mail className="size-6" aria-hidden />
+      </motion.span>
+      <h1 className="mt-5 text-[30px] font-semibold tracking-[-0.035em] text-ink-950">Check your inbox</h1>
+      <p className="mt-2 text-[15px] leading-6 text-ink-500">
+        Enter the 6-digit code we sent to <span className="font-medium text-ink-950">{email}</span>
+      </p>
+      <div className="mt-8">
+        <OtpInput onComplete={onComplete} disabled={busy} />
+      </div>
+      <div className="mt-6 flex h-5 items-center justify-between text-sm text-ink-500">
+        {busy ? (
+          <span className="flex items-center gap-2 text-ink-950">
+            <Loader2 className="size-4 animate-spin" aria-hidden /> Verifying
+          </span>
+        ) : (
+          <span>Demo: any 6 digits work</span>
+        )}
+        <button
+          type="button"
+          disabled={resent}
+          onClick={() => {
+            setResent(true);
+            toast("New code sent");
+          }}
+          className="font-medium text-ink-950 underline underline-offset-4 disabled:text-ink-400 disabled:no-underline"
+        >
+          {resent ? "Code sent" : "Resend code"}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
