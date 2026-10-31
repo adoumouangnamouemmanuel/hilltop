@@ -29,19 +29,33 @@ export function MobileTabBar() {
           <li key={t.label} className="relative">
             <Link
               href={t.href}
-              className={cn("relative flex h-full flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors", t.active ? "text-ink-950" : "text-ink-400")}
+              className={cn(
+                "relative flex h-full flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors",
+                t.active ? "text-ink-950" : "text-ink-400",
+              )}
               aria-current={t.active ? "page" : undefined}
             >
               {t.active && !t.primary && (
-                <motion.span layoutId="tab-pill" className="absolute inset-x-1.5 inset-y-1.5 rounded-2xl bg-surface" transition={{ type: "spring", stiffness: 500, damping: 38 }} />
+                <motion.span
+                  layoutId="tab-pill"
+                  className="absolute inset-x-1.5 inset-y-1.5 rounded-2xl bg-surface"
+                  transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                />
               )}
               {t.primary ? (
-                <motion.span whileTap={{ scale: 0.88, rotate: 90 }} className="relative -mt-0.5 grid size-11 place-items-center rounded-2xl bg-maroon-700 text-white shadow-[0_6px_16px_-4px_rgb(118_29_39/0.6)]">
+                <motion.span
+                  whileTap={{ scale: 0.88, rotate: 90 }}
+                  className="relative -mt-0.5 grid size-11 place-items-center rounded-2xl bg-maroon-700 text-white shadow-[0_6px_16px_-4px_rgb(118_29_39/0.6)]"
+                >
                   <t.icon className="size-5" strokeWidth={2.5} aria-hidden />
                 </motion.span>
               ) : (
                 <motion.span whileTap={{ scale: 0.8 }} animate={{ y: t.active ? -1 : 0 }} className="relative">
-                  <t.icon className={cn("size-[21px]", t.active && t.label === "Saved" && "fill-ink-950")} strokeWidth={t.active ? 2.25 : 1.75} aria-hidden />
+                  <t.icon
+                    className={cn("size-[21px]", t.active && t.label === "Saved" && "fill-ink-950")}
+                    strokeWidth={t.active ? 2.25 : 1.75}
+                    aria-hidden
+                  />
                   <AnimatePresence>
                     {!!t.badge && (
                       <motion.span
@@ -50,7 +64,7 @@ export function MobileTabBar() {
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={{ type: "spring", stiffness: 600, damping: 15 }}
-                        className="absolute -right-2.5 -top-1.5 grid min-w-4 place-items-center rounded-full bg-maroon-700 px-1 text-[10px] font-semibold leading-4 text-white"
+                        className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-maroon-700 px-1 text-[10px] leading-4 font-semibold text-white"
                       >
                         {t.badge}
                       </motion.span>

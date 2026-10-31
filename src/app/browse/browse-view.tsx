@@ -79,14 +79,26 @@ export function BrowseView() {
           },
         ]
       : []),
-    ...filters.conditions.map((c) => ({ key: `c-${c}`, label: c, remove: () => update({ conditions: filters.conditions.filter((x) => x !== c) }) })),
+    ...filters.conditions.map((c) => ({
+      key: `c-${c}`,
+      label: c,
+      remove: () => update({ conditions: filters.conditions.filter((x) => x !== c) }),
+    })),
     ...filters.pickup.map((p) => ({ key: `p-${p}`, label: p, remove: () => update({ pickup: filters.pickup.filter((x) => x !== p) }) })),
     ...(filters.sale ? [{ key: "sale", label: "Move-Out Sale", remove: () => update({ sale: false }) }] : []),
     ...(filters.deals ? [{ key: "deals", label: "Price drops", remove: () => update({ deals: false }) }] : []),
   ];
 
   const panel = (
-    <FilterPanel all={allListings} filters={filters} update={update} replace={replace} categories={catalog.categories} current={current} labelOf={labelOf} />
+    <FilterPanel
+      all={allListings}
+      filters={filters}
+      update={update}
+      replace={replace}
+      categories={catalog.categories}
+      current={current}
+      labelOf={labelOf}
+    />
   );
 
   return (
@@ -107,7 +119,13 @@ export function BrowseView() {
         )}
       </nav>
 
-      <motion.div key={title} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="mt-3 flex items-center gap-3.5">
+      <motion.div
+        key={title}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="mt-3 flex items-center gap-3.5"
+      >
         {current && (
           <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-surface text-ink-950">
             <CategoryIcon name={current.icon} className="size-[22px]" />
@@ -132,7 +150,7 @@ export function BrowseView() {
 
       {/* Sub-category chips from the category's "type" attribute */}
       {typeAttr && (
-        <div className="no-scrollbar -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="-mx-4 mt-5 no-scrollbar flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           {["All", ...(typeAttr.options ?? [])].map((t) => {
             const on = t === "All" ? selectedTypes.length === 0 : selectedTypes.includes(t);
             return (
@@ -140,9 +158,18 @@ export function BrowseView() {
                 key={t}
                 type="button"
                 onClick={() => update({ attrs: { ...filters.attrs, type: t === "All" ? [] : [t] } })}
-                className={cn("relative h-9 shrink-0 rounded-full px-4 text-[13px] font-medium transition-colors", on ? "text-canvas" : "bg-surface text-ink-700 hover:bg-surface-2")}
+                className={cn(
+                  "relative h-9 shrink-0 rounded-full px-4 text-[13px] font-medium transition-colors",
+                  on ? "text-canvas" : "bg-surface text-ink-700 hover:bg-surface-2",
+                )}
               >
-                {on && <motion.span layoutId="type-chip" className="absolute inset-0 rounded-full bg-ink-950" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+                {on && (
+                  <motion.span
+                    layoutId="type-chip"
+                    className="absolute inset-0 rounded-full bg-ink-950"
+                    transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                  />
+                )}
                 <span className="relative">{t}</span>
               </button>
             );
@@ -152,17 +179,26 @@ export function BrowseView() {
 
       <div className="mt-6 grid gap-10 lg:grid-cols-[250px_1fr]">
         <aside className="hidden lg:block">
-          <div className="no-scrollbar sticky top-[132px] max-h-[calc(100vh-150px)] overflow-y-auto pb-8">{panel}</div>
+          <div className="sticky top-[132px] no-scrollbar max-h-[calc(100vh-150px)] overflow-y-auto pb-8">{panel}</div>
         </aside>
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setSheetOpen(true)} className={buttonClass("outline", "md", "h-10 px-3.5 text-[13px] lg:hidden")}>
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className={buttonClass("outline", "md", "h-10 px-3.5 text-[13px] lg:hidden")}
+            >
               <SlidersHorizontal className="size-4" aria-hidden />
               Filters
               <AnimatePresence>
                 {active > 0 && (
-                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="grid size-5 place-items-center rounded-full bg-ink-950 text-[11px] text-canvas">
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="grid size-5 place-items-center rounded-full bg-ink-950 text-[11px] text-canvas"
+                  >
                     {active}
                   </motion.span>
                 )}
@@ -175,16 +211,26 @@ export function BrowseView() {
                 ))}
               </AnimatePresence>
               {chips.length > 1 && (
-                <button type="button" onClick={clearAll} className="shrink-0 px-2 text-[13px] font-medium text-ink-950 underline underline-offset-4">
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="shrink-0 px-2 text-[13px] font-medium text-ink-950 underline underline-offset-4"
+                >
                   Clear all
                 </button>
               )}
             </div>
-            <Dropdown<SortKey> label="Sort" value={filters.sort} options={sortOptions} onChange={(sort) => update({ sort })} className="ml-auto" />
+            <Dropdown<SortKey>
+              label="Sort"
+              value={filters.sort}
+              options={sortOptions}
+              onChange={(sort) => update({ sort })}
+              className="ml-auto"
+            />
           </div>
 
           {chips.length > 0 && (
-            <div className="no-scrollbar -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 lg:hidden">
+            <div className="-mx-4 mt-3 no-scrollbar flex gap-1.5 overflow-x-auto px-4 lg:hidden">
               <AnimatePresence initial={false} mode="popLayout">
                 {chips.map((c) => (
                   <Chip key={c.key} label={c.label} onRemove={c.remove} />
@@ -249,7 +295,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
       exit={{ opacity: 0, scale: 0.8 }}
       transition={{ type: "spring", stiffness: 500, damping: 34 }}
       onClick={onRemove}
-      className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-surface pl-3 pr-2 text-[13px] text-ink-900 hover:bg-surface-2"
+      className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-surface pr-2 pl-3 text-[13px] text-ink-900 hover:bg-surface-2"
     >
       {label}
       <X className="size-3.5 text-ink-500" aria-label="Remove" />
@@ -264,11 +310,17 @@ function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
       animate={{ opacity: 1, y: 0 }}
       className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-line-strong px-6 py-16 text-center"
     >
-      <motion.span initial={{ rotate: -12, scale: 0.8 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 12 }}>
+      <motion.span
+        initial={{ rotate: -12, scale: 0.8 }}
+        animate={{ rotate: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 200, damping: 12 }}
+      >
         <SearchX className="size-9 text-ink-300" aria-hidden />
       </motion.span>
       <h2 className="mt-4 text-lg font-semibold text-ink-950">No matching items</h2>
-      <p className="mt-1 max-w-sm text-sm text-ink-500">{hasFilters ? "Try removing a filter or two." : "Try a different word, or one of these popular searches."}</p>
+      <p className="mt-1 max-w-sm text-sm text-ink-500">
+        {hasFilters ? "Try removing a filter or two." : "Try a different word, or one of these popular searches."}
+      </p>
       {hasFilters ? (
         <button type="button" onClick={onClear} className={buttonClass("dark", "md", "mt-6")}>
           Clear filters
@@ -276,7 +328,11 @@ function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
       ) : (
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           {popularSearches.map((p) => (
-            <Link key={p} href={`/browse?q=${encodeURIComponent(p)}`} className="rounded-lg border border-line-strong px-3 py-1.5 text-[13px] text-ink-700 hover:border-ink-900">
+            <Link
+              key={p}
+              href={`/browse?q=${encodeURIComponent(p)}`}
+              className="rounded-lg border border-line-strong px-3 py-1.5 text-[13px] text-ink-700 hover:border-ink-900"
+            >
               {p}
             </Link>
           ))}

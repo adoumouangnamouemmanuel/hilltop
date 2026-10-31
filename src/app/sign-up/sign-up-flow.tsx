@@ -12,7 +12,17 @@ import { buttonClass, cn } from "@/components/ui";
 import { CodeStep, safeNext } from "../sign-in/sign-in-flow";
 
 const years = [2026, 2027, 2028, 2029, 2030];
-const majors = ["Computer Science", "Business Administration", "MIS", "Economics", "Computer Engineering", "Electrical Engineering", "Mechanical Engineering", "Law", "Other"];
+const majors = [
+  "Computer Science",
+  "Business Administration",
+  "MIS",
+  "Economics",
+  "Computer Engineering",
+  "Electrical Engineering",
+  "Mechanical Engineering",
+  "Law",
+  "Other",
+];
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
@@ -21,7 +31,11 @@ const field =
   "h-12 w-full rounded-xl border bg-elevated px-4 text-[15px] text-ink-950 outline-none transition-colors placeholder:text-ink-400 focus:border-ink-950";
 
 // Fixed confetti angles keep server and client output identical.
-const confetti = Array.from({ length: 18 }, (_, i) => ({ a: (i / 18) * Math.PI * 2, d: 70 + (i % 3) * 22, c: ["#a8323f", "#d9b45a", "#1f7a4d"][i % 3] }));
+const confetti = Array.from({ length: 18 }, (_, i) => ({
+  a: (i / 18) * Math.PI * 2,
+  d: 70 + (i % 3) * 22,
+  c: ["#a8323f", "#d9b45a", "#1f7a4d"][i % 3],
+}));
 
 export function SignUpFlow() {
   const router = useRouter();
@@ -65,7 +79,15 @@ export function SignUpFlow() {
   return (
     <AnimatePresence mode="wait" initial={false}>
       {step === "details" && (
-        <motion.form key="details" onSubmit={submit} variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, x: -16 }} noValidate>
+        <motion.form
+          key="details"
+          onSubmit={submit}
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          exit={{ opacity: 0, x: -16 }}
+          noValidate
+        >
           <motion.h1 variants={item} className="text-[30px] font-semibold tracking-[-0.035em] text-ink-950">
             Join Hilltop
           </motion.h1>
@@ -88,7 +110,13 @@ export function SignUpFlow() {
 
           <motion.div variants={item} className="space-y-4">
             <Field label="Full name" error={show("name")}>
-              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Ama Owusu" className={cn(field, show("name") ? "border-maroon-600" : "border-line-strong")} />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                placeholder="Ama Owusu"
+                className={cn(field, show("name") ? "border-maroon-600" : "border-line-strong")}
+              />
             </Field>
             <Field label="Ashesi email" error={show("email")}>
               <input
@@ -113,7 +141,13 @@ export function SignUpFlow() {
                       year === y ? "border-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-400",
                     )}
                   >
-                    {year === y && <motion.span layoutId="year-pill" className="absolute inset-0 rounded-[11px] bg-ink-950" transition={{ type: "spring", stiffness: 500, damping: 36 }} />}
+                    {year === y && (
+                      <motion.span
+                        layoutId="year-pill"
+                        className="absolute inset-0 rounded-[11px] bg-ink-950"
+                        transition={{ type: "spring", stiffness: 500, damping: 36 }}
+                      />
+                    )}
                     <span className="relative">{y}</span>
                   </button>
                 ))}
@@ -121,18 +155,27 @@ export function SignUpFlow() {
             </Field>
             <Field label="Major (optional)">
               <div className="relative">
-                <select value={major} onChange={(e) => setMajor(e.target.value)} className={cn(field, "appearance-none border-line-strong pr-10", !major && "text-ink-400")}>
+                <select
+                  value={major}
+                  onChange={(e) => setMajor(e.target.value)}
+                  className={cn(field, "appearance-none border-line-strong pr-10", !major && "text-ink-400")}
+                >
                   <option value="">Choose your major</option>
                   {majors.map((m) => (
                     <option key={m}>{m}</option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden />
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-ink-400" aria-hidden />
               </div>
             </Field>
             <label className="flex items-start gap-3 pt-1 text-[13px] leading-5 text-ink-500">
               <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="peer sr-only" />
-              <span className={cn("mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors", agree ? "border-ink-950 bg-ink-950 text-canvas" : show("agree") ? "border-maroon-600" : "border-line-strong")}>
+              <span
+                className={cn(
+                  "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors",
+                  agree ? "border-ink-950 bg-ink-950 text-canvas" : show("agree") ? "border-maroon-600" : "border-line-strong",
+                )}
+              >
                 {agree && <Check className="size-3" strokeWidth={3} aria-hidden />}
               </span>
               I&rsquo;ll meet in public spots on campus, describe items honestly and only pay through Hilltop.
@@ -170,19 +213,29 @@ export function SignUpFlow() {
       )}
 
       {step === "done" && (
-        <motion.div key="done" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center py-10 text-center">
+        <motion.div
+          key="done"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center py-10 text-center"
+        >
           <div className="relative">
             {confetti.map((c, i) => (
               <motion.span
                 key={i}
-                className="absolute left-1/2 top-1/2 size-2 rounded-full"
+                className="absolute top-1/2 left-1/2 size-2 rounded-full"
                 style={{ backgroundColor: c.c }}
                 initial={{ x: 0, y: 0, opacity: 0 }}
                 animate={{ x: Math.cos(c.a) * c.d, y: Math.sin(c.a) * c.d, opacity: [0, 1, 0] }}
                 transition={{ delay: 0.3, duration: 1.2, ease: "easeOut" }}
               />
             ))}
-            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 14 }} className="relative grid size-20 place-items-center rounded-full bg-success text-white">
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 14 }}
+              className="relative grid size-20 place-items-center rounded-full bg-success text-white"
+            >
               <Check className="size-10" strokeWidth={3} aria-hidden />
             </motion.span>
           </div>
@@ -201,7 +254,12 @@ function Field({ label, error, children }: { label: string; error?: string | fal
         <span className="text-sm font-medium text-ink-950">{label}</span>
         <AnimatePresence>
           {error && (
-            <motion.span initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="text-xs text-maroon-700">
+            <motion.span
+              initial={{ opacity: 0, x: 6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-xs text-maroon-700"
+            >
               {error}
             </motion.span>
           )}

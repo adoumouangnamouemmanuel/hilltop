@@ -75,7 +75,7 @@ export function Sheet({
             <div className="touch-none pt-2.5 sm:hidden" onPointerDown={(e) => dismissable && drag.start(e)}>
               <div className="mx-auto h-1 w-10 rounded-full bg-line-strong" />
             </div>
-            <div className="flex items-center justify-between px-5 pb-3 pt-2 sm:pt-4" onPointerDown={(e) => dismissable && drag.start(e)}>
+            <div className="flex items-center justify-between px-5 pt-2 pb-3 sm:pt-4" onPointerDown={(e) => dismissable && drag.start(e)}>
               <h2 className="text-base font-semibold text-ink-950">{title}</h2>
               <div className="flex items-center gap-1">
                 {headerAction}

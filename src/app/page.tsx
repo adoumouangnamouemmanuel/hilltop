@@ -26,7 +26,7 @@ export default function Home() {
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-medium text-ink-700">
             <BadgeCheck className="size-3.5 text-maroon-700" aria-hidden /> Only for @ashesi.edu.gh
           </span>
-          <h1 className="mt-5 text-[38px] font-semibold leading-[1.08] tracking-[-0.04em] text-ink-950 sm:text-6xl">
+          <h1 className="mt-5 text-[38px] leading-[1.08] font-semibold tracking-[-0.04em] text-ink-950 sm:text-6xl">
             Buy and sell
             <br />
             <RotatingWord />

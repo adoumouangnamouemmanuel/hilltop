@@ -15,16 +15,16 @@ Open http://localhost:3000.
 
 ## Pages
 
-| Route | What it does |
-| --- | --- |
-| `/` | Rotating headline, big search, an animated phone that walks through buying (find, pay into hold, meet, release), category icons, live activity ticker, product rows |
-| `/browse` | Search and categories. Filters are generated per category (brand, storage, model, material, dietary and so on), with facet counts, a price histogram slider, removable chips and sort. Mobile uses a drag-to-dismiss sheet. Everything lives in the URL (`f.brand=Apple,Samsung`). |
-| `/listing/[id]` | Multi-photo gallery with a magnifying lens (scroll to change zoom), full-screen viewer with double-tap zoom and swipe, spec tiles from the category schema, offers, messages, seller card |
-| `/seller/[id]` | Seller profile with stats, listings and reviews |
-| `/sell` | Up to 8 photos, category picker with "New category", fields generated from the category schema, custom details, price guidance, promotion |
-| `/me`, `/saved` | Purchases with payment-hold tracking, your listings, saved items |
-| `/move-out` | End-of-semester sale page with countdown |
-| `/sign-in`, `/sign-up` | Split-screen auth with a photo panel. Microsoft SSO button and email code (any 6 digits work in the demo) |
+| Route                  | What it does                                                                                                                                                                                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                    | Rotating headline, big search, an animated phone that walks through buying (find, pay into hold, meet, release), category icons, live activity ticker, product rows                                                                                                                |
+| `/browse`              | Search and categories. Filters are generated per category (brand, storage, model, material, dietary and so on), with facet counts, a price histogram slider, removable chips and sort. Mobile uses a drag-to-dismiss sheet. Everything lives in the URL (`f.brand=Apple,Samsung`). |
+| `/listing/[id]`        | Multi-photo gallery with a magnifying lens (scroll to change zoom), full-screen viewer with double-tap zoom and swipe, spec tiles from the category schema, offers, messages, seller card                                                                                          |
+| `/seller/[id]`         | Seller profile with stats, listings and reviews                                                                                                                                                                                                                                    |
+| `/sell`                | Up to 8 photos, category picker with "New category", fields generated from the category schema, custom details, price guidance, promotion                                                                                                                                          |
+| `/me`, `/saved`        | Purchases with payment-hold tracking, your listings, saved items                                                                                                                                                                                                                   |
+| `/move-out`            | End-of-semester sale page with countdown                                                                                                                                                                                                                                           |
+| `/sign-in`, `/sign-up` | Split-screen auth with a photo panel. Microsoft SSO button and email code (any 6 digits work in the demo)                                                                                                                                                                          |
 
 Light, dark and system themes are supported everywhere (header toggle, account menu, footer).
 

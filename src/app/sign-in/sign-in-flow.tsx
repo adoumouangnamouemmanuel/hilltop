@@ -55,7 +55,15 @@ export function SignInFlow() {
   return (
     <AnimatePresence mode="wait" initial={false}>
       {step === "email" ? (
-        <motion.form key="email" onSubmit={submitEmail} variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, x: -16 }} noValidate>
+        <motion.form
+          key="email"
+          onSubmit={submitEmail}
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          exit={{ opacity: 0, x: -16 }}
+          noValidate
+        >
           <motion.h1 variants={item} className="text-[30px] font-semibold tracking-[-0.035em] text-ink-950">
             Welcome back
           </motion.h1>
@@ -104,7 +112,14 @@ export function SignInFlow() {
             </div>
             <AnimatePresence>
               {error && (
-                <motion.p id="email-error" role="alert" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-2 text-[13px] text-maroon-700">
+                <motion.p
+                  id="email-error"
+                  role="alert"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-2 text-[13px] text-maroon-700"
+                >
                   {error}
                 </motion.p>
               )}
@@ -119,7 +134,10 @@ export function SignInFlow() {
 
           <motion.p variants={item} className="mt-8 text-center text-sm text-ink-500">
             New to Hilltop?{" "}
-            <Link href={`/sign-up${params.get("next") ? `?next=${encodeURIComponent(destination)}` : ""}`} className="font-medium text-ink-950 underline underline-offset-4">
+            <Link
+              href={`/sign-up${params.get("next") ? `?next=${encodeURIComponent(destination)}` : ""}`}
+              className="font-medium text-ink-950 underline underline-offset-4"
+            >
               Create an account
             </Link>
           </motion.p>
@@ -140,7 +158,17 @@ export function SignInFlow() {
   );
 }
 
-export function CodeStep({ email, busy, onBack, onComplete }: { email: string; busy: boolean; onBack: () => void; onComplete: () => void }) {
+export function CodeStep({
+  email,
+  busy,
+  onBack,
+  onComplete,
+}: {
+  email: string;
+  busy: boolean;
+  onBack: () => void;
+  onComplete: () => void;
+}) {
   const [resent, setResent] = useState(false);
   return (
     <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.25 }}>

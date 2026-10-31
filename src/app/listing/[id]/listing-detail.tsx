@@ -95,12 +95,14 @@ export function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
         {/* Right column */}
         <div className="lg:sticky lg:top-[132px] lg:self-start">
           <div className="flex items-start justify-between gap-4">
-            <h1 className="text-[22px] font-semibold leading-snug tracking-[-0.02em] text-ink-950 sm:text-2xl">{listing.title}</h1>
+            <h1 className="text-[22px] leading-snug font-semibold tracking-[-0.02em] text-ink-950 sm:text-2xl">{listing.title}</h1>
             <div className="flex shrink-0 gap-1">
               <IconButton label={copied ? "Link copied" : "Share"} onClick={share}>
                 {copied ? <Check className="size-[18px]" /> : <Share className="size-[18px]" />}
               </IconButton>
-              <IconButton label={isSaved ? "Remove from saved" : "Save"} onClick={() => {
+              <IconButton
+                label={isSaved ? "Remove from saved" : "Save"}
+                onClick={() => {
                   toggleSaved(listing.id);
                   if (!isSaved) toast("Saved to your list", { tone: "saved", action: { label: "View", href: "/saved" } });
                 }}
@@ -112,17 +114,20 @@ export function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
           </div>
 
           <div className="mt-3 flex items-baseline gap-2.5">
-            <span className="text-[28px] font-semibold tabular tracking-[-0.02em] text-ink-950">{formatCedi(listing.price)}</span>
+            <span className="text-[28px] font-semibold tracking-[-0.02em] text-ink-950 tabular">{formatCedi(listing.price)}</span>
             {off > 0 && (
               <>
-                <span className="text-sm tabular text-ink-400 line-through">{formatCedi(listing.originalPrice!)}</span>
+                <span className="text-sm text-ink-400 tabular line-through">{formatCedi(listing.originalPrice!)}</span>
                 <span className="text-sm font-medium text-maroon-700">{off}% below retail</span>
               </>
             )}
           </div>
 
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-500">
-            <Link href={`/browse?category=${category.id}`} className="inline-flex items-center gap-1 font-medium text-ink-950 hover:underline">
+            <Link
+              href={`/browse?category=${category.id}`}
+              className="inline-flex items-center gap-1 font-medium text-ink-950 hover:underline"
+            >
               <CategoryIcon name={category.icon} className="size-3.5" /> {category.label}
             </Link>
             <span aria-hidden>·</span>
@@ -197,7 +202,11 @@ export function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
                       className="overflow-hidden"
                     >
                       {panel === "offer" ? (
-                        <OfferPanel price={listing.price} sent={offers[listing.id]} sellerName={seller.name} onSend={(v) => {
+                        <OfferPanel
+                          price={listing.price}
+                          sent={offers[listing.id]}
+                          sellerName={seller.name}
+                          onSend={(v) => {
                             makeOffer(listing.id, v);
                             toast(`Offer of ${formatCedi(v)} sent`, { tone: "success" });
                           }}
@@ -246,7 +255,7 @@ export function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
               </div>
               <div>
                 <dt className="sr-only">Sold</dt>
-                <dd className="text-sm font-medium tabular text-ink-950">{seller.sales}</dd>
+                <dd className="text-sm font-medium text-ink-950 tabular">{seller.sales}</dd>
                 <dd className="mt-0.5 text-[11px] text-ink-500">items sold</dd>
               </div>
               <div>
@@ -269,7 +278,11 @@ export function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       <div className="mt-16 space-y-16">
-        <ListingRail title={`More from ${firstName(seller.name)}`} href={isOwn ? undefined : `/seller/${seller.id}`} listings={fromSeller} />
+        <ListingRail
+          title={`More from ${firstName(seller.name)}`}
+          href={isOwn ? undefined : `/seller/${seller.id}`}
+          listings={fromSeller}
+        />
         <ListingRail title="Similar items" href={`/browse?category=${category.id}`} listings={similar} />
       </div>
 
@@ -277,10 +290,12 @@ export function ListingDetail({ params }: { params: Promise<{ id: string }> }) {
       {!isOwn && (
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-elevated px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold tabular leading-tight text-ink-950">{formatCedi(listing.price)}</p>
+            <p className="text-lg leading-tight font-semibold text-ink-950 tabular">{formatCedi(listing.price)}</p>
             <p className="text-[11px] text-ink-500">+ {formatCedi(fee)} buyer protection</p>
           </div>
-          <button type="button" onClick={() => {
+          <button
+            type="button"
+            onClick={() => {
               setPanel("offer");
               document.getElementById("buy-box")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
@@ -336,22 +351,32 @@ function FeeBreakdown({ price, fee }: { price: number; fee: number }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-4">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between text-[13px] text-ink-500" aria-expanded={open}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-[13px] text-ink-500"
+        aria-expanded={open}
+      >
         <span>
-          <span className="font-medium tabular text-ink-950">{formatCedi(price + fee)}</span> total with buyer protection
+          <span className="font-medium text-ink-950 tabular">{formatCedi(price + fee)}</span> total with buyer protection
         </span>
         <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.dl initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden text-[13px]">
+          <motion.dl
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden text-[13px]"
+          >
             <div className="mt-3 flex justify-between text-ink-500">
               <dt>Item</dt>
-              <dd className="tabular text-ink-950">{formatCedi(price)}</dd>
+              <dd className="text-ink-950 tabular">{formatCedi(price)}</dd>
             </div>
             <div className="mt-1.5 flex justify-between text-ink-500">
               <dt>Buyer protection ({Math.round(PROTECTION_FEE_RATE * 100)}%)</dt>
-              <dd className="tabular text-ink-950">{formatCedi(fee)}</dd>
+              <dd className="text-ink-950 tabular">{formatCedi(fee)}</dd>
             </div>
           </motion.dl>
         )}
@@ -360,7 +385,17 @@ function FeeBreakdown({ price, fee }: { price: number; fee: number }) {
   );
 }
 
-function OfferPanel({ price, sent, sellerName, onSend }: { price: number; sent?: number; sellerName: string; onSend: (v: number) => void }) {
+function OfferPanel({
+  price,
+  sent,
+  sellerName,
+  onSend,
+}: {
+  price: number;
+  sent?: number;
+  sellerName: string;
+  onSend: (v: number) => void;
+}) {
   const suggestions = [0.95, 0.9, 0.85].map((r) => Math.round((price * r) / 5) * 5);
   const [value, setValue] = useState(String(suggestions[1]));
   const amount = Number(value) || 0;
@@ -385,7 +420,9 @@ function OfferPanel({ price, sent, sellerName, onSend }: { price: number; sent?:
             onClick={() => setValue(String(s))}
             className={cn(
               "flex-1 rounded-lg border py-1.5 text-xs tabular transition-colors",
-              Number(value) === s ? "border-ink-950 bg-elevated font-medium text-ink-950" : "border-transparent bg-elevated text-ink-700 hover:border-line-strong",
+              Number(value) === s
+                ? "border-ink-950 bg-elevated font-medium text-ink-950"
+                : "border-transparent bg-elevated text-ink-700 hover:border-line-strong",
             )}
           >
             {formatCedi(s)}
@@ -394,21 +431,28 @@ function OfferPanel({ price, sent, sellerName, onSend }: { price: number; sent?:
       </div>
       <div className="mt-2.5 flex gap-2">
         <label className="relative flex-1">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-500">GH₵</span>
+          <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-ink-500">GH₵</span>
           <input
             value={value}
             onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
             inputMode="numeric"
             aria-label="Your offer in cedis"
-            className="h-11 w-full rounded-xl border border-line-strong bg-elevated pl-12 pr-3 text-sm tabular outline-none focus:border-ink-950"
+            className="h-11 w-full rounded-xl border border-line-strong bg-elevated pr-3 pl-12 text-sm tabular outline-none focus:border-ink-950"
           />
         </label>
-        <button type="button" disabled={!amount || tooLow || amount >= price} onClick={() => onSend(amount)} className={buttonClass("dark", "md")}>
+        <button
+          type="button"
+          disabled={!amount || tooLow || amount >= price}
+          onClick={() => onSend(amount)}
+          className={buttonClass("dark", "md")}
+        >
           Send
         </button>
       </div>
       <p className={cn("mt-2 text-xs", tooLow ? "text-maroon-700" : "text-ink-500")}>
-        {tooLow ? "Offers below half the asking price are hidden from sellers." : "If accepted, you'll pay through Hilltop with buyer protection."}
+        {tooLow
+          ? "Offers below half the asking price are hidden from sellers."
+          : "If accepted, you'll pay through Hilltop with buyer protection."}
       </p>
     </div>
   );
@@ -430,9 +474,14 @@ function MessagePanel({ sellerName }: { sellerName: string }) {
 
   return (
     <div className="mt-4 rounded-xl bg-surface p-4">
-      <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
+      <div className="-mx-1 no-scrollbar flex gap-1.5 overflow-x-auto px-1">
         {quick.map((q) => (
-          <button key={q} type="button" onClick={() => setText(q)} className="shrink-0 rounded-lg bg-elevated px-2.5 py-1.5 text-xs text-ink-700 hover:text-ink-950">
+          <button
+            key={q}
+            type="button"
+            onClick={() => setText(q)}
+            className="shrink-0 rounded-lg bg-elevated px-2.5 py-1.5 text-xs text-ink-700 hover:text-ink-950"
+          >
             {q}
           </button>
         ))}
@@ -444,7 +493,10 @@ function MessagePanel({ sellerName }: { sellerName: string }) {
         aria-label={`Message to ${sellerName}`}
         className="mt-2.5 w-full resize-none rounded-xl border border-line-strong bg-elevated p-3 text-sm outline-none focus:border-ink-950"
       />
-      <button type="button" disabled={!text.trim()} onClick={() => {
+      <button
+        type="button"
+        disabled={!text.trim()}
+        onClick={() => {
           setSent(true);
           toast("Message sent", { tone: "success" });
         }}
@@ -456,7 +508,17 @@ function MessagePanel({ sellerName }: { sellerName: string }) {
   );
 }
 
-function IconButton({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: React.ReactNode }) {
+function IconButton({
+  label,
+  onClick,
+  pressed,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  pressed?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"

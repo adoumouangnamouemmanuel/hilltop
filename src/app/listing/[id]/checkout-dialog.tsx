@@ -114,10 +114,12 @@ export function CheckoutDialog({ open, onClose, listing, fee }: { open: boolean;
                     >
                       <Check className="size-7" strokeWidth={2.5} aria-hidden />
                     </motion.span>
-                    <p className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink-950">{formatCedi(order.amount + order.fee)} is held safely</p>
+                    <p className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink-950">
+                      {formatCedi(order.amount + order.fee)} is held safely
+                    </p>
                     <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-ink-500">
-                      Meet at <span className="font-medium text-ink-950">{listing.pickup}</span>, {slot.toLowerCase()}. Confirm collection once you
-                      have the item and the seller gets paid.
+                      Meet at <span className="font-medium text-ink-950">{listing.pickup}</span>, {slot.toLowerCase()}. Confirm collection
+                      once you have the item and the seller gets paid.
                     </p>
                     <Link href="/me" onClick={close} className={buttonClass("dark", "lg", "mt-6 w-full")}>
                       View order
@@ -142,7 +144,7 @@ export function CheckoutDialog({ open, onClose, listing, fee }: { open: boolean;
 
                     <fieldset className="mt-6" disabled={step === "paying"}>
                       <legend className="text-sm font-semibold text-ink-950">Meet-up time</legend>
-                      <div className="no-scrollbar -mx-5 mt-2.5 flex gap-2 overflow-x-auto px-5">
+                      <div className="-mx-5 mt-2.5 no-scrollbar flex gap-2 overflow-x-auto px-5">
                         {slots.map((s) => (
                           <button
                             key={s}
@@ -165,7 +167,14 @@ export function CheckoutDialog({ open, onClose, listing, fee }: { open: boolean;
                       <div className="mt-2.5 divide-y divide-line overflow-hidden rounded-xl border border-line">
                         {methods.map((m) => (
                           <label key={m.id} className="flex cursor-pointer items-center gap-3 px-4 py-3.5 text-sm hover:bg-surface">
-                            <input type="radio" name="method" value={m.id} checked={method === m.id} onChange={() => setMethod(m.id)} className="peer sr-only" />
+                            <input
+                              type="radio"
+                              name="method"
+                              value={m.id}
+                              checked={method === m.id}
+                              onChange={() => setMethod(m.id)}
+                              className="peer sr-only"
+                            />
                             <m.icon className="size-[18px] text-ink-500" aria-hidden />
                             <span className="flex-1 text-ink-900">{m.label}</span>
                             <span
@@ -184,11 +193,11 @@ export function CheckoutDialog({ open, onClose, listing, fee }: { open: boolean;
                     <dl className="mt-6 space-y-2 text-sm">
                       <div className="flex justify-between text-ink-500">
                         <dt>Item</dt>
-                        <dd className="tabular text-ink-950">{formatCedi(listing.price)}</dd>
+                        <dd className="text-ink-950 tabular">{formatCedi(listing.price)}</dd>
                       </div>
                       <div className="flex justify-between text-ink-500">
                         <dt>Buyer protection</dt>
-                        <dd className="tabular text-ink-950">{formatCedi(fee)}</dd>
+                        <dd className="text-ink-950 tabular">{formatCedi(fee)}</dd>
                       </div>
                       <div className="flex justify-between border-t border-line pt-3 text-base font-semibold text-ink-950">
                         <dt>Total</dt>
@@ -196,7 +205,12 @@ export function CheckoutDialog({ open, onClose, listing, fee }: { open: boolean;
                       </div>
                     </dl>
 
-                    <button type="button" onClick={pay} disabled={step === "paying"} className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}>
+                    <button
+                      type="button"
+                      onClick={pay}
+                      disabled={step === "paying"}
+                      className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}
+                    >
                       {step === "paying" ? (
                         <>
                           <Loader2 className="size-4 animate-spin" aria-hidden /> Processing payment
@@ -221,7 +235,13 @@ export function CheckoutDialog({ open, onClose, listing, fee }: { open: boolean;
 
 function Pane({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }} className={className}>
+    <motion.div
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -12 }}
+      transition={{ duration: 0.2 }}
+      className={className}
+    >
       {children}
     </motion.div>
   );

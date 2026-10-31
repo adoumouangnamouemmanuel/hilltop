@@ -12,10 +12,7 @@ import { useCatalog } from "@/lib/use-catalog";
 import { CategoryIcon } from "./category-icon";
 import { cn } from "./ui";
 
-type Item =
-  | { kind: "query"; value: string }
-  | { kind: "category"; id: string; label: string }
-  | { kind: "listing"; id: string };
+type Item = { kind: "query"; value: string } | { kind: "category"; id: string; label: string } | { kind: "listing"; id: string };
 
 export function SearchBox({ className, large = false, shortcut = false }: { className?: string; large?: boolean; shortcut?: boolean }) {
   const router = useRouter();
@@ -137,7 +134,11 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
         className={cn(
           "flex items-center gap-2.5 border transition-colors",
           large ? "h-14 rounded-2xl bg-elevated px-4 shadow-card" : "h-11 rounded-xl bg-surface px-3.5",
-          open ? "border-ink-900 bg-elevated" : large ? "border-line hover:border-line-strong" : "border-transparent hover:border-line-strong",
+          open
+            ? "border-ink-900 bg-elevated"
+            : large
+              ? "border-line hover:border-line-strong"
+              : "border-transparent hover:border-line-strong",
         )}
       >
         <Search className="size-[18px] shrink-0 text-ink-500" aria-hidden />
@@ -152,7 +153,10 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={large ? "What are you looking for?" : "Search phones, books, calculators..."}
-          className={cn("h-full min-w-0 flex-1 bg-transparent text-ink-900 outline-none placeholder:text-ink-400", large ? "text-[15px]" : "text-sm")}
+          className={cn(
+            "h-full min-w-0 flex-1 bg-transparent text-ink-900 outline-none placeholder:text-ink-400",
+            large ? "text-[15px]" : "text-sm",
+          )}
           role="combobox"
           aria-expanded={open}
           aria-controls={listId}
@@ -162,7 +166,9 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
           enterKeyHint="search"
         />
         {shortcut && !query && !open && (
-          <kbd className="hidden shrink-0 rounded-md border border-line-strong px-1.5 py-0.5 font-sans text-[11px] text-ink-400 lg:block">Ctrl K</kbd>
+          <kbd className="hidden shrink-0 rounded-md border border-line-strong px-1.5 py-0.5 font-sans text-[11px] text-ink-400 lg:block">
+            Ctrl K
+          </kbd>
         )}
         {query && (
           <button
@@ -199,7 +205,12 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
                   </span>
                 </Row>
                 {categoryMatches.map((c) => (
-                  <Row key={c.id} id={optionId(next())} active={active === index} onSelect={() => go({ kind: "category", id: c.id, label: c.label })}>
+                  <Row
+                    key={c.id}
+                    id={optionId(next())}
+                    active={active === index}
+                    onSelect={() => go({ kind: "category", id: c.id, label: c.label })}
+                  >
                     <CategoryIcon name={catalog.get(c.id).icon} className="size-4 text-ink-500" />
                     <span className="flex-1">
                       {c.label} <span className="text-ink-500">category</span>
@@ -216,7 +227,7 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
                       <span className="block truncate text-ink-950">{l.title}</span>
                       <span className="text-xs text-ink-500">{l.condition}</span>
                     </span>
-                    <span className="text-sm font-medium tabular text-ink-950">{formatCedi(l.price)}</span>
+                    <span className="text-sm font-medium text-ink-950 tabular">{formatCedi(l.price)}</span>
                   </Row>
                 ))}
                 {listingMatches.length === 0 && categoryMatches.length === 0 && (
@@ -258,20 +269,10 @@ export function SearchBox({ className, large = false, shortcut = false }: { clas
 }
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
-  return <p className="px-3 pb-1 pt-3 text-xs font-medium text-ink-500">{children}</p>;
+  return <p className="px-3 pt-3 pb-1 text-xs font-medium text-ink-500">{children}</p>;
 }
 
-function Row({
-  id,
-  active,
-  onSelect,
-  children,
-}: {
-  id: string;
-  active: boolean;
-  onSelect: () => void;
-  children: React.ReactNode;
-}) {
+function Row({ id, active, onSelect, children }: { id: string; active: boolean; onSelect: () => void; children: React.ReactNode }) {
   return (
     <div
       id={id}

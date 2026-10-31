@@ -80,11 +80,13 @@ const getServerSnapshot = () => initialState;
 
 const actions = {
   signIn(email: string, fullName?: string) {
-    const name = fullName?.trim() || email
-      .split("@")[0]
-      .split(/[._]/)
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-      .join(" ");
+    const name =
+      fullName?.trim() ||
+      email
+        .split("@")[0]
+        .split(/[._]/)
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(" ");
     setState((s) => ({ ...s, user: { name: name || currentUser.name, email } }));
   },
   signOut() {

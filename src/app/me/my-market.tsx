@@ -65,7 +65,10 @@ export function MyMarket() {
             type="button"
             aria-selected={tab === t}
             onClick={() => router.replace(t === "purchases" ? pathname : `${pathname}?tab=${t}`, { scroll: false })}
-            className={cn("relative pb-3 text-sm font-medium transition-colors", tab === t ? "text-ink-950" : "text-ink-500 hover:text-ink-950")}
+            className={cn(
+              "relative pb-3 text-sm font-medium transition-colors",
+              tab === t ? "text-ink-950" : "text-ink-500 hover:text-ink-950",
+            )}
           >
             {tabs[t]}
             {tab === t && <motion.span layoutId="me-tab" className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-ink-950" />}
@@ -74,7 +77,14 @@ export function MyMarket() {
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="mt-6">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="mt-6"
+        >
           {tab === "purchases" ? (
             orders.length ? (
               <ul className="space-y-3">
@@ -83,11 +93,19 @@ export function MyMarket() {
                 ))}
               </ul>
             ) : (
-              <Empty title="No purchases yet" body="Everything you buy shows up here with its payment status." cta="Browse items" href="/browse" />
+              <Empty
+                title="No purchases yet"
+                body="Everything you buy shows up here with its payment status."
+                cta="Browse items"
+                href="/browse"
+              />
             )
           ) : myListings.length ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4">
-              <Link href="/sell" className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong text-sm font-medium text-ink-700 hover:border-ink-900 hover:text-ink-950">
+              <Link
+                href="/sell"
+                className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong text-sm font-medium text-ink-700 hover:border-ink-900 hover:text-ink-950"
+              >
                 <Plus className="size-5" aria-hidden /> New listing
               </Link>
               {myListings.map((l) => (
@@ -95,7 +113,12 @@ export function MyMarket() {
               ))}
             </div>
           ) : (
-            <Empty title="You haven't listed anything" body="Take a photo, set a price and you're live in under a minute." cta="List an item" href="/sell" />
+            <Empty
+              title="You haven't listed anything"
+              body="Take a photo, set a price and you're live in under a minute."
+              cta="List an item"
+              href="/sell"
+            />
           )}
         </motion.div>
       </AnimatePresence>
@@ -128,7 +151,7 @@ function OrderCard({ order }: { order: Order }) {
                 {seller && <> · {seller.name}</>}
               </p>
             </div>
-            <p className="shrink-0 text-[15px] font-semibold tabular text-ink-950">{formatCedi(order.amount + order.fee)}</p>
+            <p className="shrink-0 text-[15px] font-semibold text-ink-950 tabular">{formatCedi(order.amount + order.fee)}</p>
           </div>
           <span
             className={cn(
@@ -188,7 +211,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-4 py-4 sm:px-6">
       <dt className="text-xs text-ink-500">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold tabular tracking-[-0.01em] text-ink-950 sm:text-xl">{value}</dd>
+      <dd className="mt-1 text-lg font-semibold tracking-[-0.01em] text-ink-950 tabular sm:text-xl">{value}</dd>
     </div>
   );
 }

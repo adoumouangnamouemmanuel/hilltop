@@ -30,7 +30,11 @@ export function HowItWorks({ className }: { className?: string }) {
   }, [step, paused, reduce]);
 
   return (
-    <div className={cn("flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:gap-10", className)} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <div
+      className={cn("flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:gap-10", className)}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
       <Phone step={step} />
       <ol className="grid w-full max-w-sm grid-cols-4 gap-2 lg:w-56 lg:grid-cols-1 lg:gap-1">
         {steps.map((s, i) => (
@@ -38,7 +42,10 @@ export function HowItWorks({ className }: { className?: string }) {
             <button
               type="button"
               onClick={() => setStep(i)}
-              className={cn("group w-full rounded-xl text-left transition-colors lg:px-3 lg:py-2.5", i === step ? "lg:bg-surface" : "lg:hover:bg-surface/60")}
+              className={cn(
+                "group w-full rounded-xl text-left transition-colors lg:px-3 lg:py-2.5",
+                i === step ? "lg:bg-surface" : "lg:hover:bg-surface/60",
+              )}
               aria-current={i === step}
             >
               <span className="block h-1 overflow-hidden rounded-full bg-line">
@@ -54,7 +61,9 @@ export function HowItWorks({ className }: { className?: string }) {
                   <span className={cn("block h-full rounded-full", i < step ? "w-full bg-ink-400" : "w-0")} />
                 )}
               </span>
-              <span className={cn("mt-2 block text-[11px] font-semibold sm:text-[13px]", i === step ? "text-ink-950" : "text-ink-400")}>{s.title}</span>
+              <span className={cn("mt-2 block text-[11px] font-semibold sm:text-[13px]", i === step ? "text-ink-950" : "text-ink-400")}>
+                {s.title}
+              </span>
               <span className="hidden text-xs leading-5 text-ink-500 lg:block">{s.caption}</span>
             </button>
           </li>
@@ -68,8 +77,8 @@ function Phone({ step }: { step: number }) {
   return (
     <div className="relative">
       <div className="absolute -inset-8 -z-10 rounded-full bg-maroon-700/10 blur-3xl dark:bg-maroon-700/20" aria-hidden />
-      <div className="relative h-[480px] w-[240px] overflow-hidden rounded-[2.6rem] border-[9px] border-[#141212] bg-canvas shadow-pop dark:outline dark:outline-1 dark:outline-white/15 sm:h-[520px] sm:w-[260px]">
-        <div className="absolute left-1/2 top-2 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-[#141212]" />
+      <div className="relative h-[480px] w-[240px] overflow-hidden rounded-[2.6rem] border-[9px] border-[#141212] bg-canvas shadow-pop sm:h-[520px] sm:w-[260px] dark:outline dark:outline-1 dark:outline-white/15">
+        <div className="absolute top-2 left-1/2 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-[#141212]" />
         <div className="flex h-9 items-end justify-between px-6 pb-1 text-[10px] font-semibold text-ink-950">
           <span>9:41</span>
           <span className="flex gap-0.5">
@@ -83,7 +92,7 @@ function Phone({ step }: { step: number }) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -30 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-x-0 bottom-0 top-9 px-3.5 pt-2"
+            className="absolute inset-x-0 top-9 bottom-0 px-3.5 pt-2"
           >
             {step === 0 && <FindScreen />}
             {step === 1 && <PayScreen />}
@@ -109,7 +118,11 @@ function Typewriter({ text }: { text: string }) {
   return (
     <span>
       {text.slice(0, n)}
-      <motion.span className="ml-px inline-block h-3 w-px bg-ink-950 align-middle" animate={{ opacity: [1, 0] }} transition={{ repeat: Infinity, duration: 0.6 }} />
+      <motion.span
+        className="ml-px inline-block h-3 w-px bg-ink-950 align-middle"
+        animate={{ opacity: [1, 0] }}
+        transition={{ repeat: Infinity, duration: 0.6 }}
+      />
     </span>
   );
 }
@@ -133,7 +146,7 @@ function FindScreen() {
               <Image src={l.images[0]} alt="" fill sizes="110px" className="object-cover" />
               {i === 0 && (
                 <motion.span
-                  className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60"
+                  className="absolute top-1/2 left-1/2 size-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60"
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: [0, 1.6], opacity: [0.8, 0] }}
                   transition={{ delay: 2.6, duration: 0.6 }}
@@ -184,7 +197,11 @@ function PayScreen() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 1.4, type: "spring", stiffness: 300, damping: 20 }}
         >
-          <motion.span initial={{ rotate: -30, y: -3 }} animate={{ rotate: 0, y: 0 }} transition={{ delay: 1.8, type: "spring", stiffness: 400, damping: 12 }}>
+          <motion.span
+            initial={{ rotate: -30, y: -3 }}
+            animate={{ rotate: 0, y: 0 }}
+            transition={{ delay: 1.8, type: "spring", stiffness: 400, damping: 12 }}
+          >
             <Lock className="size-3.5" aria-hidden />
           </motion.span>
           {formatCedi(total)} held by Hilltop
@@ -221,12 +238,22 @@ function MeetScreen() {
           />
           <circle cx="20" cy="190" r="6" className="fill-ink-950" />
         </svg>
-        <motion.div className="absolute left-[56%] top-[36%]" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 1.8, type: "spring", stiffness: 300, damping: 14 }}>
-          <span className="absolute left-1/2 top-full size-6 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-maroon-700/40" />
+        <motion.div
+          className="absolute top-[36%] left-[56%]"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 1.8, type: "spring", stiffness: 300, damping: 14 }}
+        >
+          <span className="absolute top-full left-1/2 size-6 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-maroon-700/40" />
           <MapPin className="relative size-7 fill-maroon-700 text-white" aria-hidden />
         </motion.div>
       </div>
-      <motion.div className="mt-3 rounded-xl bg-surface p-2.5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.2 }}>
+      <motion.div
+        className="mt-3 rounded-xl bg-surface p-2.5"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.2 }}
+      >
         <p className="text-[11px] font-semibold text-ink-950">Library entrance</p>
         <p className="text-[10px] text-ink-500">Today, 4 to 6pm with Efua</p>
       </motion.div>
@@ -235,7 +262,11 @@ function MeetScreen() {
 }
 
 // Fixed confetti angles keep server and client output identical.
-const confetti = Array.from({ length: 14 }, (_, i) => ({ angle: (i / 14) * Math.PI * 2, dist: 60 + (i % 3) * 16, color: ["#a8323f", "#121010", "#d9b45a"][i % 3] }));
+const confetti = Array.from({ length: 14 }, (_, i) => ({
+  angle: (i / 14) * Math.PI * 2,
+  dist: 60 + (i % 3) * 16,
+  color: ["#a8323f", "#121010", "#d9b45a"][i % 3],
+}));
 
 function DoneScreen() {
   return (
@@ -244,7 +275,7 @@ function DoneScreen() {
         {confetti.map((c, i) => (
           <motion.span
             key={i}
-            className="absolute left-1/2 top-1/2 size-1.5 rounded-full"
+            className="absolute top-1/2 left-1/2 size-1.5 rounded-full"
             style={{ backgroundColor: c.color }}
             initial={{ x: 0, y: 0, opacity: 0 }}
             animate={{ x: Math.cos(c.angle) * c.dist, y: Math.sin(c.angle) * c.dist, opacity: [0, 1, 0] }}
@@ -264,7 +295,12 @@ function DoneScreen() {
       <p className="mt-1 text-[11px] text-ink-500">GH₵166.40 released to Efua</p>
       <div className="mt-6 flex gap-1">
         {[0, 1, 2, 3, 4].map((i) => (
-          <motion.span key={i} initial={{ scale: 0, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 1 + i * 0.12, type: "spring", stiffness: 400, damping: 12 }}>
+          <motion.span
+            key={i}
+            initial={{ scale: 0, rotate: -40 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 1 + i * 0.12, type: "spring", stiffness: 400, damping: 12 }}
+          >
             <Star className="size-5 fill-[#d9b45a] text-[#d9b45a]" aria-hidden />
           </motion.span>
         ))}
@@ -278,7 +314,7 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
     <div className={cn("flex justify-between", strong ? "font-semibold text-ink-950" : "text-ink-500")}>
       <span>{k}</span>
-      <span className="tabular text-ink-950">{v}</span>
+      <span className="text-ink-950 tabular">{v}</span>
     </div>
   );
 }

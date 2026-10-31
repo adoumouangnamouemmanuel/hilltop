@@ -86,7 +86,9 @@ export function matchScore(listing: Listing, query: string, categoryLabel = "") 
   const rest = [
     listing.description,
     categoryLabel,
-    ...Object.values(listing.attributes ?? {}).filter((v) => typeof v !== "boolean").map(str),
+    ...Object.values(listing.attributes ?? {})
+      .filter((v) => typeof v !== "boolean")
+      .map(str),
     ...(listing.extra ?? []).flat(),
   ]
     .join(" ")

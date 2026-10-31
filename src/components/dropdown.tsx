@@ -59,7 +59,7 @@ export function Dropdown<T extends string>({
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.12 }}
             className={cn(
-              "absolute top-full z-30 mt-1.5 min-w-full whitespace-nowrap rounded-xl border border-line bg-elevated p-1.5 shadow-pop",
+              "absolute top-full z-30 mt-1.5 min-w-full rounded-xl border border-line bg-elevated p-1.5 whitespace-nowrap shadow-pop",
               align === "right" ? "right-0" : "left-0",
             )}
           >

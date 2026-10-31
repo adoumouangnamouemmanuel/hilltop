@@ -19,8 +19,8 @@ export default function MoveOutPage() {
             <p className="text-sm font-medium text-white/70">4 to 12 December 2026</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">{MOVE_OUT_SALE.name}</h1>
             <p className="mt-4 max-w-lg text-[15px] leading-7 text-white/75">
-              One week where everyone moving out of the hostels lists in one place. Graduates get paid, freshers get set up for less,
-              and nothing ends up in a skip.
+              One week where everyone moving out of the hostels lists in one place. Graduates get paid, freshers get set up for less, and
+              nothing ends up in a skip.
             </p>
             <div className="mt-8 flex flex-wrap gap-2.5">
               <ButtonLink href="/sell" variant="white" size="lg">

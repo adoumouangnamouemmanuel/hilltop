@@ -7,7 +7,17 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
 import { makeCustomCategory, type AttributeDef } from "@/lib/catalog";
-import { BOOST_PLANS, conditions, listings, MOVE_OUT_SALE, pickupSpots, type AttrValue, type Condition, type Listing, type PickupSpot } from "@/lib/data";
+import {
+  BOOST_PLANS,
+  conditions,
+  listings,
+  MOVE_OUT_SALE,
+  pickupSpots,
+  type AttrValue,
+  type Condition,
+  type Listing,
+  type PickupSpot,
+} from "@/lib/data";
 import { formatCedi } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
@@ -57,7 +67,10 @@ export function SellForm() {
   // Price guidance from similar items in the same category.
   const guide = useMemo(() => {
     if (!categoryId) return null;
-    const prices = listings.filter((l) => l.category === categoryId).map((l) => l.price).sort((a, b) => a - b);
+    const prices = listings
+      .filter((l) => l.category === categoryId)
+      .map((l) => l.price)
+      .sort((a, b) => a - b);
     if (prices.length < 3) return null;
     return { low: prices[Math.floor(prices.length * 0.25)], high: prices[Math.floor(prices.length * 0.75)] };
   }, [categoryId]);
@@ -142,7 +155,9 @@ export function SellForm() {
     return (
       <div className="mt-8 max-w-lg rounded-2xl border border-line p-8">
         <h2 className="text-lg font-semibold text-ink-950">Log in to start selling</h2>
-        <p className="mt-1.5 text-sm leading-6 text-ink-500">Only verified Ashesi students can list items. It&rsquo;s what makes buyers trust you.</p>
+        <p className="mt-1.5 text-sm leading-6 text-ink-500">
+          Only verified Ashesi students can list items. It&rsquo;s what makes buyers trust you.
+        </p>
         <Link href="/sign-in?next=/sell" className={buttonClass("dark", "lg", "mt-6")}>
           Continue with Ashesi email
         </Link>
@@ -167,15 +182,24 @@ export function SellForm() {
                   exit={{ opacity: 0, scale: 0.8 }}
                   className="relative aspect-square overflow-hidden rounded-xl bg-surface"
                 >
-                  <button type="button" onClick={() => setPhotos((p) => [p[i], ...p.filter((_, j) => j !== i)])} className="absolute inset-0" aria-label={`Make photo ${i + 1} the cover`}>
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((p) => [p[i], ...p.filter((_, j) => j !== i)])}
+                    className="absolute inset-0"
+                    aria-label={`Make photo ${i + 1} the cover`}
+                  >
                     <Image src={src} alt={`Photo ${i + 1}`} fill unoptimized className="object-cover" />
                   </button>
-                  {i === 0 && <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#121010]">Cover</span>}
+                  {i === 0 && (
+                    <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#121010]">
+                      Cover
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
                     aria-label={`Remove photo ${i + 1}`}
-                    className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                    className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -224,7 +248,12 @@ export function SellForm() {
           </div>
           <AnimatePresence>
             {newCategory !== null && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
                 <div className="mt-3 flex gap-2">
                   <input
                     autoFocus
@@ -243,7 +272,12 @@ export function SellForm() {
                   <button type="button" onClick={createCategory} disabled={!newCategory.trim()} className={buttonClass("dark", "md")}>
                     Add
                   </button>
-                  <button type="button" onClick={() => setNewCategory(null)} className={buttonClass("ghost", "md", "px-3")} aria-label="Cancel">
+                  <button
+                    type="button"
+                    onClick={() => setNewCategory(null)}
+                    className={buttonClass("ghost", "md", "px-3")}
+                    aria-label="Cancel"
+                  >
                     <X className="size-4" />
                   </button>
                 </div>
@@ -262,7 +296,7 @@ export function SellForm() {
               className={cn(field, "h-12 pr-16")}
               aria-label="Title"
             />
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs tabular text-ink-400">
+            <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-ink-400 tabular">
               {title.length}/{TITLE_MAX}
             </span>
           </div>
@@ -271,7 +305,13 @@ export function SellForm() {
         {/* Fields generated from the category schema */}
         <AnimatePresence mode="wait" initial={false}>
           {category && (
-            <motion.div key={category.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <motion.div
+              key={category.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
               <Section title={`${category.label} details`} hint="Buyers filter by these, so fill in what you can">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {category.attributes.map((a) => (
@@ -298,7 +338,12 @@ export function SellForm() {
                     condition === c ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
                   )}
                 >
-                  <span className={cn("mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-2", condition === c ? "border-ink-950" : "border-line-strong")}>
+                  <span
+                    className={cn(
+                      "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-2",
+                      condition === c ? "border-ink-950" : "border-line-strong",
+                    )}
+                  >
                     {condition === c && <motion.span layoutId="cond-dot" className="size-2 rounded-full bg-ink-950" />}
                   </span>
                   <span>
@@ -317,7 +362,13 @@ export function SellForm() {
             <MoneyInput label="Original price" value={original} onChange={setOriginal} placeholder="Optional" />
             <label className="block">
               <span className="mb-1.5 block text-xs text-ink-500">Quantity</span>
-              <input value={stock} onChange={(e) => setStock(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="1" className={cn(field, "h-12 tabular")} />
+              <input
+                value={stock}
+                onChange={(e) => setStock(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                placeholder="1"
+                className={cn(field, "h-12 tabular")}
+              />
             </label>
           </div>
           {guide && (
@@ -335,12 +386,16 @@ export function SellForm() {
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 800))}
-            placeholder={category?.id === "food" ? "Ingredients, how it's packed, when it's ready" : "How old is it? Any marks or missing parts? What's included?"}
+            placeholder={
+              category?.id === "food"
+                ? "Ingredients, how it's packed, when it's ready"
+                : "How old is it? Any marks or missing parts? What's included?"
+            }
             rows={5}
             className={cn(field, "resize-none py-3 leading-6")}
             aria-label="Description"
           />
-          <p className="mt-1.5 text-right text-xs tabular text-ink-400">{description.length}/800</p>
+          <p className="mt-1.5 text-right text-xs text-ink-400 tabular">{description.length}/800</p>
         </Section>
 
         <Section title="Pickup spot" hint="Where buyers meet you">
@@ -361,7 +416,10 @@ export function SellForm() {
                 type="button"
                 onClick={() => setBoost(p.id)}
                 aria-pressed={boost === p.id}
-                className={cn("rounded-xl border p-3.5 text-left transition-colors", boost === p.id ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400")}
+                className={cn(
+                  "rounded-xl border p-3.5 text-left transition-colors",
+                  boost === p.id ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
+                )}
               >
                 <span className="flex items-center justify-between text-sm font-medium text-ink-950">
                   {p.label}
@@ -372,7 +430,12 @@ export function SellForm() {
             ))}
           </div>
           <label className="mt-4 flex items-start gap-3 rounded-xl border border-line-strong p-4">
-            <input type="checkbox" checked={moveOut} onChange={(e) => setMoveOut(e.target.checked)} className="mt-0.5 size-[18px] accent-ink-950" />
+            <input
+              type="checkbox"
+              checked={moveOut}
+              onChange={(e) => setMoveOut(e.target.checked)}
+              className="mt-0.5 size-[18px] accent-ink-950"
+            />
             <span>
               <span className="block text-sm font-medium text-ink-950">Add to the {MOVE_OUT_SALE.name}</span>
               <span className="text-xs text-ink-500">Featured to everyone shopping the end-of-semester sale.</span>
@@ -388,7 +451,13 @@ export function SellForm() {
           <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-surface">
             <AnimatePresence mode="wait">
               {photos[0] ? (
-                <motion.div key={photos[0].slice(-40)} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <motion.div
+                  key={photos[0].slice(-40)}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
                   <Image src={photos[0]} alt="" fill unoptimized className="object-cover" />
                 </motion.div>
               ) : (
@@ -399,7 +468,7 @@ export function SellForm() {
             </AnimatePresence>
           </div>
           <div className="mt-3 space-y-0.5 px-0.5">
-            <p className="text-[15px] font-semibold tabular text-ink-950">{formatCedi(priceNum)}</p>
+            <p className="text-[15px] font-semibold text-ink-950 tabular">{formatCedi(priceNum)}</p>
             <p className="truncate text-[13px] text-ink-700">{title || "Your item title"}</p>
             <p className="truncate text-xs text-ink-400">
               {[condition, category?.label, pickup].filter(Boolean).join(" · ")}
@@ -411,12 +480,12 @@ export function SellForm() {
         <dl className="mt-4 space-y-2 px-1 text-sm">
           <div className="flex justify-between text-ink-500">
             <dt>You receive</dt>
-            <dd className="font-medium tabular text-ink-950">{formatCedi(priceNum)}</dd>
+            <dd className="font-medium text-ink-950 tabular">{formatCedi(priceNum)}</dd>
           </div>
           {plan && (
             <div className="flex justify-between text-ink-500">
               <dt>Promotion, {plan.label}</dt>
-              <dd className="tabular text-ink-950">{formatCedi(plan.price)}</dd>
+              <dd className="text-ink-950 tabular">{formatCedi(plan.price)}</dd>
             </div>
           )}
           <p className="text-xs leading-5 text-ink-400">The 4% buyer protection fee is paid by the buyer, not you.</p>
@@ -439,7 +508,12 @@ export function SellForm() {
         </button>
         <AnimatePresence>
           {touched && firstError && (
-            <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-2 text-center text-xs text-maroon-700">
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-2 text-center text-xs text-maroon-700"
+            >
               {firstError}
             </motion.p>
           )}
@@ -456,8 +530,19 @@ function AttributeField({ def, value, onChange }: { def: AttributeDef; value: At
     return (
       <div className="flex items-center justify-between gap-3 rounded-xl border border-line-strong px-4 py-3 sm:col-span-1">
         <span className="text-sm text-ink-950">{def.label}</span>
-        <button type="button" role="switch" aria-checked={on} aria-label={def.label} onClick={() => onChange(!on)} className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors", on ? "bg-ink-950" : "bg-line-strong")}>
-          <motion.span className="absolute top-0.5 size-5 rounded-full bg-canvas shadow-sm" animate={{ left: on ? 18 : 2 }} transition={{ type: "spring", stiffness: 500, damping: 34 }} />
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={def.label}
+          onClick={() => onChange(!on)}
+          className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors", on ? "bg-ink-950" : "bg-line-strong")}
+        >
+          <motion.span
+            className="absolute top-0.5 size-5 rounded-full bg-canvas shadow-sm"
+            animate={{ left: on ? 18 : 2 }}
+            transition={{ type: "spring", stiffness: 500, damping: 34 }}
+          />
         </button>
       </div>
     );
@@ -473,7 +558,10 @@ function AttributeField({ def, value, onChange }: { def: AttributeDef; value: At
               type="button"
               onClick={() => onChange(value === o ? "" : o)}
               aria-pressed={value === o}
-              className={cn("h-9 rounded-lg border px-3 text-[13px] transition-colors", value === o ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900")}
+              className={cn(
+                "h-9 rounded-lg border px-3 text-[13px] transition-colors",
+                value === o ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900",
+              )}
             >
               {o}
             </button>
@@ -488,12 +576,14 @@ function AttributeField({ def, value, onChange }: { def: AttributeDef; value: At
       <span className="relative block">
         <input
           value={value === undefined ? "" : String(value)}
-          onChange={(e) => onChange(def.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value.replace(/\D/g, ""))) : e.target.value)}
+          onChange={(e) =>
+            onChange(def.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value.replace(/\D/g, ""))) : e.target.value)
+          }
           inputMode={def.type === "number" ? "numeric" : undefined}
           placeholder={def.placeholder}
           className={cn(field, "h-11", def.unit && "pr-10")}
         />
-        {def.unit && <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-ink-400">{def.unit}</span>}
+        {def.unit && <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-ink-400">{def.unit}</span>}
       </span>
     </label>
   );
@@ -505,30 +595,73 @@ function ExtraDetails({ rows, onChange }: { rows: [string, string][]; onChange: 
     <div className="mt-5">
       <AnimatePresence initial={false}>
         {rows.map(([k, v], i) => (
-          <motion.div key={i} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
             <div className="mb-2 grid grid-cols-[1fr_1.4fr_auto] gap-2">
-              <input value={k} onChange={(e) => onChange(rows.map((r, j) => (j === i ? [e.target.value, r[1]] : r)))} placeholder="Detail, e.g. Warranty" className={cn(field, "h-11 text-sm")} aria-label="Detail name" />
-              <input value={v} onChange={(e) => onChange(rows.map((r, j) => (j === i ? [r[0], e.target.value] : r)))} placeholder="e.g. 6 months left" className={cn(field, "h-11 text-sm")} aria-label="Detail value" />
-              <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="grid size-11 place-items-center rounded-xl text-ink-500 hover:bg-surface hover:text-ink-950" aria-label="Remove detail">
+              <input
+                value={k}
+                onChange={(e) => onChange(rows.map((r, j) => (j === i ? [e.target.value, r[1]] : r)))}
+                placeholder="Detail, e.g. Warranty"
+                className={cn(field, "h-11 text-sm")}
+                aria-label="Detail name"
+              />
+              <input
+                value={v}
+                onChange={(e) => onChange(rows.map((r, j) => (j === i ? [r[0], e.target.value] : r)))}
+                placeholder="e.g. 6 months left"
+                className={cn(field, "h-11 text-sm")}
+                aria-label="Detail value"
+              />
+              <button
+                type="button"
+                onClick={() => onChange(rows.filter((_, j) => j !== i))}
+                className="grid size-11 place-items-center rounded-xl text-ink-500 hover:bg-surface hover:text-ink-950"
+                aria-label="Remove detail"
+              >
                 <Trash2 className="size-4" />
               </button>
             </div>
           </motion.div>
         ))}
       </AnimatePresence>
-      <button type="button" onClick={() => onChange([...rows, ["", ""]])} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-950 underline underline-offset-4">
+      <button
+        type="button"
+        onClick={() => onChange([...rows, ["", ""]])}
+        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-950 underline underline-offset-4"
+      >
         <Plus className="size-3.5" aria-hidden /> Add your own detail
       </button>
     </div>
   );
 }
 
-function Section({ title, hint, error, id, children }: { title: string; hint?: string; error?: string | false | null; id?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  hint,
+  error,
+  id,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  error?: string | false | null;
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section id={id} className="scroll-mt-36 py-7 first:pt-0">
       <div className="mb-3.5 flex items-baseline justify-between gap-4">
         <h2 className="text-[15px] font-semibold text-ink-950">{title}</h2>
-        {error ? <span className="text-xs text-maroon-700">{error}</span> : hint && <span className="text-right text-xs text-ink-400">{hint}</span>}
+        {error ? (
+          <span className="text-xs text-maroon-700">{error}</span>
+        ) : (
+          hint && <span className="text-right text-xs text-ink-400">{hint}</span>
+        )}
       </div>
       {children}
     </section>
@@ -541,20 +674,39 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={cn("h-10 rounded-xl border px-4 text-sm transition-colors", active ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900")}
+      className={cn(
+        "h-10 rounded-xl border px-4 text-sm transition-colors",
+        active ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900",
+      )}
     >
       {children}
     </button>
   );
 }
 
-function MoneyInput({ label, value, onChange, placeholder = "0" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+function MoneyInput({
+  label,
+  value,
+  onChange,
+  placeholder = "0",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs text-ink-500">{label}</span>
       <span className="relative block">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-ink-500">GH₵</span>
-        <input value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder={placeholder} className={cn(field, "h-12 pl-14 tabular")} />
+        <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[15px] text-ink-500">GH₵</span>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+          inputMode="numeric"
+          placeholder={placeholder}
+          className={cn(field, "h-12 pl-14 tabular")}
+        />
       </span>
     </label>
   );

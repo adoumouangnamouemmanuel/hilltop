@@ -41,10 +41,13 @@ export function RotatingWord() {
 export function ActivityTicker() {
   const items = [...activity, ...activity];
   return (
-    <div className="group relative overflow-hidden py-1 [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)]">
+    <div className="group relative overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)] py-1">
       <div className="flex w-max animate-marquee gap-3 group-hover:[animation-play-state:paused]">
         {items.map((a, i) => (
-          <div key={i} className="flex shrink-0 items-center gap-2.5 rounded-full border border-line bg-elevated py-1.5 pl-1.5 pr-4 text-[13px]">
+          <div
+            key={i}
+            className="flex shrink-0 items-center gap-2.5 rounded-full border border-line bg-elevated py-1.5 pr-4 pl-1.5 text-[13px]"
+          >
             <Avatar name={a.who} size={26} />
             <span className="text-ink-700">
               <span className="font-medium text-ink-950">{a.who}</span> {a.what}
@@ -61,7 +64,7 @@ export function ActivityTicker() {
 export function CategoryGrid() {
   const { categories, counts, loading } = useCatalog();
   return (
-    <div className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 md:grid-cols-7">
+    <div className="-mx-4 no-scrollbar flex snap-x gap-2 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 md:grid-cols-7">
       <AnimatePresence initial={false}>
         {categories.map((c, i) => (
           <motion.div
@@ -76,10 +79,14 @@ export function CategoryGrid() {
               href={`/browse?category=${c.id}`}
               className="group flex w-[86px] flex-col items-center gap-2 rounded-2xl p-2 text-center transition-colors hover:bg-surface sm:w-auto sm:p-3"
             >
-              <motion.span whileHover={{ y: -3, rotate: -4 }} whileTap={{ scale: 0.9 }} className="grid size-14 place-items-center rounded-2xl bg-surface text-ink-950 transition-colors group-hover:bg-ink-950 group-hover:text-canvas">
+              <motion.span
+                whileHover={{ y: -3, rotate: -4 }}
+                whileTap={{ scale: 0.9 }}
+                className="grid size-14 place-items-center rounded-2xl bg-surface text-ink-950 transition-colors group-hover:bg-ink-950 group-hover:text-canvas"
+              >
                 <CategoryIcon name={c.icon} className="size-6" />
               </motion.span>
-              <span className="text-xs font-medium leading-tight text-ink-950">{c.label}</span>
+              <span className="text-xs leading-tight font-medium text-ink-950">{c.label}</span>
               <span className="-mt-1.5 text-[11px] text-ink-400">{counts[c.id] ? `${counts[c.id]} items` : "New"}</span>
             </Link>
           </motion.div>

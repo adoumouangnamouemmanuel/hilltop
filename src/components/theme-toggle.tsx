@@ -13,7 +13,10 @@ export function ThemeToggle({ className }: { className?: string }) {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className={cn("relative grid size-10 place-items-center overflow-hidden rounded-xl text-ink-700 transition-colors hover:bg-surface hover:text-ink-950", className)}
+      className={cn(
+        "relative grid size-10 place-items-center overflow-hidden rounded-xl text-ink-700 transition-colors hover:bg-surface hover:text-ink-950",
+        className,
+      )}
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
@@ -48,9 +51,18 @@ export function ThemeSegmented() {
           role="radio"
           aria-checked={pref === o.id}
           onClick={() => setTheme(o.id)}
-          className={cn("relative flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium", pref === o.id ? "text-ink-950" : "text-ink-500")}
+          className={cn(
+            "relative flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium",
+            pref === o.id ? "text-ink-950" : "text-ink-500",
+          )}
         >
-          {pref === o.id && <motion.span layoutId="theme-seg" className="absolute inset-0 rounded-lg bg-elevated shadow-card" transition={{ type: "spring", stiffness: 500, damping: 36 }} />}
+          {pref === o.id && (
+            <motion.span
+              layoutId="theme-seg"
+              className="absolute inset-0 rounded-lg bg-elevated shadow-card"
+              transition={{ type: "spring", stiffness: 500, damping: 36 }}
+            />
+          )}
           <o.icon className="relative size-3.5" aria-hidden />
           <span className="relative">{o.label}</span>
         </button>

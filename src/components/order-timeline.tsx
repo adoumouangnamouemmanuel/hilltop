@@ -16,7 +16,11 @@ export function OrderTimeline({ reached }: { reached: number }) {
               <span
                 className={cn(
                   "grid size-5 shrink-0 place-items-center rounded-full transition-colors duration-300",
-                  done ? "bg-ink-950 text-canvas" : current ? "border-2 border-ink-950 bg-elevated" : "border-2 border-line-strong bg-elevated",
+                  done
+                    ? "bg-ink-950 text-canvas"
+                    : current
+                      ? "border-2 border-ink-950 bg-elevated"
+                      : "border-2 border-line-strong bg-elevated",
                 )}
               >
                 {done && <Check className="size-3" strokeWidth={3} aria-hidden />}

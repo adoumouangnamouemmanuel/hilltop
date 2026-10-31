@@ -71,7 +71,13 @@ export function Rating({ value, count, className }: { value: number; count?: num
   );
 }
 
-const avatarTones = ["bg-maroon-100 text-maroon-700", "bg-surface-2 text-ink-900", "bg-[#e7efe9] text-[#24563b] dark:bg-[#15291f] dark:text-[#8fd3ae]", "bg-[#e9ecf5] text-[#2c3d6b] dark:bg-[#18203a] dark:text-[#a9b8ea]", "bg-[#f6ecdf] text-[#7a4a12] dark:bg-[#2c2113] dark:text-[#e6b97a]"];
+const avatarTones = [
+  "bg-maroon-100 text-maroon-700",
+  "bg-surface-2 text-ink-900",
+  "bg-[#e7efe9] text-[#24563b] dark:bg-[#15291f] dark:text-[#8fd3ae]",
+  "bg-[#e9ecf5] text-[#2c3d6b] dark:bg-[#18203a] dark:text-[#a9b8ea]",
+  "bg-[#f6ecdf] text-[#7a4a12] dark:bg-[#2c2113] dark:text-[#e6b97a]",
+];
 
 export function Avatar({ name, size = 40, className }: { name: string; size?: number; className?: string }) {
   const tone = avatarTones[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % avatarTones.length];
@@ -115,7 +121,10 @@ export function SectionHeader({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {href && (
-          <Link href={href} className="text-sm font-medium text-ink-900 underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink-900">
+          <Link
+            href={href}
+            className="text-sm font-medium text-ink-900 underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink-900"
+          >
             {linkLabel}
           </Link>
         )}

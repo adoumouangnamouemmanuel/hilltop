@@ -120,7 +120,11 @@ function MegaMenu({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-3 gap-1 xl:grid-cols-4">
           {categories.map((c, i) => (
             <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.015 }}>
-              <Link href={`/browse?category=${c.id}`} onClick={onClose} className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface">
+              <Link
+                href={`/browse?category=${c.id}`}
+                onClick={onClose}
+                className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface"
+              >
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-ink-950 transition-colors group-hover:bg-ink-950 group-hover:text-canvas">
                   <CategoryIcon name={c.icon} className="size-[18px]" />
                 </span>
@@ -133,7 +137,13 @@ function MegaMenu({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <Link href="/move-out" onClick={onClose} className="group relative overflow-hidden rounded-2xl bg-maroon-800 p-5 text-white">
-          <Image src={feature.images[0]} alt="" fill sizes="280px" className="object-cover opacity-40 transition-transform duration-700 group-hover:scale-105" />
+          <Image
+            src={feature.images[0]}
+            alt=""
+            fill
+            sizes="280px"
+            className="object-cover opacity-40 transition-transform duration-700 group-hover:scale-105"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-maroon-900 via-maroon-900/40 to-transparent" />
           <div className="relative flex h-full flex-col justify-end">
             <p className="text-xs text-white/70">4 to 12 December</p>
@@ -154,15 +164,23 @@ function CategoryNav() {
   const { categories } = useCatalog();
   const current = pathname === "/browse" ? (params.get("category") ?? "all") : null;
 
-  const items = [{ key: "all", href: "/browse", label: "All", icon: "" }, ...categories.map((c) => ({ key: c.id, href: `/browse?category=${c.id}`, label: c.label, icon: c.icon }))];
+  const items = [
+    { key: "all", href: "/browse", label: "All", icon: "" },
+    ...categories.map((c) => ({ key: c.id, href: `/browse?category=${c.id}`, label: c.label, icon: c.icon })),
+  ];
 
   return (
     <nav className="border-b border-line" aria-label="Categories">
       <div className="container-page">
-        <div className="no-scrollbar -mx-1 flex items-center gap-0.5 overflow-x-auto">
-          <Link href="/move-out" className={cn("relative shrink-0 px-3 py-3 text-[13px] font-semibold text-maroon-700 hover:text-maroon-600")}>
+        <div className="-mx-1 no-scrollbar flex items-center gap-0.5 overflow-x-auto">
+          <Link
+            href="/move-out"
+            className={cn("relative shrink-0 px-3 py-3 text-[13px] font-semibold text-maroon-700 hover:text-maroon-600")}
+          >
             Move-Out Sale
-            {pathname === "/move-out" && <motion.span layoutId="cat-underline" className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-maroon-700" />}
+            {pathname === "/move-out" && (
+              <motion.span layoutId="cat-underline" className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-maroon-700" />
+            )}
           </Link>
           <span className="mx-1 h-4 w-px shrink-0 bg-line-strong" aria-hidden />
           {items.map((item) => {
@@ -171,7 +189,10 @@ function CategoryNav() {
               <Link
                 key={item.key}
                 href={item.href}
-                className={cn("relative flex shrink-0 items-center gap-1.5 px-3 py-3 text-[13px] font-medium transition-colors", active ? "text-ink-950" : "text-ink-500 hover:text-ink-950")}
+                className={cn(
+                  "relative flex shrink-0 items-center gap-1.5 px-3 py-3 text-[13px] font-medium transition-colors",
+                  active ? "text-ink-950" : "text-ink-500 hover:text-ink-950",
+                )}
               >
                 {item.icon && <CategoryIcon name={item.icon} className="size-3.5 md:hidden" />}
                 {item.label}
@@ -203,7 +224,7 @@ function HeaderActions() {
               initial={{ scale: 0.4 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 600, damping: 15 }}
-              className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-maroon-700 px-1 text-[10px] font-semibold leading-4 text-white"
+              className="absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-maroon-700 px-1 text-[10px] leading-4 font-semibold text-white"
             >
               {saved.length}
             </motion.span>
@@ -275,7 +296,7 @@ function AccountMenu({ name, email }: { name: string; email: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full z-50 mt-2 w-72 origin-top-right rounded-2xl border border-line bg-elevated p-2 shadow-pop"
+            className="absolute top-full right-0 z-50 mt-2 w-72 origin-top-right rounded-2xl border border-line bg-elevated p-2 shadow-pop"
           >
             <div className="flex items-center gap-3 px-3 py-2.5">
               <Avatar name={name} size={36} />
@@ -286,7 +307,12 @@ function AccountMenu({ name, email }: { name: string; email: string }) {
             </div>
             <div className="my-1 h-px bg-line" />
             {links.map((l) => (
-              <Link key={l.href} href={l.href} role="menuitem" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-surface hover:text-ink-950">
+              <Link
+                key={l.href}
+                href={l.href}
+                role="menuitem"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-surface hover:text-ink-950"
+              >
                 <l.icon className="size-4 text-ink-500" aria-hidden />
                 {l.label}
               </Link>

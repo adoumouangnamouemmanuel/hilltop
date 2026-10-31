@@ -7,17 +7,7 @@ import { ListingCard } from "./listing-card";
 import { SectionHeader, cn } from "./ui";
 
 /** A horizontally scrolling row of listings with arrow controls on desktop. */
-export function ListingRail({
-  title,
-  subtitle,
-  href,
-  listings,
-}: {
-  title: string;
-  subtitle?: string;
-  href?: string;
-  listings: Listing[];
-}) {
+export function ListingRail({ title, subtitle, href, listings }: { title: string; subtitle?: string; href?: string; listings: Listing[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
 
@@ -54,7 +44,7 @@ export function ListingRail({
       <div
         ref={ref}
         onScroll={update}
-        className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:gap-4 lg:px-0"
+        className="-mx-4 no-scrollbar flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:gap-4 lg:px-0"
       >
         {listings.map((l) => (
           <div key={l.id} className="w-[44%] shrink-0 snap-start sm:w-[30%] md:w-[23%] lg:w-[calc((100%-4rem)/5)]">

@@ -33,7 +33,7 @@ export function Toaster() {
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={(_, info) => Math.abs(info.offset.x) > 80 && dismissToast(t.id)}
-            className="pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl bg-ink-950 py-2.5 pl-3 pr-2 text-sm text-canvas shadow-pop"
+            className="pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl bg-ink-950 py-2.5 pr-2 pl-3 text-sm text-canvas shadow-pop"
           >
             <span
               className={cn(
@@ -41,11 +41,19 @@ export function Toaster() {
                 t.tone === "saved" ? "bg-maroon-700 text-white" : "bg-canvas/15",
               )}
             >
-              {t.tone === "saved" ? <Heart className="size-3.5 fill-current" aria-hidden /> : <Check className="size-3.5" strokeWidth={3} aria-hidden />}
+              {t.tone === "saved" ? (
+                <Heart className="size-3.5 fill-current" aria-hidden />
+              ) : (
+                <Check className="size-3.5" strokeWidth={3} aria-hidden />
+              )}
             </span>
             <span className="flex-1 pr-1">{t.message}</span>
             {t.action && (
-              <Link href={t.action.href} onClick={() => dismissToast(t.id)} className="rounded-lg px-2.5 py-1.5 text-[13px] font-semibold hover:bg-canvas/10">
+              <Link
+                href={t.action.href}
+                onClick={() => dismissToast(t.id)}
+                className="rounded-lg px-2.5 py-1.5 text-[13px] font-semibold hover:bg-canvas/10"
+              >
                 {t.action.label}
               </Link>
             )}

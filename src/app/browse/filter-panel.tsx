@@ -66,7 +66,12 @@ export function FilterPanel({ all, filters, update, replace, categories, current
       })}
 
       <Section title="Price">
-        <PriceRange all={applyFilters(all, { ...filters, min: null, max: null }, labelOf)} min={filters.min} max={filters.max} onChange={(min, max) => update({ min, max })} />
+        <PriceRange
+          all={applyFilters(all, { ...filters, min: null, max: null }, labelOf)}
+          min={filters.min}
+          max={filters.max}
+          onChange={(min, max) => update({ min, max })}
+        />
       </Section>
 
       {!current?.noCondition && (
@@ -129,12 +134,16 @@ function CategoryList({
           >
             {c.id ? <CategoryIcon name={c.icon} className="size-4 shrink-0 text-ink-500" /> : <span className="size-4" />}
             <span className="flex-1 truncate">{c.label}</span>
-            <span className="text-xs tabular text-ink-400">{countFor(c.id)}</span>
+            <span className="text-xs text-ink-400 tabular">{countFor(c.id)}</span>
           </button>
         );
       })}
       {rows.length > 8 && (
-        <button type="button" onClick={() => setExpanded((e) => !e)} className="px-2.5 pt-1 text-[13px] font-medium text-ink-950 underline underline-offset-4">
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="px-2.5 pt-1 text-[13px] font-medium text-ink-950 underline underline-offset-4"
+        >
           {expanded ? "Show fewer" : `Show all ${rows.length - 1} categories`}
         </button>
       )}
@@ -163,7 +172,11 @@ function OptionList({
         <Checkbox key={o.value} label={o.value} count={o.count} checked={selected.includes(o.value)} onChange={() => onToggle(o.value)} />
       ))}
       {useful.length > 6 && (
-        <button type="button" onClick={() => setExpanded((e) => !e)} className="mt-1 px-1 text-[13px] font-medium text-ink-950 underline underline-offset-4">
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="mt-1 px-1 text-[13px] font-medium text-ink-950 underline underline-offset-4"
+        >
           {expanded ? "Show fewer" : `Show ${useful.length - 6} more`}
         </button>
       )}
@@ -175,7 +188,12 @@ function Section({ title, children, compact }: { title: string; children: React.
   const [open, setOpen] = useState(true);
   return (
     <div className={cn("first:pt-0", compact ? "py-4" : "py-5")}>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between text-sm font-semibold text-ink-950" aria-expanded={open}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-sm font-semibold text-ink-950"
+        aria-expanded={open}
+      >
         {title}
         <ChevronDown className={cn("size-4 text-ink-500 transition-transform", !open && "-rotate-90")} aria-hidden />
       </button>
@@ -208,14 +226,19 @@ function Checkbox({ label, checked, count, onChange }: { label: string; checked:
       >
         <AnimatePresence>
           {checked && (
-            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: "spring", stiffness: 600, damping: 30 }}>
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0 }}
+              transition={{ type: "spring", stiffness: 600, damping: 30 }}
+            >
               <Check className="size-3" strokeWidth={3} aria-hidden />
             </motion.span>
           )}
         </AnimatePresence>
       </span>
       <span className="flex-1">{label}</span>
-      <span className="text-xs tabular text-ink-400">{count}</span>
+      <span className="text-xs text-ink-400 tabular">{count}</span>
     </label>
   );
 }
@@ -225,7 +248,7 @@ function Toggle({ label, checked, count, onChange }: { label: string; checked: b
     <div className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-700">
       <span className="flex-1">
         {label}
-        {count !== undefined && <span className="ml-2 text-xs tabular text-ink-400">{count}</span>}
+        {count !== undefined && <span className="ml-2 text-xs text-ink-400 tabular">{count}</span>}
       </span>
       <button
         type="button"
@@ -248,7 +271,17 @@ function Toggle({ label, checked, count, onChange }: { label: string; checked: b
 const BUCKETS = 24;
 
 /** Histogram of current prices with a dual-thumb slider, like flight and stay search. */
-function PriceRange({ all, min, max, onChange }: { all: Listing[]; min: number | null; max: number | null; onChange: (min: number | null, max: number | null) => void }) {
+function PriceRange({
+  all,
+  min,
+  max,
+  onChange,
+}: {
+  all: Listing[];
+  min: number | null;
+  max: number | null;
+  onChange: (min: number | null, max: number | null) => void;
+}) {
   const ceiling = useMemo(() => {
     const top = Math.max(100, ...all.map((l) => l.price));
     const step = top > 2000 ? 500 : top > 500 ? 100 : 10;
@@ -296,7 +329,10 @@ function PriceRange({ all, min, max, onChange }: { all: Listing[]; min: number |
         <div className="absolute inset-x-[11px] top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-line-strong" />
         <div
           className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-ink-950"
-          style={{ left: `calc(11px + ${pct(lo)}% * (100% - 22px) / 100%)`, right: `calc(11px + ${100 - pct(hi)}% * (100% - 22px) / 100%)` }}
+          style={{
+            left: `calc(11px + ${pct(lo)}% * (100% - 22px) / 100%)`,
+            right: `calc(11px + ${100 - pct(hi)}% * (100% - 22px) / 100%)`,
+          }}
         />
         <input
           type="range"
@@ -340,11 +376,21 @@ function medianOf(all: Listing[]) {
   return p[Math.floor(p.length * 0.75)] ?? 0;
 }
 
-function PriceField({ label, value, suffix = "", onCommit }: { label: string; value: number; suffix?: string; onCommit: (v: number) => void }) {
+function PriceField({
+  label,
+  value,
+  suffix = "",
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  onCommit: (v: number) => void;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
     <label className="relative flex-1">
-      <span className="pointer-events-none absolute left-3 top-1.5 text-[10px] text-ink-400">{label}</span>
+      <span className="pointer-events-none absolute top-1.5 left-3 text-[10px] text-ink-400">{label}</span>
       <input
         value={draft ?? `${value}${suffix}`}
         onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
@@ -355,7 +401,7 @@ function PriceField({ label, value, suffix = "", onCommit }: { label: string; va
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
         inputMode="numeric"
         aria-label={`${label} price in cedis`}
-        className="h-12 w-full rounded-lg border border-line-strong bg-elevated px-3 pt-3.5 text-sm tabular text-ink-950 outline-none transition-colors focus:border-ink-950"
+        className="h-12 w-full rounded-lg border border-line-strong bg-elevated px-3 pt-3.5 text-sm text-ink-950 tabular transition-colors outline-none focus:border-ink-950"
       />
     </label>
   );

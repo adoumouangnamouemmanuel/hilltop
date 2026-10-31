@@ -26,7 +26,11 @@ export function AuthShell({ image, children }: { image: string; children: React.
         <Image src={image} alt="" fill priority sizes="100vw" className="animate-ken-burns object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/60" />
         <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
-          <Link href="/" className="grid size-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur" aria-label="Back to Hilltop">
+          <Link
+            href="/"
+            className="grid size-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur"
+            aria-label="Back to Hilltop"
+          >
             <ArrowLeft className="size-5" />
           </Link>
           <LogoMark size={34} />
@@ -36,14 +40,14 @@ export function AuthShell({ image, children }: { image: string; children: React.
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="absolute inset-x-5 bottom-12 text-lg font-semibold leading-snug text-white"
+          className="absolute inset-x-5 bottom-12 text-lg leading-snug font-semibold text-white"
         >
           The campus marketplace, built on trust.
         </motion.p>
       </div>
 
       {/* Form column */}
-      <div className="relative -mt-7 flex min-h-[calc(100dvh-13rem)] flex-col rounded-t-[1.75rem] bg-canvas px-5 pb-8 pt-8 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:px-12 lg:pt-8 xl:px-20">
+      <div className="relative -mt-7 flex min-h-[calc(100dvh-13rem)] flex-col rounded-t-[1.75rem] bg-canvas px-5 pt-8 pb-8 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:px-12 lg:pt-8 xl:px-20">
         <div className="hidden items-center justify-between lg:flex">
           <Logo />
           <div className="flex items-center gap-2">
@@ -69,7 +73,7 @@ export function AuthShell({ image, children }: { image: string; children: React.
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="absolute right-6 top-6 flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-1.5 pl-1.5 pr-4 text-sm text-white backdrop-blur-md"
+            className="absolute top-6 right-6 flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-1.5 pr-4 pl-1.5 text-sm text-white backdrop-blur-md"
           >
             <span className="flex -space-x-2">
               {["Ama O", "Kojo A", "Esi B", "Yaw B"].map((n) => (
@@ -95,8 +99,12 @@ function FloatingOrder() {
     <motion.div
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0, y: [0, -8, 0] }}
-      transition={{ opacity: { delay: 0.6 }, x: { delay: 0.6, type: "spring", stiffness: 120 }, y: { duration: 6, repeat: Infinity, ease: "easeInOut" } }}
-      className="absolute left-8 top-[28%] w-64 rounded-2xl border border-white/20 bg-white/10 p-3 text-white shadow-2xl backdrop-blur-xl"
+      transition={{
+        opacity: { delay: 0.6 },
+        x: { delay: 0.6, type: "spring", stiffness: 120 },
+        y: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+      }}
+      className="absolute top-[28%] left-8 w-64 rounded-2xl border border-white/20 bg-white/10 p-3 text-white shadow-2xl backdrop-blur-xl"
     >
       <div className="flex items-center gap-3">
         <span className="relative size-12 shrink-0 overflow-hidden rounded-xl">
@@ -124,8 +132,14 @@ function Testimonials() {
   return (
     <div className="absolute inset-x-6 bottom-6 rounded-3xl border border-white/15 bg-black/25 p-7 text-white backdrop-blur-xl">
       <AnimatePresence mode="wait">
-        <motion.figure key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.4 }}>
-          <blockquote className="text-xl font-medium leading-snug tracking-[-0.01em]">&ldquo;{t.quote}&rdquo;</blockquote>
+        <motion.figure
+          key={i}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.4 }}
+        >
+          <blockquote className="text-xl leading-snug font-medium tracking-[-0.01em]">&ldquo;{t.quote}&rdquo;</blockquote>
           <figcaption className="mt-5 flex items-center gap-3">
             <Avatar name={t.name} size={36} />
             <span>
@@ -137,8 +151,22 @@ function Testimonials() {
       </AnimatePresence>
       <div className="mt-6 flex gap-1.5">
         {testimonials.map((_, j) => (
-          <button key={j} type="button" onClick={() => setI(j)} aria-label={`Testimonial ${j + 1}`} className="h-1 flex-1 overflow-hidden rounded-full bg-white/20">
-            {j === i && <motion.span key={i} className="block h-full bg-white" initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 5.5, ease: "linear" }} />}
+          <button
+            key={j}
+            type="button"
+            onClick={() => setI(j)}
+            aria-label={`Testimonial ${j + 1}`}
+            className="h-1 flex-1 overflow-hidden rounded-full bg-white/20"
+          >
+            {j === i && (
+              <motion.span
+                key={i}
+                className="block h-full bg-white"
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 5.5, ease: "linear" }}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -221,7 +249,7 @@ export function OtpInput({ onComplete, disabled }: { onComplete: (code: string) 
           autoComplete={i === 0 ? "one-time-code" : "off"}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            "h-14 w-full min-w-0 rounded-xl border bg-elevated text-center text-xl font-semibold tabular text-ink-950 outline-none transition-colors focus:border-ink-950",
+            "h-14 w-full min-w-0 rounded-xl border bg-elevated text-center text-xl font-semibold text-ink-950 tabular transition-colors outline-none focus:border-ink-950",
             d ? "border-ink-950" : "border-line-strong",
           )}
         />

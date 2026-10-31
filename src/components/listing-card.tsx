@@ -55,12 +55,21 @@ export function ListingCard({
             fill
             priority={priority}
             sizes={sizes}
-            className={cn("object-cover transition duration-500 ease-out", second ? "md:group-hover:opacity-0" : "group-hover:scale-[1.04]")}
+            className={cn(
+              "object-cover transition duration-500 ease-out",
+              second ? "md:group-hover:opacity-0" : "group-hover:scale-[1.04]",
+            )}
           />
           {second && (
-            <Image src={second} alt="" fill sizes={sizes} className="hidden object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100 md:block" />
+            <Image
+              src={second}
+              alt=""
+              fill
+              sizes={sizes}
+              className="hidden object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100 md:block"
+            />
           )}
-          <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+          <div className="absolute top-2 left-2 flex flex-wrap gap-1">
             {off >= 15 && <Tag>{off}% off</Tag>}
             {listing.moveOut && <Tag tone="maroon">Move-Out</Tag>}
           </div>
@@ -72,13 +81,15 @@ export function ListingCard({
             </div>
           )}
           {listing.stock !== undefined && listing.stock <= 12 && (
-            <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">{listing.stock} left</span>
+            <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+              {listing.stock} left
+            </span>
           )}
         </div>
         <div className="mt-2.5 space-y-0.5 px-0.5">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[15px] font-semibold tabular text-ink-950">{formatCedi(listing.price)}</span>
-            {off > 0 && <span className="text-xs tabular text-ink-400 line-through">{formatCedi(listing.originalPrice!)}</span>}
+            <span className="text-[15px] font-semibold text-ink-950 tabular">{formatCedi(listing.price)}</span>
+            {off > 0 && <span className="text-xs text-ink-400 tabular line-through">{formatCedi(listing.originalPrice!)}</span>}
           </div>
           <h3 className="truncate text-[13px] text-ink-700">{listing.title}</h3>
           <p className="truncate text-xs text-ink-400">
@@ -92,7 +103,7 @@ export function ListingCard({
         onClick={save}
         aria-label={isSaved ? `Remove ${listing.title} from saved` : `Save ${listing.title}`}
         aria-pressed={isSaved}
-        className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-elevated/95 text-ink-900 shadow-[0_1px_3px_rgb(0_0_0/0.15)] backdrop-blur transition-transform active:scale-90"
+        className="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-elevated/95 text-ink-900 shadow-[0_1px_3px_rgb(0_0_0/0.15)] backdrop-blur transition-transform active:scale-90"
       >
         <AnimatePresence>
           {isSaved && (
@@ -106,7 +117,12 @@ export function ListingCard({
             />
           )}
         </AnimatePresence>
-        <motion.span key={String(isSaved)} initial={{ scale: 0.4 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 600, damping: 14 }}>
+        <motion.span
+          key={String(isSaved)}
+          initial={{ scale: 0.4 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 600, damping: 14 }}
+        >
           <Heart className={cn("size-4", isSaved && "fill-maroon-700 text-maroon-700")} strokeWidth={2} aria-hidden />
         </motion.span>
       </button>
@@ -116,7 +132,12 @@ export function ListingCard({
 
 function Tag({ children, tone = "light" }: { children: React.ReactNode; tone?: "light" | "maroon" }) {
   return (
-    <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-semibold", tone === "light" ? "bg-white text-[#121010]" : "bg-maroon-700 text-white")}>
+    <span
+      className={cn(
+        "rounded-md px-1.5 py-0.5 text-[11px] font-semibold",
+        tone === "light" ? "bg-white text-[#121010]" : "bg-maroon-700 text-white",
+      )}
+    >
       {children}
     </span>
   );

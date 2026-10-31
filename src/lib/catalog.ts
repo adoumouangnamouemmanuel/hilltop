@@ -31,7 +31,13 @@ export type CategoryDef = {
 
 export const unsplash = (id: string, w = 1600) => `https://images.unsplash.com/photo-${id}?w=${w}&q=80&auto=format`;
 
-const brand = (options: string[]): AttributeDef => ({ key: "brand", label: "Brand", type: "select", options: [...options, "Other"], filter: true });
+const brand = (options: string[]): AttributeDef => ({
+  key: "brand",
+  label: "Brand",
+  type: "select",
+  options: [...options, "Other"],
+  filter: true,
+});
 
 export const baseCategories: CategoryDef[] = [
   {
@@ -57,7 +63,13 @@ export const baseCategories: CategoryDef[] = [
     cover: unsplash("1496181133206-80ce9b88a853", 800),
     attributes: [
       brand(["Apple", "Dell", "HP", "Lenovo", "Asus", "Acer", "Logitech"]),
-      { key: "type", label: "Type", type: "select", options: ["Laptop", "Tablet", "Monitor", "Keyboard", "Mouse", "Accessory"], filter: true },
+      {
+        key: "type",
+        label: "Type",
+        type: "select",
+        options: ["Laptop", "Tablet", "Monitor", "Keyboard", "Mouse", "Accessory"],
+        filter: true,
+      },
       { key: "processor", label: "Processor", type: "text", placeholder: "e.g. Intel Core i5" },
       { key: "ram", label: "Memory", type: "select", options: ["4GB", "8GB", "16GB", "32GB"], filter: true },
       { key: "storage", label: "Storage", type: "select", options: ["128GB", "256GB", "512GB", "1TB"], filter: true },
@@ -72,7 +84,13 @@ export const baseCategories: CategoryDef[] = [
     cover: unsplash("1572569511254-d8f925fe2cbb", 800),
     attributes: [
       brand(["Apple", "Sony", "JBL", "Samsung", "Oraimo", "Jabra"]),
-      { key: "type", label: "Type", type: "select", options: ["Earbuds", "Over-ear", "Wired earphones", "Earpiece", "Speaker"], filter: true },
+      {
+        key: "type",
+        label: "Type",
+        type: "select",
+        options: ["Earbuds", "Over-ear", "Wired earphones", "Earpiece", "Speaker"],
+        filter: true,
+      },
       { key: "connection", label: "Connection", type: "select", options: ["Bluetooth", "Wired", "Both"], filter: true },
       { key: "anc", label: "Noise cancelling", type: "boolean", filter: true },
       { key: "battery", label: "Battery life", type: "text", placeholder: "e.g. 6 hours" },
@@ -85,7 +103,13 @@ export const baseCategories: CategoryDef[] = [
     blurb: "Phone cases, chargers, power banks",
     cover: unsplash("1601593346740-925612772716", 800),
     attributes: [
-      { key: "type", label: "Type", type: "select", options: ["Phone case", "Charger", "Power bank", "Cable", "Screen protector", "Laptop sleeve"], filter: true },
+      {
+        key: "type",
+        label: "Type",
+        type: "select",
+        options: ["Phone case", "Charger", "Power bank", "Cable", "Screen protector", "Laptop sleeve"],
+        filter: true,
+      },
       { key: "fits", label: "Fits", type: "text", placeholder: "e.g. iPhone 12, USB-C laptops" },
       brand(["Apple", "Samsung", "Oraimo", "Anker"]),
     ],
@@ -97,7 +121,13 @@ export const baseCategories: CategoryDef[] = [
     blurb: "Scientific, graphing, basic",
     cover: unsplash("1611125832047-1d7ad1e8e48f", 800),
     attributes: [
-      { key: "model", label: "Model", type: "select", options: ["Casio fx-991ES Plus", "Casio fx-991EX", "Casio fx-82MS", "TI-84 Plus", "Basic", "Desk calculator"], filter: true },
+      {
+        key: "model",
+        label: "Model",
+        type: "select",
+        options: ["Casio fx-991ES Plus", "Casio fx-991EX", "Casio fx-82MS", "TI-84 Plus", "Basic", "Desk calculator"],
+        filter: true,
+      },
       { key: "exam", label: "Allowed in exams", type: "boolean", filter: true },
       { key: "power", label: "Power", type: "select", options: ["Solar and battery", "Battery", "Solar"] },
     ],
@@ -109,7 +139,13 @@ export const baseCategories: CategoryDef[] = [
     blurb: "Textbooks, novels, course packs",
     cover: unsplash("1497633762265-9d179a990aa6", 800),
     attributes: [
-      { key: "subject", label: "Subject", type: "select", options: ["Maths", "Computer Science", "Business", "Engineering", "Economics", "Humanities", "Fiction"], filter: true },
+      {
+        key: "subject",
+        label: "Subject",
+        type: "select",
+        options: ["Maths", "Computer Science", "Business", "Engineering", "Economics", "Humanities", "Fiction"],
+        filter: true,
+      },
       { key: "course", label: "Course code", type: "text", placeholder: "e.g. MATH 141" },
       { key: "author", label: "Author", type: "text" },
       { key: "edition", label: "Edition", type: "text" },
@@ -138,8 +174,20 @@ export const baseCategories: CategoryDef[] = [
     blurb: "Rings, bracelets, necklaces",
     cover: unsplash("1611591437281-460bfbe1220a", 800),
     attributes: [
-      { key: "type", label: "Type", type: "select", options: ["Ring", "Bracelet", "Necklace", "Earrings", "Watch", "Anklet"], filter: true },
-      { key: "material", label: "Material", type: "select", options: ["Gold-plated", "Sterling silver", "Stainless steel", "Beads", "Leather"], filter: true },
+      {
+        key: "type",
+        label: "Type",
+        type: "select",
+        options: ["Ring", "Bracelet", "Necklace", "Earrings", "Watch", "Anklet"],
+        filter: true,
+      },
+      {
+        key: "material",
+        label: "Material",
+        type: "select",
+        options: ["Gold-plated", "Sterling silver", "Stainless steel", "Beads", "Leather"],
+        filter: true,
+      },
       { key: "size", label: "Size", type: "text", placeholder: "e.g. Ring size 7" },
       { key: "handmade", label: "Handmade", type: "boolean", filter: true },
     ],
@@ -193,7 +241,13 @@ export const baseCategories: CategoryDef[] = [
     blurb: "Fridges, bedding, furniture",
     cover: unsplash("1571175443880-49e1d25b2bc5", 800),
     attributes: [
-      { key: "type", label: "Type", type: "select", options: ["Appliance", "Furniture", "Bedding", "Lighting", "Kitchen", "Decor"], filter: true },
+      {
+        key: "type",
+        label: "Type",
+        type: "select",
+        options: ["Appliance", "Furniture", "Bedding", "Lighting", "Kitchen", "Decor"],
+        filter: true,
+      },
       { key: "brand", label: "Brand", type: "text" },
       { key: "size", label: "Size", type: "text", placeholder: "e.g. 90 litres, single bed" },
     ],
@@ -230,7 +284,10 @@ export function makeCustomCategory(label: string): CategoryDef {
 
 export const fallbackCategory = (id: string): CategoryDef => ({
   id,
-  label: id.replace(/^c-/, "").replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()),
+  label: id
+    .replace(/^c-/, "")
+    .replace(/-/g, " ")
+    .replace(/^\w/, (c) => c.toUpperCase()),
   icon: "Shapes",
   blurb: "",
   attributes: [],
