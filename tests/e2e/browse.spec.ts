@@ -30,8 +30,9 @@ test("category filters narrow results and live in the URL", async ({ page }) => 
 
   // Removing chips widens again.
   await page.getByRole("button", { name: "Clear all" }).click();
-  await expect(cards(page).first()).toBeVisible();
-  expect(await cards(page).count()).toBeGreaterThanOrEqual(all);
+  // Wait for the URL to drop the filters, then for the grid to catch up (slower on CI).
+  await expect(page).not.toHaveURL(/f\./);
+  await expect.poll(() => cards(page).count()).toBeGreaterThanOrEqual(all);
 });
 
 test("switching category drops filters that don't apply", async ({ page }) => {
