@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getListing, listings, type Listing } from "@/lib/data";
+import { getListing, listings, type Listing } from "@hilltop/shared/seed";
 import * as M from "@/lib/model";
 import type { State } from "@/lib/types";
 

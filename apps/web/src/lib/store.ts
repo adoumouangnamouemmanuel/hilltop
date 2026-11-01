@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
-import { getListing, listings as seedListings, type Listing, type ListingStatus } from "./data";
+import { getListing, type Listing, type ListingStatus } from "./data";
+import { useMarket } from "./use-market";
 import { runtimeConfig, useConfig } from "./config";
 import { withExpiry } from "@hilltop/shared/ranking";
 import * as M from "./model";
@@ -9,6 +10,7 @@ import { showSystemNotification } from "./push";
 import { toast } from "./toast";
 import type { PaymentPlan } from "@hilltop/shared/payments";
 import { signOutEverywhere } from "./auth";
+import { supabase } from "./supabase";
 import type { DisputeReason, Review, SavedSearch, State, User } from "./types";
 
 /*
@@ -24,6 +26,8 @@ const initialState = M.seedState();
 let state: State = initialState;
 let loaded = false;
 const listeners = new Set<() => void>();
+// Listings whose view was counted in this tab.
+const counted = new Set<string>();
 
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -240,14 +244,25 @@ export const actions = {
   },
   recordView(id: string) {
     if (state.recentlyViewed[0] !== id) commit((s) => M.recordView(s, id));
+    if (!counted.has(id)) {
+      counted.add(id);
+      supabase()
+        ?.from("listing_views")
+        .insert({ listing_id: id })
+        .then(() => {});
+    }
   },
 };
 
 export function useStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const market = useMarket();
   const { expiryDays } = useConfig().listings;
   // Expiry is derived from the configured window, so changing it in the admin applies at once.
-  const allListings = useMemo(() => withExpiry(M.mergeListings(seedListings, snapshot), expiryDays), [snapshot, expiryDays]);
+  const allListings = useMemo(
+    () => withExpiry(M.mergeListings(market.listings, snapshot), expiryDays),
+    [market.listings, snapshot, expiryDays],
+  );
   const myListings = useMemo(() => withExpiry(snapshot.myListings, expiryDays), [snapshot.myListings, expiryDays]);
   const activeListings = useMemo(() => allListings.filter(M.isActive), [allListings]);
   return { ...snapshot, ...actions, myListings, allListings, activeListings };

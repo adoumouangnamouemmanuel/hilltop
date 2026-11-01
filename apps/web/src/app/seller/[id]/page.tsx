@@ -3,12 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock, GraduationCap, Package } from "lucide-react";
 import { getSeller, getSellerReviews } from "@/lib/api";
-import { sellers } from "@/lib/data";
+import { getMarket } from "@/lib/market-server";
 import { Avatar, Verified } from "@/components/ui";
 import { SellerListings, SellerRating, SellerReviews } from "./seller-live";
 
-export function generateStaticParams() {
-  return sellers.map((s) => ({ id: s.id }));
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  return (await getMarket()).sellers.map((s) => ({ id: s.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/seller/[id]">): Promise<Metadata> {
@@ -17,7 +19,8 @@ export async function generateMetadata({ params }: PageProps<"/seller/[id]">): P
   return seller
     ? {
         title: seller.name,
-        description: `${seller.shop ? `${seller.shop} by ` : ""}${seller.name}: ${seller.specialty.toLowerCase()} on Hilltop. ${seller.sales} items sold, rated ${seller.rating}.`,
+        description:
+          `${seller.shop ? `${seller.shop} by ` : ""}${seller.name}: ${seller.specialty.toLowerCase()} on Hilltop. ${seller.reviews ? `${seller.sales} items sold, rated ${seller.rating}.` : ""}`.trim(),
       }
     : { title: "Seller" };
 }
@@ -26,7 +29,7 @@ export default async function SellerPage({ params }: PageProps<"/seller/[id]">) 
   const { id } = await params;
   const seller = await getSeller(id);
   if (!seller) notFound();
-  const reviews = await getSellerReviews(id);
+  const reviews = await getSellerReviews(seller);
 
   return (
     <div className="container-page pt-6 sm:pt-8">

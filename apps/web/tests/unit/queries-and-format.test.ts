@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { baseCategories, fallbackCategory, findCategory, slugify } from "@/lib/catalog";
-import { getListing, listings } from "@/lib/data";
+import { getListing, listings } from "@hilltop/shared/seed";
 import { beforeCutoff, discountPercent, formatCedi, formatClock, protectionFee, relativeTime } from "@/lib/format";
 import { paginate, queryListings } from "@/lib/queries";
 import { factsFor, sellerFor, specsFor } from "@/lib/specs";

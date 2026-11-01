@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { baseCategories, findCategory } from "@/lib/catalog";
-import { listings, type Listing } from "@/lib/data";
+import { listings, type Listing } from "@hilltop/shared/seed";
 import {
   applyFilters,
   attributeFacet,

@@ -8,7 +8,7 @@ import { Check, Loader2, Plus, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { enabledBoostPlans } from "@hilltop/shared/config";
-import { listings as seedListings } from "@/lib/data";
+import { useMarket } from "@/lib/use-market";
 import { useConfig } from "@/lib/config";
 import { formatCedi } from "@/lib/format";
 import { isActive } from "@/lib/model";
@@ -61,15 +61,16 @@ export function SellForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedId, reset]);
 
+  const market = useMarket();
   const guide = useMemo(() => {
     if (!values.category) return null;
-    const prices = seedListings
+    const prices = market.listings
       .filter((l) => l.category === values.category)
       .map((l) => l.price)
       .sort((a, b) => a - b);
     if (prices.length < 3) return null;
     return { low: prices[Math.floor(prices.length * 0.25)], high: prices[Math.floor(prices.length * 0.75)] };
-  }, [values.category]);
+  }, [values.category, market.listings]);
 
   if (!user) {
     return (

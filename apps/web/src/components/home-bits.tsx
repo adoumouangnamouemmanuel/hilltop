@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { activity } from "@/lib/data";
+import { postedLabel } from "@hilltop/shared/format";
+import { useListings } from "@/lib/use-listings";
+import { useMarket } from "@/lib/use-market";
 import { useCatalog } from "@/lib/use-catalog";
 import { CategoryIcon } from "./category-icon";
 import { Avatar } from "./ui";
@@ -37,8 +39,16 @@ export function RotatingWord() {
   );
 }
 
-/** Live-feeling activity marquee. Pauses on hover. */
+/** The newest listings as a marquee. Pauses on hover; hidden until there's enough to show. */
 export function ActivityTicker() {
+  const { sellers } = useMarket();
+  const recent = useListings({ sort: "newest", limit: 8 });
+  const activity = recent.map((l) => ({
+    who: sellers.find((s) => s.id === l.sellerId)?.name.split(" ")[0] ?? "A student",
+    what: `listed ${l.title}`,
+    when: postedLabel(l.postedDaysAgo).toLowerCase(),
+  }));
+  if (activity.length < 4) return null;
   const items = [...activity, ...activity];
   return (
     <div className="group relative overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)] py-1">

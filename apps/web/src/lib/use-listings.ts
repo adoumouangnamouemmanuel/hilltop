@@ -1,18 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { registerListingSource } from "./api";
-import { listings as seedListings } from "./data";
-import { mergeListings } from "./model";
 import { queryListings, type ListingQuery } from "./queries";
-import { readState, useStore } from "./store";
-import { runtimeConfig } from "./config";
-import { withExpiry } from "@hilltop/shared/ranking";
+import { useStore } from "./store";
 
-// In the browser, API reads include the user's own listings and changes.
-registerListingSource(() => withExpiry(mergeListings(seedListings, readState()), runtimeConfig().listings.expiryDays));
-
-/** Client counterpart of api.getListings, live-updating as the user acts. */
+/** Client counterpart of api.getListings, live-updating as the market refreshes and the user acts. */
 export function useListings(q: ListingQuery = {}) {
   const { allListings } = useStore();
   const key = JSON.stringify(q);

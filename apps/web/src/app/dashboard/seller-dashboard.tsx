@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, ChevronUp, Lightbulb, Plus, ThumbsUp, TriangleAlert } from "lucide-react";
 import { listingStats, median, sellerInsights, sellerSummary, type ListingStats, type Period } from "@/lib/analytics";
 import { useConfig } from "@/lib/config";
-import { listings as seedListings } from "@/lib/data";
+import { useMarket } from "@/lib/use-market";
 import { formatCedi } from "@/lib/format";
 import { useNow } from "@/lib/hooks";
 import { isActive } from "@/lib/model";
@@ -33,14 +33,15 @@ export function SellerDashboard() {
   const sales = useMemo(() => orders.filter((o) => o.role === "selling"), [orders]);
   const summary = useMemo(() => (now ? sellerSummary(myListings, sales, now, period) : null), [myListings, sales, now, period]);
   const stats = useMemo(() => listingStats(myListings, sales), [myListings, sales]);
+  const market = useMarket();
   const insights = useMemo(() => {
     const medians = new Map<string, number | null>();
     const byCategory = (id: string) => {
-      if (!medians.has(id)) medians.set(id, median(seedListings.filter((l) => l.category === id).map((l) => l.price)));
+      if (!medians.has(id)) medians.set(id, median(market.listings.filter((l) => l.category === id).map((l) => l.price)));
       return medians.get(id) ?? null;
     };
     return sellerInsights(myListings, byCategory);
-  }, [myListings]);
+  }, [myListings, market.listings]);
 
   if (!user) {
     return (

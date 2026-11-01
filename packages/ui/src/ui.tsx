@@ -61,7 +61,11 @@ export function Verified({ className, label = false }: { className?: string; lab
   );
 }
 
+/** A star rating. Sellers without reviews yet show "New" rather than a zero. */
 export function Rating({ value, count, className }: { value: number; count?: number; className?: string }) {
+  if (!value || count === 0) {
+    return <span className={clsx("inline-flex items-center text-[13px] font-medium text-ink-700", className)}>New</span>;
+  }
   return (
     <span className={clsx("inline-flex items-center gap-1 tabular", className)}>
       <Star className="size-3.5 fill-ink-900 text-ink-900" aria-hidden />

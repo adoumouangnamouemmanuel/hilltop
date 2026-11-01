@@ -376,6 +376,27 @@ export type Database = {
           },
         ];
       };
+      listing_views: {
+        Row: {
+          listing_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          listing_id: string;
+        };
+        Update: {
+          listing_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "listing_views_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       listings: {
         Row: {
           attributes: NonNullable<Json>;
@@ -728,10 +749,12 @@ export type Database = {
           claim_email: string | null;
           class_of: number | null;
           created_at: string;
+          handle: string;
           id: string;
           major: string | null;
           name: string;
           response_time: string | null;
+          sales: number;
           shop_name: string | null;
           specialty: string | null;
           status: Database["public"]["Enums"]["user_status"];
@@ -744,10 +767,12 @@ export type Database = {
           claim_email?: string | null;
           class_of?: number | null;
           created_at?: string;
+          handle: string;
           id?: string;
           major?: string | null;
           name: string;
           response_time?: string | null;
+          sales?: number;
           shop_name?: string | null;
           specialty?: string | null;
           status?: Database["public"]["Enums"]["user_status"];
@@ -759,10 +784,12 @@ export type Database = {
           claim_email?: string | null;
           class_of?: number | null;
           created_at?: string;
+          handle?: string;
           id?: string;
           major?: string | null;
           name?: string;
           response_time?: string | null;
+          sales?: number;
           shop_name?: string | null;
           specialty?: string | null;
           status?: Database["public"]["Enums"]["user_status"];

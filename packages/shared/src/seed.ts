@@ -8,7 +8,10 @@ export type PickupSpot = string;
 export type AttrValue = string | number | boolean;
 
 export type Seller = {
+  /** Public handle, used in URLs (/seller/wellington). */
   id: string;
+  /** Database id, when the seller comes from the database. */
+  profileId?: string;
   name: string;
   /** Business name, e.g. "Eyecon", shown alongside the seller's name. */
   shop?: string;

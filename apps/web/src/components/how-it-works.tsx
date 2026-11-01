@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Lock, MapPin, Search, Star } from "lucide-react";
-import { getListing } from "@/lib/data";
+// Sample items for the illustration, not live listings.
+import { getListing } from "@hilltop/shared/seed";
 import { formatCedi } from "@/lib/format";
 import { Confetti } from "./confetti";
 import { cn } from "./ui";

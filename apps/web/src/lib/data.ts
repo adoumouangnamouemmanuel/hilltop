@@ -1,2 +1,7 @@
-// Seed data and listing types live in the shared package so the admin portal uses the same records.
-export * from "@hilltop/shared/seed";
+// Listing and seller types are shared with the admin portal. The records themselves
+// come from the database (see market.ts).
+export type { AttrValue, Condition, FoodOrdering, Listing, ListingStatus, PickupSpot, Seller } from "@hilltop/shared/seed";
+import { findMarketListing, findSeller } from "./market";
+
+export const getListing = findMarketListing;
+export const getSeller = findSeller;

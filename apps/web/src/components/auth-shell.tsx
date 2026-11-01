@@ -5,7 +5,8 @@ import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Lock, Loader2, MapPin } from "lucide-react";
-import { getListing } from "@/lib/data";
+// Sample items for the illustration, not live listings.
+import { getListing } from "@hilltop/shared/seed";
 import { formatCedi } from "@/lib/format";
 import { Logo, LogoMark } from "./logo";
 import { ThemeToggle } from "./theme-toggle";

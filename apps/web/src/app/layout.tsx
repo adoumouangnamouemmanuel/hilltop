@@ -7,6 +7,7 @@ import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/toaster";
 import { getPlatformConfig } from "@/lib/config-server";
+import { getMarket } from "@/lib/market-server";
 import { protectionSummary } from "@hilltop/shared/payments";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
@@ -36,7 +37,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const config = await getPlatformConfig();
+  const [config, market] = await Promise.all([getPlatformConfig(), getMarket()]);
   return (
     // The theme class is set by the inline script before hydration.
     <html lang="en" className={`${poppins.variable} h-full antialiased`} suppressHydrationWarning>
@@ -44,7 +45,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <Providers config={config}>
+        <Providers config={config} market={market}>
           <Announcement />
           <Header />
           <main id="main" className="flex-1 pb-28 md:pb-0">

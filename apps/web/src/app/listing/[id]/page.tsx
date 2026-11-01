@@ -1,13 +1,16 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getListing, getSeller } from "@/lib/api";
+import { getMarket } from "@/lib/market-server";
 import { baseCategories, findCategory } from "@/lib/catalog";
-import { listings as seedListings } from "@/lib/data";
 import { formatCedi } from "@/lib/format";
 import { ListingDetail } from "./listing-detail";
 
-export function generateStaticParams() {
-  return seedListings.map((l) => ({ id: l.id }));
+// Listings are regenerated every minute; new ones render on first visit.
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  return (await getMarket()).listings.map((l) => ({ id: l.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/listing/[id]">): Promise<Metadata> {

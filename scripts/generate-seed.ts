@@ -44,7 +44,7 @@ const bootstrap =
 
 const profileRows = sellers.map(
   (s) =>
-    `  (${sellerId(s.id)}, ${text(s.name)}, ${text(s.shop ?? null)}, ${text(s.specialty)}, ${num(s.classOf)}, ${text(s.major ?? null)}, ${text(s.responseTime)}, true)`,
+    `  (${sellerId(s.id)}, ${text(s.id)}, ${text(s.name)}, ${text(s.shop ?? null)}, ${text(s.specialty)}, ${num(s.classOf)}, ${text(s.major ?? null)}, ${text(s.responseTime)}, true, ${num(s.sales)})`,
 );
 
 const listingRows = listings.map((l) => {
@@ -56,7 +56,7 @@ const photoRows = listings.flatMap((l) => l.images.map((url, i) => `  (${text(l.
 
 const seed =
   header("Demo data for local development: the Ashesi sellers and their listings.") +
-  `insert into public.profiles (id, name, shop_name, specialty, class_of, major, response_time, verified) values\n` +
+  `insert into public.profiles (id, handle, name, shop_name, specialty, class_of, major, response_time, verified, sales) values\n` +
   profileRows.join(",\n") +
   `\non conflict (id) do nothing;\n\n` +
   `insert into public.listings (id, seller_id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, promoted_until, status, posted_at, views, saves) values\n` +

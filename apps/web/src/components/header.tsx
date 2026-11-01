@@ -18,7 +18,7 @@ import {
   Search,
   Store,
 } from "lucide-react";
-import { getListing } from "@/lib/data";
+import campusGardens from "@/assets/campus/campus-gardens.jpg";
 import { useDismiss, useOnNavigate } from "@/lib/hooks";
 import { dateRange } from "@hilltop/shared/config";
 import { useConfig } from "@/lib/config";
@@ -161,7 +161,6 @@ function onGridKeys(e: React.KeyboardEvent<HTMLElement>, onEscape: () => void) {
 function MegaMenu({ onClose }: { onClose: (returnFocus?: boolean) => void }) {
   const { categories, counts } = useCatalog();
   const sale = useConfig().events.moveOut;
-  const feature = getListing("study-table")!;
   return (
     <motion.div
       id="mega-menu"
@@ -203,10 +202,11 @@ function MegaMenu({ onClose }: { onClose: (returnFocus?: boolean) => void }) {
             className="group relative overflow-hidden rounded-2xl bg-maroon-800 p-5 text-white"
           >
             <Image
-              src={feature.images[0]}
+              src={campusGardens}
               alt=""
               fill
               sizes="280px"
+              placeholder="blur"
               className="object-cover opacity-40 transition-transform duration-700 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-maroon-900 via-maroon-900/40 to-transparent" />
