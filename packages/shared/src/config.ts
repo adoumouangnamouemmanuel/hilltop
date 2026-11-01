@@ -251,7 +251,18 @@ export function diffConfig(a: unknown, b: unknown, path: string[] = []): string[
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     return [...keys].flatMap((k) => (k === "version" || k === "publishedAt" ? [] : diffConfig(a[k], b[k], [...path, k])));
   }
-  return JSON.stringify(a) === JSON.stringify(b) ? [] : [path.join(".")];
+  return deepEqual(a, b) ? [] : [path.join(".")];
+}
+
+/** Structural equality that ignores object key order and treats missing keys as undefined. */
+export function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => deepEqual(x, b[i]));
+  if (isPlain(a) && isPlain(b)) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    return [...keys].every((k) => deepEqual(a[k], b[k]));
+  }
+  return false;
 }
 
 /** "4%" or "3.5%" from a rate like 0.04. */

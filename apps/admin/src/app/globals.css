@@ -1,0 +1,4 @@
+@import "tailwindcss";
+/* Same design tokens as the marketplace. */
+@import "../../../../packages/ui/src/styles.css";
+@source "../../../../packages/ui/src";
