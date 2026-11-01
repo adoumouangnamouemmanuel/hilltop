@@ -12,6 +12,8 @@ import type { PaymentPlan } from "@hilltop/shared/payments";
 import { signOutEverywhere } from "./auth";
 import { supabase } from "./supabase";
 import * as Mine from "./mine";
+import * as Social from "./social";
+import { getSeller } from "./data";
 import type { DisputeReason, Review, SavedSearch, State, User } from "./types";
 
 /*
@@ -60,12 +62,13 @@ function persist() {
   }
 }
 
-function commit(update: (s: State) => State) {
+/** Applies a change. `silent` skips system notifications, for loading what was already there. */
+function commit(update: (s: State) => State, silent = false) {
   const before = new Set(state.notifications.map((n) => n.id));
   state = update(state);
   persist();
   listeners.forEach((l) => l());
-  for (const n of state.notifications) if (!before.has(n.id)) showSystemNotification(n);
+  if (!silent) for (const n of state.notifications) if (!before.has(n.id) && !n.read) showSystemNotification(n);
 }
 
 let releaseTimer: ReturnType<typeof setInterval> | null = null;
@@ -77,17 +80,28 @@ function releaseDue() {
   if (next !== state) commit(() => next);
 }
 
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+const POLL_MS = 20_000;
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   if (!releaseTimer) {
     releaseDue();
     releaseTimer = setInterval(releaseDue, 60_000);
   }
+  if (!pollTimer) {
+    // Realtime brings changes at once; this catches anything it misses.
+    pollTimer = setInterval(() => document.visibilityState === "visible" && refreshSocial(), POLL_MS);
+  }
   return () => {
     listeners.delete(listener);
     if (!listeners.size && releaseTimer) {
       clearInterval(releaseTimer);
       releaseTimer = null;
+    }
+    if (!listeners.size && pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
     }
   };
 }
@@ -111,13 +125,40 @@ export function resetDemo() {
 }
 
 // The signed-in student's own data starts empty and is loaded from the database.
-const noMine: Pick<State, "myListings" | "saved" | "savedSearches" | "reports"> = {
-  myListings: [],
-  saved: [],
-  savedSearches: [],
-  reports: [],
-};
+const noMine: Pick<
+  State,
+  "myListings" | "saved" | "savedSearches" | "reports" | "conversations" | "offers" | "incomingOffers" | "notifications"
+> = { myListings: [], saved: [], savedSearches: [], reports: [], conversations: [], offers: {}, incomingOffers: [], notifications: [] };
 let mineLoadedFor: string | null = null;
+let socialLoadedFor: string | null = null;
+let stopWatching: (() => void) | null = null;
+
+/** Reloads conversations, offers and notifications. The first load for an account doesn't pop up notifications. */
+async function refreshSocial() {
+  const profileId = state.user?.profileId;
+  if (!profileId) return;
+  const social = await Social.loadSocial(profileId);
+  if (!social || state.user?.profileId !== profileId) return;
+  const first = socialLoadedFor !== profileId;
+  socialLoadedFor = profileId;
+  commit((s) => ({ ...s, ...social }), first);
+}
+
+let pending: ReturnType<typeof setTimeout> | null = null;
+/** Coalesces bursts of live events into one reload. */
+function refreshSocialSoon() {
+  if (pending) clearTimeout(pending);
+  pending = setTimeout(() => {
+    pending = null;
+    refreshSocial();
+  }, 300);
+}
+
+function watch(profileId: string | undefined) {
+  stopWatching?.();
+  stopWatching = null;
+  if (profileId) stopWatching = Social.watchSocial(profileId, refreshSocialSoon);
+}
 
 /** Reloads the student's listings, saved items, searches and reports from the database. */
 async function refreshMine() {
@@ -145,14 +186,21 @@ export const actions = {
   setUser(user: User | null) {
     const switched = state.user?.profileId !== user?.profileId;
     const same = !switched && state.user?.email === user?.email && state.user?.name === user?.name;
-    if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}) }));
-    if (switched) mineLoadedFor = null;
+    if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}) }), true);
+    if (switched) {
+      mineLoadedFor = null;
+      socialLoadedFor = null;
+      watch(user?.profileId);
+    }
     if (user?.profileId && mineLoadedFor !== user.profileId) refreshMine();
+    if (user?.profileId && socialLoadedFor !== user.profileId) refreshSocial();
   },
   refreshMine,
+  refreshSocial,
   async signOut() {
     await signOutEverywhere();
-    commit((s) => ({ ...s, user: null, ...noMine }));
+    watch(undefined);
+    commit((s) => ({ ...s, user: null, ...noMine }), true);
   },
   toggleSaved(id: string) {
     const saving = !state.saved.includes(id);
@@ -229,22 +277,36 @@ export const actions = {
     Mine.deleteListingRemote(id).then(failed);
   },
 
-  // Offers: the seller answers a few seconds later.
-  makeOffer(listing: Listing, amount: number) {
-    commit((s) => M.makeOffer(s, listing.id, amount, Date.now()));
-    setTimeout(
-      () =>
-        commit((s) => M.answerOffer(s, listing, M.wouldAccept(amount, listing.price, runtimeConfig().offers.autoAcceptRatio), Date.now())),
-      4000,
-    );
+  // Offers: the seller is notified and answers from the listing page.
+  async makeOffer(listing: Listing, amount: number) {
+    const profileId = me();
+    if (!profileId) return "Sign in to make an offer.";
+    const error = await Social.makeOfferRemote(profileId, listing.id, amount);
+    if (!error) commit((s) => M.makeOffer(s, listing.id, amount, Date.now()));
+    return error;
+  },
+  async answerOffer(offerId: string, accepted: boolean) {
+    commit((s) => ({
+      ...s,
+      incomingOffers: s.incomingOffers?.map((o) => (o.id === offerId ? { ...o, status: accepted ? "accepted" : "declined" } : o)),
+    }));
+    const error = await Social.answerOfferRemote(offerId, accepted);
+    if (error) toast(error);
+    refreshSocial();
+    return error;
   },
 
-  // Messages: the seller replies after a short pause.
-  sendMessage(listing: Listing, sellerName: string, text: string) {
-    const conversationId = M.conversationIdFor(listing.id);
+  // Messages. `conversationId` is known when replying in the inbox.
+  async sendMessage(listing: Listing, sellerName: string, text: string, conversationId?: string) {
+    const profileId = me();
+    if (!profileId) return null;
+    const existing =
+      state.conversations.find((c) => c.id === conversationId) ??
+      state.conversations.find((c) => c.listingId === listing.id && c.role !== "selling");
+    const tempId = existing?.id ?? uid("c");
     commit((s) =>
       M.sendMessage(s, {
-        conversationId,
+        conversationId: tempId,
         listingId: listing.id,
         sellerId: listing.sellerId,
         sellerName,
@@ -253,19 +315,38 @@ export const actions = {
         now: Date.now(),
       }),
     );
-    setTimeout(() => commit((s) => M.receiveMessage(s, conversationId, M.autoReply(text), uid("m"), Date.now())), 1800);
-    return conversationId;
+    const result = await Social.sendMessageRemote(
+      profileId,
+      { id: listing.id, sellerProfileId: getSeller(listing.sellerId)?.profileId ?? "" },
+      existing?.id,
+      text,
+    );
+    if ("error" in result) {
+      toast(result.error);
+      refreshSocial();
+      return null;
+    }
+    // A new conversation gets its real id.
+    if (result.conversationId !== tempId) {
+      commit((s) => ({ ...s, conversations: s.conversations.map((c) => (c.id === tempId ? { ...c, id: result.conversationId } : c)) }));
+    }
+    return result.conversationId;
   },
   readConversation(id: string) {
-    if (state.conversations.find((c) => c.id === id)?.unread) commit((s) => M.readConversation(s, id));
+    if (!state.conversations.find((c) => c.id === id)?.unread) return;
+    commit((s) => M.readConversation(s, id));
+    const profileId = me();
+    if (profileId) Social.readConversationRemote(profileId, id);
   },
 
   // Notifications
   markAllRead() {
     commit(M.markAllRead);
+    Social.markReadRemote();
   },
   markRead(id: string) {
     commit((s) => M.markRead(s, id));
+    Social.markReadRemote(id);
   },
 
   // Search

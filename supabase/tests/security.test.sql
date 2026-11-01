@@ -205,5 +205,38 @@ select is((select views from public.listings where id = 'stu-one'), 1, 'a view b
 select is((select views from public.listings where id = 'stu-three'), 0, 'views only count on live listings');
 select is((select count(*)::int from public.listing_views), 0, 'view rows are never stored');
 
+-- Offers, messages and notifications ----------------------------------------------------
+select set_config('test.wellington', md5('seller:wellington')::text, true);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select throws_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx82', current_setting('test.stu')::uuid, 10)$$,
+  '23514', null, 'offers far below the price are refused');
+select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx82', current_setting('test.stu')::uuid, 60)$$,
+  'a student can make an offer');
+select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx82', current_setting('test.stu')::uuid, 65)$$,
+  'a new offer replaces the pending one');
+select lives_ok($$insert into public.conversations (listing_id, buyer_id, seller_id)
+  values ('casio-fx82', current_setting('test.stu')::uuid, current_setting('test.wellington')::uuid)$$,
+  'a student can start a conversation');
+select lives_ok($$insert into public.messages (conversation_id, sender_id, body)
+  select id, current_setting('test.stu')::uuid, 'Still available?' from public.conversations where listing_id = 'casio-fx82'$$,
+  'a student can message a seller');
+select is((select count(*)::int from public.notifications where profile_id <> current_setting('test.stu')::uuid), 0,
+  'students only see their own notifications');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
+select is((select count(*)::int from public.notifications where href = '/listing/casio-fx82'), 2, 'the seller is told about each offer');
+select is((select count(*)::int from public.notifications where kind = 'message' and body = 'Still available?'), 1, 'the seller is told about the message');
+select lives_ok($$update public.offers set status = 'accepted' where listing_id = 'casio-fx82' and status = 'pending'$$,
+  'the seller can accept an offer');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select ok(exists (select 1 from public.notifications where title = 'Offer accepted' and href = '/listing/casio-fx82'),
+  'the buyer is told the offer was accepted');
+select is((select count(*)::int from public.offers where listing_id = 'casio-fx82' and status = 'withdrawn'), 1, 'the replaced offer was withdrawn');
+reset role;
+
 select * from finish();
 rollback;

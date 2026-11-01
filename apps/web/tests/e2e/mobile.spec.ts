@@ -12,14 +12,20 @@ test("mobile filter sheet opens, filters and closes", async ({ page }) => {
   await expect(page.locator("main article")).toHaveCount(1);
 });
 
-test("chat with a seller from the inbox", async ({ page }) => {
-  await signIn(page, "/inbox");
-  await page.getByRole("button", { name: /Suzie Agatha/ }).click();
-  await page.getByLabel("Message Suzie Agatha").fill("Can we meet today?");
-  await page.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(page.getByText("Can we meet today?").last()).toBeVisible();
-  // The demo seller replies a moment later.
-  await expect(page.getByText(/Library entrance around 4pm/).last()).toBeVisible();
+test("message a seller from a listing, then continue in the inbox", async ({ page }) => {
+  await signIn(page, "/listing/casio-fx991", "buyer");
+  await page.getByRole("button", { name: "Message" }).click();
+  const note = `Is it still available? ${Date.now()}`;
+  await page.getByLabel(/Message to Wellington/).fill(note);
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText("Message sent").first()).toBeVisible();
+
+  await page.goto("/inbox");
+  await page
+    .getByRole("button", { name: /Wellington/ })
+    .first()
+    .click();
+  await expect(page.getByText(note).last()).toBeVisible();
 });
 
 test("no horizontal scrolling on key pages", async ({ page }) => {

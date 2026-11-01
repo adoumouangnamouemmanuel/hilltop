@@ -13,7 +13,7 @@ import { useNow } from "@/lib/hooks";
 import { isActive, isSoldOut } from "@/lib/model";
 import { useStore } from "@/lib/store";
 import { buttonClass, cn } from "@/components/ui";
-import { MessagePanel, OfferPanel } from "./panels";
+import { IncomingOffers, MessagePanel, OfferPanel } from "./panels";
 
 export type Panel = "offer" | "message" | null;
 
@@ -53,6 +53,7 @@ export function BuyBox({
           <Link href={`/sell?edit=${listing.id}`} className={buttonClass("outline", "md", "mt-4 w-full")}>
             Edit listing
           </Link>
+          <IncomingOffers listing={listing} />
         </div>
       ) : !available ? (
         <div className="text-center">

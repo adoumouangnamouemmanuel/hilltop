@@ -10,9 +10,13 @@ export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0
 export const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
 const mailpitUrl = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 
-/** The student the tests sign in as, and where their session is saved. */
-export const student = { email: "kofi.darko@ashesi.edu.gh", name: "Kofi Darko" };
-export const studentState = "tests/e2e/.auth/student.json";
+/** The students the tests sign in as, and where their sessions are saved. Kofi claims the seeded demo shop. */
+export const students = {
+  student: { email: "kofi.darko@ashesi.edu.gh", name: "Kofi Darko" },
+  buyer: { email: "esi.mensah@ashesi.edu.gh", name: "Esi Mensah" },
+} as const;
+export type Who = keyof typeof students;
+export const stateFile = (who: Who) => `tests/e2e/.auth/${who}.json`;
 
 /** Refuses to run against anything but a local Supabase, so tests never create real accounts. */
 export function assertLocal() {

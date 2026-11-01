@@ -5,12 +5,11 @@ import Link from "next/link";
 import { Check, Clock, MessageCircle, X } from "lucide-react";
 import type { Listing } from "@/lib/data";
 import { firstName, formatCedi } from "@/lib/format";
-import { conversationIdFor } from "@/lib/model";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { buttonClass, cn } from "@/components/ui";
 
-/** Offer form, then the offer's status once sent. Sellers answer a few seconds later in the demo. */
+/** Offer form, then the offer's status once sent. The seller is notified and answers from their listing. */
 export function OfferPanel({ listing, sellerName }: { listing: Listing; sellerName: string }) {
   const { offers, makeOffer } = useStore();
   const offer = offers[listing.id];
@@ -76,9 +75,9 @@ export function OfferPanel({ listing, sellerName }: { listing: Listing; sellerNa
         <button
           type="button"
           disabled={!amount || tooLow || amount >= price}
-          onClick={() => {
-            makeOffer(listing, amount);
-            toast(`Offer of ${formatCedi(amount)} sent`, { tone: "success" });
+          onClick={async () => {
+            const error = await makeOffer(listing, amount);
+            toast(error ?? `Offer of ${formatCedi(amount)} sent`, error ? undefined : { tone: "success" });
           }}
           className={buttonClass("dark", "md")}
         >
@@ -97,7 +96,7 @@ export function OfferPanel({ listing, sellerName }: { listing: Listing; sellerNa
 /** Starts or continues a conversation about this listing. */
 export function MessagePanel({ listing, sellerName }: { listing: Listing; sellerName: string }) {
   const { conversations, sendMessage } = useStore();
-  const existing = conversations.find((c) => c.id === conversationIdFor(listing.id));
+  const existing = conversations.find((c) => c.listingId === listing.id && c.role !== "selling");
   const quick = ["Is this still available?", "Can we meet today?", "Is the price negotiable?"];
   const [text, setText] = useState(`Hi ${firstName(sellerName)}, is this still available?`);
 
@@ -138,15 +137,53 @@ export function MessagePanel({ listing, sellerName }: { listing: Listing; seller
       <button
         type="button"
         disabled={!text.trim()}
-        onClick={() => {
-          const id = sendMessage(listing, sellerName, text.trim());
+        onClick={async () => {
+          const body = text.trim();
           setText("");
-          toast("Message sent", { tone: "success", action: { label: "Open chat", href: `/inbox?c=${id}` } });
+          const id = await sendMessage(listing, sellerName, body);
+          if (id) toast("Message sent", { tone: "success", action: { label: "Open chat", href: `/inbox?c=${id}` } });
+          else setText(body);
         }}
         className={buttonClass("dark", "md", "mt-2 w-full")}
       >
         Send message
       </button>
+    </div>
+  );
+}
+
+/** Offers buyers made on the seller's own listing, newest first, to accept or decline. */
+export function IncomingOffers({ listing }: { listing: Listing }) {
+  const { incomingOffers, answerOffer } = useStore();
+  const offers = (incomingOffers ?? []).filter((o) => o.listingId === listing.id && o.status !== "withdrawn");
+  if (!offers.length) return null;
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <p className="text-[13px] font-semibold text-ink-950">Offers</p>
+      <ul className="mt-2 space-y-2">
+        {offers.map((o) => (
+          <li key={o.id} className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5 text-[13px]">
+            <span className="min-w-0 flex-1">
+              <span className="font-medium text-ink-950">{formatCedi(o.amount)}</span>
+              <span className="text-ink-500"> from {firstName(o.buyerName)}</span>
+            </span>
+            {o.status === "pending" ? (
+              <>
+                <button type="button" onClick={() => answerOffer(o.id, false)} className={buttonClass("ghost", "sm")}>
+                  Decline
+                </button>
+                <button type="button" onClick={() => answerOffer(o.id, true)} className={buttonClass("dark", "sm")}>
+                  Accept
+                </button>
+              </>
+            ) : (
+              <span className={cn("text-xs font-medium", o.status === "accepted" ? "text-success" : "text-ink-500")}>
+                {o.status === "accepted" ? "Accepted" : "Declined"}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

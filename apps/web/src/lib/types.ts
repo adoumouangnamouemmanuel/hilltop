@@ -73,13 +73,25 @@ export type PayoutState = "held" | "released" | "refunded" | "frozen" | "direct"
 
 export type Offer = { amount: number; status: "pending" | "accepted" | "declined"; at: number };
 
-export type Message = { id: string; from: "me" | "them"; text: string; at: number };
+/** An offer someone made on one of your listings. */
+export type IncomingOffer = {
+  id: string;
+  listingId: string;
+  buyerName: string;
+  amount: number;
+  status: "pending" | "accepted" | "declined" | "withdrawn";
+  at: number;
+};
+
+export type Message = { id: string; from: "me" | "them"; text: string; at: number; read?: boolean };
 
 export type Conversation = {
   id: string;
   listingId: string;
+  /** The other person in the conversation (the seller, or the buyer when you're selling). */
   sellerId: string;
   sellerName: string;
+  role?: "buying" | "selling";
   messages: Message[];
   unread: number;
 };
@@ -129,6 +141,8 @@ export type State = {
   recentSearches: string[];
   recentlyViewed: string[];
   offers: Record<string, Offer>;
+  /** Offers on your listings, newest first. Older saved state may not have it. */
+  incomingOffers?: IncomingOffer[];
   /** Listings the user created, in any status. */
   myListings: Listing[];
   /** Changes to platform listings caused by the user's actions, e.g. stock after an order. */

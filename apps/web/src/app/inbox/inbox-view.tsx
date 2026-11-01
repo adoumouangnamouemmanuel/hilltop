@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowUp, Check, CheckCheck, ExternalLink, MessageCircle, Search, ShieldCheck } from "lucide-react";
 import { useConfig } from "@/lib/config";
-import { firstName, formatCedi } from "@/lib/format";
+import { formatCedi } from "@/lib/format";
 import { useBodyScrollLock, useMediaQuery } from "@/lib/hooks";
 import { findListing, useStore } from "@/lib/store";
 import type { Conversation, Message } from "@/lib/types";
@@ -212,7 +212,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
   const awaitingReply = convo.messages.at(-1)?.from === "me";
   const items = useMemo(() => groupMessages(convo.messages), [convo.messages]);
   const lastMine = [...convo.messages].reverse().find((m) => m.from === "me");
-  const seen = lastMine && convo.messages.some((m) => m.from === "them" && m.at > lastMine.at);
+  const seen = !!lastMine?.read || (!!lastMine && convo.messages.some((m) => m.from === "them" && m.at > lastMine.at));
 
   useEffect(() => {
     readConversation(convo.id);
@@ -225,7 +225,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
 
   function send(body: string) {
     if (!listing || !body.trim()) return;
-    sendMessage(listing, convo.sellerName, body.trim());
+    sendMessage(listing, convo.sellerName, body.trim(), convo.id);
     setText("");
     if (input.current) input.current.style.height = "";
   }
@@ -320,29 +320,6 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
                 </div>
               </motion.div>
             ),
-          )}
-          {awaitingReply && (
-            <motion.div
-              key="typing"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="mt-3 flex justify-start"
-            >
-              <span
-                className="flex gap-1 rounded-2xl rounded-bl-md bg-surface px-4 py-3"
-                aria-label={`${firstName(convo.sellerName)} is typing`}
-              >
-                {[0, 1, 2].map((i) => (
-                  <motion.span
-                    key={i}
-                    className="size-1.5 rounded-full bg-ink-400"
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
-                  />
-                ))}
-              </span>
-            </motion.div>
           )}
         </AnimatePresence>
       </div>

@@ -292,9 +292,17 @@ describe("recently viewed", () => {
 
 describe("notifications", () => {
   it("counts and clears unread", () => {
-    const s = seed();
+    const at = 1;
+    const s = M.notify(M.notify(seed(), { id: "n1", kind: "offer", title: "", body: "", href: "/", at }), {
+      id: "n2",
+      kind: "message",
+      title: "",
+      body: "",
+      href: "/",
+      at,
+    });
     expect(M.unreadCount(s)).toBe(2);
     expect(M.unreadCount(M.markAllRead(s))).toBe(0);
-    expect(M.unreadCount(M.markRead(s, "n-seed-1"))).toBe(1);
+    expect(M.unreadCount(M.markRead(s, "n1"))).toBe(1);
   });
 });
