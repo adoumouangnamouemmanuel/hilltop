@@ -16,15 +16,25 @@ import { CodeStep, safeNext } from "../sign-in/sign-in-flow";
 
 const years = [2026, 2027, 2028, 2029, 2030];
 const majors = [
-  "Computer Science",
-  "Business Administration",
-  "MIS",
-  "Economics",
-  "Computer Engineering",
-  "Electrical Engineering",
-  "Mechanical Engineering",
-  "Law",
-  "Other",
+  {
+    level: "Undergraduate",
+    options: [
+      "Business Administration",
+      "Management Information Systems",
+      "Computer Science",
+      "Economics",
+      "Computer Engineering",
+      "Electrical and Electronic Engineering",
+      "Mechanical Engineering",
+      "Mechatronic Engineering",
+      "Biological Engineering",
+      "Law with Public Policy",
+    ],
+  },
+  {
+    level: "Graduate",
+    options: ["Master's in Intelligent Computing Systems", "Master's in Mechatronic Engineering", "MBA"],
+  },
 ];
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
@@ -106,10 +116,11 @@ export function SignUpFlow() {
             Buy and sell with people from your campus. Takes a minute.
           </motion.p>
 
-          {config.access.allowSingleSignOn && schoolSignInAvailable() && (
+          {config.access.allowSingleSignOn && (
             <>
               <motion.div variants={item} className="mt-7">
                 <MicrosoftButton
+                  comingSoon={!schoolSignInAvailable()}
                   loading={busy === "sso"}
                   onClick={async () => {
                     setBusy("sso");
@@ -183,9 +194,14 @@ export function SignUpFlow() {
                   className={cn(field, "appearance-none border-line-strong pr-10", !major && "text-ink-400")}
                 >
                   <option value="">Choose your major</option>
-                  {majors.map((m) => (
-                    <option key={m}>{m}</option>
+                  {majors.map((group) => (
+                    <optgroup key={group.level} label={group.level}>
+                      {group.options.map((m) => (
+                        <option key={m}>{m}</option>
+                      ))}
+                    </optgroup>
                   ))}
+                  <option>Other</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-ink-400" aria-hidden />
               </div>

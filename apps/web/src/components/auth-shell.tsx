@@ -220,13 +220,15 @@ function Testimonials() {
 }
 
 /** Microsoft-style single sign-on button. Ashesi accounts live on Microsoft 365. */
-export function MicrosoftButton({ onClick, loading }: { onClick: () => void; loading: boolean }) {
+/** Ashesi single sign-on. Shown as "coming soon" until the school's identity provider is connected. */
+export function MicrosoftButton({ onClick, loading, comingSoon }: { onClick: () => void; loading: boolean; comingSoon?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
-      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line-strong bg-elevated text-[15px] font-medium text-ink-950 transition-colors hover:border-ink-950 disabled:opacity-60"
+      disabled={loading || comingSoon}
+      aria-describedby={comingSoon ? "sso-soon" : undefined}
+      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line-strong bg-elevated text-[15px] font-medium text-ink-950 transition-colors enabled:hover:border-ink-950 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading ? (
         <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -239,6 +241,11 @@ export function MicrosoftButton({ onClick, loading }: { onClick: () => void; loa
         </svg>
       )}
       Continue with Ashesi Microsoft
+      {comingSoon && (
+        <span id="sso-soon" className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-ink-500">
+          Coming soon
+        </span>
+      )}
     </button>
   );
 }

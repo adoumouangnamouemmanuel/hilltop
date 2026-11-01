@@ -83,10 +83,11 @@ export function SignInFlow() {
             Log in with your Ashesi account to buy and sell.
           </motion.p>
 
-          {config.access.allowSingleSignOn && schoolSignInAvailable() && (
+          {config.access.allowSingleSignOn && (
             <>
               <motion.div variants={item} className="mt-8">
                 <MicrosoftButton
+                  comingSoon={!schoolSignInAvailable()}
                   loading={busy === "sso"}
                   onClick={async () => {
                     setBusy("sso");
