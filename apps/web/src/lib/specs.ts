@@ -39,8 +39,7 @@ export function sellerFor(listing: Listing, userName?: string): Seller & { isMe:
   return {
     id: "me",
     name: userName ?? "You",
-    classOf: 2027,
-    major: "Ashesi student",
+    specialty: "Ashesi student",
     rating: 5,
     reviews: 0,
     sales: 0,

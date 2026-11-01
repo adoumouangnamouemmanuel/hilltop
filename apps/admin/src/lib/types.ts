@@ -23,8 +23,10 @@ export type AdminUser = {
   id: string;
   name: string;
   email: string;
-  classOf: number;
-  major: string;
+  /** What a seller sells; programme and class are optional profile details. */
+  specialty?: string;
+  classOf?: number;
+  major?: string;
   status: UserStatus;
   verified: boolean;
   joinedAt: number;
@@ -49,7 +51,8 @@ export type ModListing = {
   sellerId: string;
   sellerName: string;
   state: ListingState;
-  featured: boolean;
+  /** Paid boost by the seller. Featuring by the team lives in the platform config. */
+  promoted: boolean;
   views: number;
   saves: number;
   postedAt: number;

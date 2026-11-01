@@ -161,7 +161,7 @@ function onGridKeys(e: React.KeyboardEvent<HTMLElement>, onEscape: () => void) {
 function MegaMenu({ onClose }: { onClose: (returnFocus?: boolean) => void }) {
   const { categories, counts } = useCatalog();
   const sale = useConfig().events.moveOut;
-  const feature = getListing("mini-fridge")!;
+  const feature = getListing("study-table")!;
   return (
     <motion.div
       id="mega-menu"

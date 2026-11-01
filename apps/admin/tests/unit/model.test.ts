@@ -102,7 +102,7 @@ describe("users and listings", () => {
 describe("orders and disputes", () => {
   it("can't refund an order twice", () => {
     const s = as(OWNER);
-    const open = s.orders.find((o) => o.status === "paid")!;
+    const open = s.orders.find((o) => o.status === "paid" && o.payment !== "pickup")!;
     const once = refundOrder(s, open.id, NOW);
     expect(() => refundOrder(once, open.id, NOW)).toThrow(Rejected);
   });

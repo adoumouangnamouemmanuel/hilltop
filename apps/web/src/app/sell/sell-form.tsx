@@ -11,6 +11,7 @@ import { enabledBoostPlans } from "@hilltop/shared/config";
 import { listings as seedListings } from "@/lib/data";
 import { useConfig } from "@/lib/config";
 import { formatCedi } from "@/lib/format";
+import { isActive } from "@/lib/model";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { useCatalog } from "@/lib/use-catalog";
@@ -88,8 +89,17 @@ export function SellForm() {
   const publishLabel = editing && !isDraft ? "Save changes" : "Publish listing";
   const plan = boostPlans.find((p) => p.id === values.boost);
 
+  // Editing a listing that's already live doesn't count against the cap.
+  const activeCount = myListings.filter((l) => isActive(l) && l.id !== editing?.id).length;
+  const cap = config.listings.maxActive;
+  const atCap = cap > 0 && activeCount >= cap && !(editing && isActive(editing));
+
   const publish = handleSubmit(
     (v) => {
+      if (atCap) {
+        toast(`You can have ${cap} active listings at a time. Mark one as sold, or save this as a draft.`);
+        return;
+      }
       setStatus("publishing");
       const listing = toListing(v, { id: editing?.id ?? newListingId(), status: "active", previous: editing }, category?.noCondition);
       setTimeout(() => {
@@ -368,6 +378,12 @@ export function SellForm() {
 
         <aside className="lg:sticky lg:top-[132px] lg:self-start">
           <Preview values={values} category={category} />
+          {atCap && (
+            <p className="mt-5 rounded-xl bg-warning-bg px-3.5 py-3 text-[13px] leading-5 text-warning">
+              You have {activeCount} active listings, the most allowed at once. Mark one as sold to publish this, or save it as a draft for
+              later.
+            </p>
+          )}
           <button type="submit" disabled={status !== "idle"} className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}>
             {status === "publishing" ? (
               <>

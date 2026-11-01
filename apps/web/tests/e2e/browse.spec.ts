@@ -12,7 +12,7 @@ test("category filters narrow results and live in the URL", async ({ page }) => 
   // Type chips come from the category schema.
   await page.getByRole("button", { name: "Bracelet", exact: true }).first().click();
   await expect(page).toHaveURL(/f\.type=Bracelet/);
-  await expect(cards(page)).toHaveCount(3);
+  await expect(cards(page)).toHaveCount(2);
 
   // A second attribute narrows further.
   // Click the visible label, as a user would; the real input is visually hidden.
@@ -21,12 +21,12 @@ test("category filters narrow results and live in the URL", async ({ page }) => 
     .locator("xpath=..")
     .click();
   await expect(page).toHaveURL(/f\.material=Gold-plated/);
-  await expect(cards(page)).toHaveCount(2);
+  await expect(cards(page)).toHaveCount(1);
 
   // The URL alone restores the same view.
   const url = page.url();
   await open(page, url);
-  await expect(cards(page)).toHaveCount(2);
+  await expect(cards(page)).toHaveCount(1);
 
   // Removing chips widens again.
   await page.getByRole("button", { name: "Clear all" }).click();
@@ -63,7 +63,7 @@ test("empty results offer a way out", async ({ page }) => {
 });
 
 test("sort menu works with the keyboard", async ({ page }) => {
-  await open(page, "/browse?category=phones");
+  await open(page, "/browse?category=fashion");
   const sort = page.getByRole("combobox", { name: /^Sort/ });
   await sort.focus();
   await page.keyboard.press("ArrowDown");

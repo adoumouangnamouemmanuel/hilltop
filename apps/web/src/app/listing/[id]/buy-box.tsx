@@ -56,8 +56,14 @@ export function BuyBox({
         </div>
       ) : !available ? (
         <div className="text-center">
-          <p className="font-semibold text-ink-950">{isSoldOut(listing) ? "Sold out for now" : "This item has sold"}</p>
-          <p className="mt-1 text-sm text-ink-500">Save a search to hear when something similar is listed.</p>
+          <p className="font-semibold text-ink-950">
+            {listing.status === "expired" ? "This listing has expired" : isSoldOut(listing) ? "Sold out for now" : "This item has sold"}
+          </p>
+          <p className="mt-1 text-sm text-ink-500">
+            {listing.status === "expired"
+              ? `${sellerName.split(" ")[0]} can renew it if it's still available. Send a message to ask.`
+              : "Save a search to hear when something similar is listed."}
+          </p>
           <Link href={`/browse?category=${listing.category}`} className={buttonClass("dark", "md", "mt-4 w-full")}>
             See similar items
           </Link>

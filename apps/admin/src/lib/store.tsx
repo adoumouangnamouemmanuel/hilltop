@@ -35,7 +35,12 @@ function load(): AdminState {
 
 /** Fills in fields added since the data was saved. Orders from before payment options were all protected. */
 function migrate(s: AdminState): AdminState {
-  return { ...s, orders: s.orders.map((o) => ({ ...o, payment: o.payment ?? "protected", paidInApp: o.paidInApp ?? o.amount + o.fee })) };
+  return {
+    ...s,
+    orders: s.orders.map((o) => ({ ...o, payment: o.payment ?? "protected", paidInApp: o.paidInApp ?? o.amount + o.fee })),
+    // "featured" used to be a local flag; it now means the seller's paid promotion.
+    listings: s.listings.map((l) => ({ ...l, promoted: l.promoted ?? !!(l as { featured?: boolean }).featured })),
+  };
 }
 
 function getState() {

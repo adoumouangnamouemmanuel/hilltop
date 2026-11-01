@@ -93,7 +93,7 @@ describe("listing schema", () => {
 
 describe("form conversion", () => {
   it("round-trips a listing through the form", () => {
-    const original = getListing("iphone-12")!;
+    const original = getListing("straight-jeans")!;
     const listing = toListing(fromListing(original, defaultConfig), { id: original.id, status: "active", previous: original });
     expect(listing).toMatchObject({
       title: original.title,

@@ -125,6 +125,32 @@ export const platformConfigSchema = z.object({
     descriptionMax: z.number().int().min(100).max(5000),
     maxPrice: money,
     bannedWords: z.array(z.string().min(1)),
+    /** Listings come down after this many days unless renewed. 0 keeps them up until sold. */
+    expiryDays: z.number().int().min(0).max(365),
+    /** Most active listings one student can have at once. 0 means no limit. */
+    maxActive: z.number().int().min(0).max(500),
+  }),
+  /** Students can report listings that break the rules; reports go to the moderation queue. */
+  reports: z.object({
+    enabled: z.boolean(),
+    reasons: z.array(z.object({ id: z.string().min(1), label: z.string().min(1).max(60) })).min(1),
+  }),
+  /**
+   * How "Best match" orders listings when the search doesn't decide it. Each weight
+   * (0 to 10) sets how much that signal counts.
+   */
+  ranking: z.object({
+    freshness: z.number().min(0).max(10),
+    photos: z.number().min(0).max(10),
+    popularity: z.number().min(0).max(10),
+    sellerRating: z.number().min(0).max(10),
+    promoted: z.number().min(0).max(10),
+    featured: z.number().min(0).max(10),
+  }),
+  /** Listings picked by the team, shown in their own row on the home page and ranked higher. */
+  featured: z.object({
+    title: z.string().min(1).max(40),
+    listingIds: z.array(z.string().min(1)).max(24),
   }),
   disputes: z.object({
     reasons: z.array(z.object({ id: z.string().min(1), label: z.string().min(1).max(60) })).min(1),
@@ -211,7 +237,20 @@ export const defaultConfig: PlatformConfig = {
     installPrompt: true,
   },
   offers: { minRatio: 0.5, autoAcceptRatio: 0.85 },
-  listings: { maxPhotos: 8, titleMax: 70, descriptionMax: 800, maxPrice: 100_000, bannedWords: [] },
+  listings: { maxPhotos: 8, titleMax: 70, descriptionMax: 800, maxPrice: 100_000, bannedWords: [], expiryDays: 30, maxActive: 20 },
+  reports: {
+    enabled: true,
+    reasons: [
+      { id: "prohibited", label: "Prohibited or unsafe item" },
+      { id: "misleading", label: "Misleading photos or description" },
+      { id: "scam", label: "Looks like a scam" },
+      { id: "wrong-category", label: "Wrong category" },
+      { id: "offensive", label: "Offensive content" },
+      { id: "duplicate", label: "Duplicate or spam listing" },
+    ],
+  },
+  ranking: { freshness: 4, photos: 2, popularity: 3, sellerRating: 2, promoted: 4, featured: 6 },
+  featured: { title: "Featured on campus", listingIds: ["study-table", "eyecon-sunglasses", "knotless-braids", "chapati", "power-bank"] },
   disputes: {
     reasons: [
       { id: "not-as-described", label: "Not as described" },

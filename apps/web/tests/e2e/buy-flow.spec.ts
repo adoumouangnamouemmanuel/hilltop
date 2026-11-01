@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { signIn } from "./helpers";
 
 test("sign in, buy with protection, confirm collection and review the seller", async ({ page }) => {
-  await signIn(page, "/listing/iphone-x");
-  await expect(page.getByRole("heading", { level: 1, name: "iPhone X, 64GB, space grey" })).toBeVisible();
+  await signIn(page, "/listing/study-table");
+  await expect(page.getByRole("heading", { level: 1, name: "Study table" })).toBeVisible();
 
   await page.getByRole("button", { name: "Buy now" }).first().click();
   const checkout = page.getByRole("dialog", { name: "Checkout" });
@@ -15,7 +15,7 @@ test("sign in, buy with protection, confirm collection and review the seller", a
   await page.waitForURL("**/me");
 
   // The newest purchase is first: paid and awaiting pickup.
-  const order = page.locator("li").filter({ hasText: "iPhone X, 64GB" }).first();
+  const order = page.locator("li").filter({ hasText: "Study table" }).first();
   await expect(order.getByText("Paid, awaiting pickup")).toBeVisible();
 
   await order.getByRole("button", { name: "I’ve collected it" }).click();
@@ -30,21 +30,18 @@ test("sign in, buy with protection, confirm collection and review the seller", a
   await expect(page.getByRole("dialog", { name: "Thanks!" })).toBeVisible();
 });
 
-test("the bought item is shown as sold afterwards", async ({ page }) => {
-  await signIn(page, "/listing/xiaomi-redmi");
+test("a one-off item is shown as sold once reserved", async ({ page }) => {
+  await signIn(page, "/listing/lace-dress");
   await page.getByRole("button", { name: "Buy now" }).first().click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: /^Pay GH₵/ })
-    .click();
-  await expect(page.getByText(/is held safely/)).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Reserve, pay at pickup" }).click();
+  await expect(page.getByText("Reserved for you")).toBeVisible();
   await page.getByRole("button", { name: "Keep browsing" }).click();
   await expect(page.getByText("This item has sold")).toBeVisible();
 });
 
 test("report a problem freezes the payment", async ({ page }) => {
   await signIn(page, "/me");
-  const order = page.locator("li").filter({ hasText: "Calculus: Early Transcendentals" }).first();
+  const order = page.locator("li").filter({ hasText: "Study table" }).first();
   await order.getByRole("button", { name: "Report a problem" }).click();
   const sheet = page.getByRole("dialog", { name: "Report a problem" });
   await sheet.getByText("Not as described").click();
@@ -81,4 +78,13 @@ test("cheaper items are reserved and paid at pickup, with optional protection", 
   const order = page.locator("li").filter({ hasText: "Casio fx-991ES Plus" }).first();
   await expect(order.getByText("Reserved, pay at pickup")).toBeVisible();
   await expect(order.getByRole("button", { name: "Report a problem" })).toHaveCount(0);
+});
+
+test("students can report a listing once", async ({ page }) => {
+  await signIn(page, "/listing/bucket");
+  await page.getByRole("button", { name: "Report this listing" }).click();
+  const sheet = page.getByRole("dialog", { name: "Report this listing" });
+  await sheet.getByRole("radio", { name: "Duplicate or spam listing" }).click();
+  await sheet.getByRole("button", { name: "Send report" }).click();
+  await expect(page.getByText("You reported this listing.")).toBeVisible();
 });

@@ -25,7 +25,7 @@ describe("queryListings", () => {
   });
 
   it("keeps the requested id order", () => {
-    expect(queryListings(listings, { ids: ["kettle", "iphone-x", "missing"] }).map((l) => l.id)).toEqual(["kettle", "iphone-x"]);
+    expect(queryListings(listings, { ids: ["bucket", "lace-dress", "missing"] }).map((l) => l.id)).toEqual(["bucket", "lace-dress"]);
   });
 
   it("combines filters, sorts and limits", () => {
@@ -44,11 +44,10 @@ describe("queryListings", () => {
 
 describe("specs", () => {
   it("labels attributes with units and hides 'Other'", () => {
-    const phone = getListing("iphone-12")!;
+    const phone = { ...getListing("power-bank")!, category: "phones", attributes: { brand: "Other", battery: 84 } };
     const specs = specsFor(phone, findCategory(baseCategories, "phones"));
     expect(specs.find((s) => s.label === "Battery health")?.value).toBe("84%");
-    const keyboard = getListing("mechanical-keyboard")!;
-    expect(specsFor(keyboard, findCategory(baseCategories, "computers")).some((s) => s.value === "Other")).toBe(false);
+    expect(specs.some((s) => s.value === "Other")).toBe(false);
   });
 
   it("shows booleans as Yes/No and only highlights true ones", () => {
@@ -57,20 +56,20 @@ describe("specs", () => {
   });
 
   it("keeps values the schema doesn't know about", () => {
-    const l = { ...getListing("kettle")!, attributes: { colour: "Silver" } };
+    const l = { ...getListing("bucket")!, attributes: { colour: "Silver" } };
     expect(specsFor(l, fallbackCategory("kitchen"))).toEqual([{ label: "Colour", value: "Silver", highlight: false }]);
   });
 
   it("builds the details table with stock and pickup", () => {
-    const facts = Object.fromEntries(factsFor(getListing("choc-chip-cookies")!, findCategory(baseCategories, "food")));
-    expect(facts.Available).toBe("12 left");
-    expect(facts.Pickup).toBe("Hostel A, Ashesi campus");
+    const facts = Object.fromEntries(factsFor(getListing("chapati")!, findCategory(baseCategories, "food")));
+    expect(facts.Available).toBe("30 left");
+    expect(facts.Pickup).toBe("Cafeteria, Ashesi campus");
     expect(facts.Condition).toBeUndefined();
   });
 
   it("stands in for the current user as seller", () => {
-    expect(sellerFor({ ...getListing("kettle")!, sellerId: "me" }, "Kofi Darko")).toMatchObject({ name: "Kofi Darko", isMe: true });
-    expect(sellerFor(getListing("kettle")!).isMe).toBe(false);
+    expect(sellerFor({ ...getListing("bucket")!, sellerId: "me" }, "Kofi Darko")).toMatchObject({ name: "Kofi Darko", isMe: true });
+    expect(sellerFor(getListing("bucket")!).isMe).toBe(false);
   });
 });
 

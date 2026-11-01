@@ -40,7 +40,8 @@ const buyers = [
 
 const email = (name: string) => `${name.toLowerCase().replace(/\s+/g, ".")}@ashesi.edu.gh`;
 
-export const reportReasons = ["Prohibited item", "Misleading photos", "Suspected scam", "Wrong category", "Offensive content"];
+/** Report reasons as configured; seeded reports use their labels. */
+export const reportReasons = defaultConfig.reports.reasons.map((r) => r.label);
 
 export function seedState(now: number): AdminState {
   const rand = mulberry32(20261031);
@@ -51,6 +52,7 @@ export function seedState(now: number): AdminState {
       id: s.id,
       name: s.name,
       email: email(s.name),
+      specialty: s.specialty,
       classOf: s.classOf,
       major: s.major,
       status: "active" as const,
@@ -88,7 +90,7 @@ export function seedState(now: number): AdminState {
     sellerId: l.sellerId,
     sellerName: sellers.find((s) => s.id === l.sellerId)?.name ?? "Unknown",
     state: l.status === "sold" ? "sold" : l.status === "draft" ? "hidden" : "live",
-    featured: !!l.promoted,
+    promoted: !!l.promoted,
     views: l.views,
     saves: l.saves,
     postedAt: now - l.postedDaysAgo * DAY - i * HOUR,

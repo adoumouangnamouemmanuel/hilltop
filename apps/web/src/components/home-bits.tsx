@@ -8,7 +8,7 @@ import { useCatalog } from "@/lib/use-catalog";
 import { CategoryIcon } from "./category-icon";
 import { Avatar } from "./ui";
 
-const words = ["phones", "calculators", "jewellery", "textbooks", "homemade food", "earbuds"];
+const words = ["calculators", "braids", "perfumes", "jeans", "chapati", "earbuds"];
 
 /** Cycles through what students sell, in the hero headline. */
 export function RotatingWord() {

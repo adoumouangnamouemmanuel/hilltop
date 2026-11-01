@@ -19,24 +19,24 @@ function buy(s: State, l: Listing, quantity = 1, id = "ord-t1", payment = held(l
 
 describe("placing orders", () => {
   it("creates a paid order with a timeline and a notification", () => {
-    const s = buy(seed(), listing("iphone-x"));
+    const s = buy(seed(), listing("lace-dress"));
     const o = order(s, "ord-t1");
-    expect(o).toMatchObject({ role: "buying", status: "paid", amount: 1650, counterpart: "Selasi Tetteh" });
+    expect(o).toMatchObject({ role: "buying", status: "paid", amount: 280, counterpart: "Rachel Murambiwa" });
     expect(o.timeline).toEqual([{ status: "paid", at: T }]);
     expect(s.notifications[0]).toMatchObject({ kind: "order", read: false, href: "/me" });
   });
 
   it("marks one-off platform items as sold", () => {
-    const s = buy(seed(), listing("iphone-x"));
-    expect(s.overrides["iphone-x"]).toEqual({ status: "sold" });
-    const merged = M.mergeListings(listings, s).find((l) => l.id === "iphone-x")!;
+    const s = buy(seed(), listing("lace-dress"));
+    expect(s.overrides["lace-dress"]).toEqual({ status: "sold" });
+    const merged = M.mergeListings(listings, s).find((l) => l.id === "lace-dress")!;
     expect(M.isActive(merged)).toBe(false);
   });
 
   it("decrements stock for batch items and sells out at zero", () => {
-    const cookies = listing("choc-chip-cookies");
+    const cookies = listing("chapati");
     let s = buy(seed(), cookies, 5);
-    expect(s.overrides["choc-chip-cookies"]).toEqual({ stock: cookies.stock! - 5, status: "active" });
+    expect(s.overrides["chapati"]).toEqual({ stock: cookies.stock! - 5, status: "active" });
     expect(order(s, "ord-t1").amount).toBe(cookies.price * 5);
 
     const rest = { ...cookies, stock: cookies.stock! - 5 };
@@ -49,7 +49,7 @@ describe("placing orders", () => {
 
 describe("order lifecycle", () => {
   it("goes paid, ready, collected and releases the payout", () => {
-    let s = buy(seed(), listing("iphone-x"));
+    let s = buy(seed(), listing("lace-dress"));
     s = M.markReady(s, "ord-t1", T + 1);
     expect(order(s, "ord-t1").status).toBe("ready");
     s = M.confirmCollection(s, "ord-t1", T + 2);
@@ -79,13 +79,13 @@ describe("payment types and auto-release", () => {
   const HOUR = 3_600_000;
 
   it("records how the order is paid", () => {
-    const s = buy(seed(), listing("iphone-x"));
-    expect(order(s, "ord-t1").payment).toEqual({ kind: "protected", paidInApp: 1651, dueAtPickup: 0 });
+    const s = buy(seed(), listing("lace-dress"));
+    expect(order(s, "ord-t1").payment).toEqual({ kind: "protected", paidInApp: 281, dueAtPickup: 0 });
     expect(s.notifications[0].title).toBe("Payment held safely");
   });
 
   it("completes pay-at-pickup orders on handover, with nothing held", () => {
-    const l = listing("iphone-x");
+    const l = listing("lace-dress");
     let s = buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 });
     expect(s.notifications[0].title).toBe("Reserved for you");
     expect(M.payoutState(order(s, "ord-t1"))).toBe("direct");
@@ -94,13 +94,13 @@ describe("payment types and auto-release", () => {
   });
 
   it("can't dispute an order paid at pickup", () => {
-    const l = listing("iphone-x");
+    const l = listing("lace-dress");
     const s = buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 });
     expect(M.openDispute(s, "ord-t1", "damaged", "", T)).toBe(s);
   });
 
   it("releases held money automatically once the window passes", () => {
-    let s = M.markHandedOver(buy(seed(), listing("iphone-x")), "ord-t1", T);
+    let s = M.markHandedOver(buy(seed(), listing("lace-dress")), "ord-t1", T);
     expect(order(s, "ord-t1")).toMatchObject({ status: "ready", handedOverAt: T });
     expect(M.autoRelease(s, T + 23 * HOUR, 24)).toBe(s);
     s = M.autoRelease(s, T + 24 * HOUR, 24);
@@ -109,7 +109,7 @@ describe("payment types and auto-release", () => {
   });
 
   it("never auto-releases when the window is off or a problem is reported", () => {
-    const handed = M.markHandedOver(buy(seed(), listing("iphone-x")), "ord-t1", T);
+    const handed = M.markHandedOver(buy(seed(), listing("lace-dress")), "ord-t1", T);
     expect(M.autoRelease(handed, T + 1000 * HOUR, 0)).toBe(handed);
     const disputed = M.openDispute(handed, "ord-t1", "damaged", "", T + HOUR);
     expect(order(M.autoRelease(disputed, T + 48 * HOUR, 24), "ord-t1").status).toBe("disputed");
@@ -117,6 +117,16 @@ describe("payment types and auto-release", () => {
 
   it("treats orders from before payment options as protected", () => {
     expect(M.paymentOf({ amount: 100, fee: 4 })).toEqual({ kind: "protected", paidInApp: 104, dueAtPickup: 0 });
+  });
+});
+
+describe("reports", () => {
+  it("records one report per listing", () => {
+    let s = M.reportListing(seed(), { listingId: "bucket", reason: "scam", details: "", at: T });
+    s = M.reportListing(s, { listingId: "bucket", reason: "duplicate", details: "", at: T + 1 });
+    expect(s.reports).toHaveLength(1);
+    expect(M.hasReported(s, "bucket")).toBe(true);
+    expect(M.hasReported(seed(), "bucket")).toBe(false);
   });
 });
 
@@ -153,7 +163,16 @@ describe("disputes", () => {
 
 describe("reviews", () => {
   it("marks the order reviewed and updates the seller's rating", () => {
-    const s = M.addReview(seed(), { id: "r", sellerId: "efua", orderId: "ord-1042", author: "Me", rating: 3, tags: [], text: "", at: T });
+    const s = M.addReview(seed(), {
+      id: "r",
+      sellerId: "wellington",
+      orderId: "ord-1042",
+      author: "Me",
+      rating: 3,
+      tags: [],
+      text: "",
+      at: T,
+    });
     expect(order(s, "ord-1042").reviewed).toBe(true);
     expect(s.reviews).toHaveLength(1);
     expect(M.sellerStats({ rating: 5, reviews: 9 }, s.reviews)).toEqual({ rating: 4.8, reviews: 10 });
@@ -172,8 +191,8 @@ describe("offers", () => {
   });
 
   it("records the answer once and notifies", () => {
-    const l = listing("macbook-air-m1");
-    let s = M.makeOffer(seed(), l.id, 6000, T);
+    const l = listing("study-table");
+    let s = M.makeOffer(seed(), l.id, 400, T);
     s = M.answerOffer(s, l, true, T + 1);
     expect(s.offers[l.id].status).toBe("accepted");
     expect(s.notifications[0]).toMatchObject({ kind: "offer", title: "Offer accepted" });
@@ -184,13 +203,13 @@ describe("offers", () => {
 
 describe("messages", () => {
   it("starts a conversation, receives a reply and clears unread", () => {
-    const l = listing("airpods-pro");
+    const l = listing("headphones");
     const id = M.conversationIdFor(l.id);
     let s = M.sendMessage(seed(), {
       conversationId: id,
       listingId: l.id,
       sellerId: l.sellerId,
-      sellerName: "Ama Owusu",
+      sellerName: "Issaka Idrissa",
       text: "Hi",
       id: "m-a",
       now: T,
@@ -238,7 +257,7 @@ describe("listings the user owns", () => {
 });
 
 describe("saved searches and alerts", () => {
-  const search = { id: "s1", label: "Casio", query: "q=casio", createdAt: T, seenIds: [], alerts: true };
+  const search = { id: "s1", label: "Casio fx", query: "q=casio+fx", createdAt: T, seenIds: [], alerts: true };
 
   it("doesn't save the same search twice", () => {
     const s = M.saveSearch(M.saveSearch(seed(), search), { ...search, id: "s2" });
@@ -248,15 +267,15 @@ describe("saved searches and alerts", () => {
   it("notifies when a new listing matches", () => {
     const s = M.saveSearch(seed(), search);
     const match: Listing = { ...listing("casio-fx991"), id: "my-casio" };
-    const other: Listing = { ...listing("iphone-x"), id: "my-phone" };
+    const other: Listing = { ...listing("bucket"), id: "my-bucket" };
     expect(M.alertMatches(s, match, T).notifications[0]).toMatchObject({ kind: "alert", href: "/listing/my-casio" });
     expect(M.alertMatches(s, other, T).notifications).toEqual(s.notifications);
     expect(M.alertMatches(M.toggleAlerts(s, "s1"), match, T).notifications).toEqual(s.notifications);
   });
 
   it("finds current matches, ignoring sold items", () => {
-    const all = listings.map((l) => (l.id === "casio-fx991" ? { ...l, status: "sold" as const } : l));
-    expect(M.searchMatches(all, "q=casio")).toEqual([]);
+    const all = listings.map((l) => (l.id.startsWith("casio") ? { ...l, status: "sold" as const } : l));
+    expect(M.searchMatches(all, "q=casio+fx")).toEqual([]);
   });
 });
 

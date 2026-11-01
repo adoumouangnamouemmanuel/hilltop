@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, Eye, Heart, Share } from "lucide-react";
 import type { Listing } from "@/lib/data";
-import { discountPercent, firstName, formatCedi, postedLabel, protectionFee } from "@/lib/format";
+import { discountPercent, firstName, formatCedi, postedLabel } from "@/lib/format";
 import { isActive, isSoldOut } from "@/lib/model";
 import { factsFor, sellerFor, specsFor } from "@/lib/specs";
 import { useConfig } from "@/lib/config";
@@ -18,6 +18,8 @@ import { ListingRail } from "@/components/rail";
 import { buttonClass, cn } from "@/components/ui";
 import { About, SellerCard } from "./about";
 import { BuyBox, type Panel } from "./buy-box";
+import { ReportListing } from "./report-sheet";
+import { paymentPlan } from "@hilltop/shared/payments";
 import { CheckoutDialog } from "./checkout-dialog";
 import { Gallery } from "./gallery";
 
@@ -27,7 +29,8 @@ import { Gallery } from "./gallery";
  */
 export function ListingDetail({ id, initial }: { id: string; initial: Listing | null }) {
   const { allListings, saved, toggleSaved, user, offers, reviews, recordView } = useStore();
-  const { fees, features } = useConfig();
+  const config = useConfig();
+  const { features } = config;
   const catalog = useCatalog();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
@@ -55,6 +58,13 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
   const isSaved = saved.includes(listing.id);
   const offer = offers[listing.id];
   const unitPrice = offer?.status === "accepted" ? offer.amount : listing.price;
+  const plan = paymentPlan(config, { total: unitPrice, category: listing.category, preorder: !!listing.food && features.foodOrdering });
+  const mobilePayLine =
+    plan.kind === "protected"
+      ? `+ ${formatCedi(plan.fee)} buyer protection`
+      : plan.kind === "deposit"
+        ? `${formatCedi(plan.payNow)} deposit, rest at pickup`
+        : "Pay the seller at pickup";
   const available = isActive(listing) && !isSoldOut(listing);
 
   async function share() {
@@ -180,6 +190,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
             onBuy={() => setCheckoutOpen(true)}
           />
           <SellerCard seller={seller} isMe={seller.isMe} extraReviews={reviews.filter((r) => r.sellerId === seller.id)} />
+          {!seller.isMe && <ReportListing listingId={listing.id} title={listing.title} />}
         </div>
 
         <div className="lg:hidden">
@@ -201,7 +212,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-elevated px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
           <div className="min-w-0 flex-1">
             <p className="text-lg leading-tight font-semibold text-ink-950 tabular">{formatCedi(unitPrice)}</p>
-            <p className="text-[11px] text-ink-500">+ {formatCedi(protectionFee(unitPrice, fees.buyerProtectionRate))} buyer protection</p>
+            <p className="text-[11px] text-ink-500">{mobilePayLine}</p>
           </div>
           {features.offers && !listing.food && (
             <button

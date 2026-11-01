@@ -102,7 +102,16 @@ export function matchScore(listing: Listing, query: string, categoryLabel = "") 
   return score;
 }
 
-export function applyFilters(all: Listing[], f: Filters, labelOf: (id: string) => string = () => "") {
+/**
+ * Filters and sorts listings. `rank` breaks ties for "Best match"; it comes from the
+ * admin's ranking weights (see rankScore in @hilltop/shared/ranking).
+ */
+export function applyFilters(
+  all: Listing[],
+  f: Filters,
+  labelOf: (id: string) => string = () => "",
+  rank: (l: Listing) => number = (l) => Number(!!l.promoted) * 10 + l.saves / 100,
+) {
   const attrEntries = Object.entries(f.attrs).filter(([, v]) => v.length);
   const scored = all
     .map((l) => ({ l, score: matchScore(l, f.q, labelOf(l.category)) }))
@@ -130,7 +139,7 @@ export function applyFilters(all: Listing[], f: Filters, labelOf: (id: string) =
       case "popular":
         return b.l.saves - a.l.saves;
       default:
-        return b.score - a.score || Number(!!b.l.promoted) - Number(!!a.l.promoted) || b.l.saves - a.l.saves;
+        return b.score - a.score || rank(b.l) - rank(a.l);
     }
   });
   return scored.map((s) => s.l);

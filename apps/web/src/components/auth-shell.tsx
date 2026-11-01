@@ -12,9 +12,17 @@ import { ThemeToggle } from "./theme-toggle";
 import { Avatar, cn } from "./ui";
 
 const testimonials = [
-  { quote: "Sold my fridge in three hours and got paid the moment she picked it up.", name: "Nana A.", role: "Economics, class of 2026" },
+  {
+    quote: "Sold my old study table in a day and got paid the moment she picked it up.",
+    name: "Nana A.",
+    role: "Economics, class of 2026",
+  },
   { quote: "Finally no more sending MoMo to strangers in WhatsApp groups.", name: "Kojo A.", role: "Computer Science, class of 2027" },
-  { quote: "I sell cookies every morning. Hilltop is basically my shopfront.", name: "Abena O.", role: "Business, class of 2027" },
+  {
+    quote: "I run my little shop from my hostel room. Hilltop is basically my shopfront.",
+    name: "Abena O.",
+    role: "Business, class of 2027",
+  },
 ];
 
 export type CampusPhoto = {
@@ -131,7 +139,7 @@ export function AuthShell({ image, children }: { image: CampusPhoto; children: R
 }
 
 function FloatingOrder() {
-  const l = getListing("airpods-pro")!;
+  const l = getListing("wireless-earpods")!;
   return (
     <motion.div
       initial={{ opacity: 0, x: 30 }}

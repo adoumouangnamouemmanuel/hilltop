@@ -41,7 +41,9 @@ function UsersInner() {
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return s.users.filter(filters[view]).filter((u) => !term || `${u.name} ${u.email} ${u.major}`.toLowerCase().includes(term));
+    return s.users
+      .filter(filters[view])
+      .filter((u) => !term || `${u.name} ${u.email} ${u.major ?? ""} ${u.specialty ?? ""}`.toLowerCase().includes(term));
   }, [s.users, view, q]);
 
   const actions = (u: AdminUser) => [
@@ -130,7 +132,7 @@ function UsersInner() {
                 <thead>
                   <tr>
                     <Th>Student</Th>
-                    <Th>Programme</Th>
+                    <Th>Programme or shop</Th>
                     <Th>Status</Th>
                     <Th align="right">Listings</Th>
                     <Th align="right">Sales</Th>
@@ -154,8 +156,8 @@ function UsersInner() {
                         </div>
                       </Td>
                       <Td>
-                        <p className="text-ink-900">{u.major}</p>
-                        <p className="text-xs text-ink-500">Class of {u.classOf}</p>
+                        <p className="text-ink-900">{u.major ?? u.specialty ?? "Not added"}</p>
+                        {u.classOf && <p className="text-xs text-ink-500">Class of {u.classOf}</p>}
                       </Td>
                       <Td>{status(u)}</Td>
                       <Td align="right">{u.listings}</Td>
@@ -179,7 +181,7 @@ function UsersInner() {
                       {u.name} {u.verified && <Verified />}
                     </p>
                     <p className="truncate text-xs text-ink-500">
-                      {u.major} · {u.classOf}
+                      {u.major ? `${u.major}${u.classOf ? ` · ${u.classOf}` : ""}` : u.specialty}
                     </p>
                     <div className="mt-1.5">{status(u)}</div>
                   </div>

@@ -107,7 +107,7 @@ function Phone({ step }: { step: number }) {
 }
 
 const casio = getListing("casio-fx991")!;
-const picks = ["casio-fx991", "airpods-pro", "gold-chain-bracelet", "choc-chip-cookies"].map((id) => getListing(id)!);
+const picks = ["casio-fx991", "headphones", "beaded-bracelets", "chapati"].map((id) => getListing(id)!);
 
 function Typewriter({ text }: { text: string }) {
   const [n, setN] = useState(0);
@@ -174,7 +174,7 @@ function PayScreen() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[11px] font-medium text-ink-950">{casio.title}</span>
-          <span className="text-[10px] text-ink-500">from Efua A.</span>
+          <span className="text-[10px] text-ink-500">from Wellington M.</span>
         </span>
       </div>
       <div className="mt-4 space-y-1.5 text-[11px]">
@@ -256,7 +256,7 @@ function MeetScreen() {
         transition={{ delay: 2.2 }}
       >
         <p className="text-[11px] font-semibold text-ink-950">Library entrance</p>
-        <p className="text-[10px] text-ink-500">Today, 4 to 6pm with Efua</p>
+        <p className="text-[10px] text-ink-500">Today, 4 to 6pm with Wellington</p>
       </motion.div>
     </div>
   );
@@ -277,7 +277,7 @@ function DoneScreen() {
         </motion.span>
       </div>
       <p className="mt-6 text-sm font-semibold text-ink-950">Collected</p>
-      <p className="mt-1 text-[11px] text-ink-500">GH₵166.40 released to Efua</p>
+      <p className="mt-1 text-[11px] text-ink-500">GH₵166.40 released to Wellington</p>
       <div className="mt-6 flex gap-1">
         {[0, 1, 2, 3, 4].map((i) => (
           <motion.span

@@ -8,6 +8,7 @@ import type {
   Conversation,
   DisputeReason,
   NotificationKind,
+  ListingReport,
   Order,
   OrderPayment,
   OrderStatus,
@@ -281,6 +282,16 @@ export function resolveDispute(s: State, orderId: string, outcome: "refunded" | 
   });
 }
 
+// ---------- Reports ----------
+
+/** Records a report once per listing. The backend forwards it to the moderation queue. */
+export function reportListing(s: State, r: ListingReport): State {
+  if (s.reports?.some((x) => x.listingId === r.listingId)) return s;
+  return { ...s, reports: [r, ...(s.reports ?? [])] };
+}
+
+export const hasReported = (s: Pick<State, "reports">, listingId: string) => !!s.reports?.some((r) => r.listingId === listingId);
+
 // ---------- Reviews ----------
 
 export function addReview(s: State, r: Review): State {
@@ -455,6 +466,23 @@ const myEyeliner: Listing = {
   views: 124,
 };
 
+/** Past the default 30-day window, so it shows under Expired until renewed. */
+const myLamp: Listing = {
+  id: "my-desk-lamp",
+  title: "Adjustable desk lamp",
+  price: 70,
+  category: "hostel",
+  condition: "Good",
+  images: [unsplash("1507473885765-e6ed057f782c")],
+  description: "Bright LED lamp with three brightness levels. Works perfectly.",
+  attributes: { type: "Lighting" },
+  sellerId: "me",
+  pickup: "Hostel C",
+  postedDaysAgo: 34,
+  saves: 4,
+  views: 61,
+};
+
 const myCalculator: Listing = {
   id: "my-calculator",
   title: "Casio fx-82MS calculator",
@@ -480,17 +508,17 @@ export function seedState(): State {
     recentSearches: [],
     recentlyViewed: [],
     offers: {},
-    myListings: [myWatch, myEyeliner, myCalculator],
+    myListings: [myWatch, myEyeliner, myCalculator, myLamp],
     overrides: {},
     orders: [
       {
         id: "ord-1042",
-        listingId: "calculus-textbook",
+        listingId: "study-table",
         role: "buying",
-        counterpart: "Efua Asante",
+        counterpart: "Pelagie Johanna",
         quantity: 1,
-        amount: 180,
-        fee: 7.2,
+        amount: 450,
+        fee: 18,
         status: "ready",
         placedAt: t - DAY,
         timeline: [
@@ -500,12 +528,12 @@ export function seedState(): State {
       },
       {
         id: "ord-0987",
-        listingId: "desk-lamp",
+        listingId: "bedsheet-set",
         role: "buying",
-        counterpart: "Nana Adjei",
+        counterpart: "Rahinatou",
         quantity: 1,
-        amount: 120,
-        fee: 4.8,
+        amount: 180,
+        fee: 7.2,
         status: "collected",
         placedAt: t - 17 * DAY,
         timeline: [
@@ -564,14 +592,19 @@ export function seedState(): State {
     ],
     conversations: [
       {
-        id: conversationIdFor("macbook-air-m1"),
-        listingId: "macbook-air-m1",
-        sellerId: "ama",
-        sellerName: "Ama Owusu",
+        id: conversationIdFor("eyecon-frames"),
+        listingId: "eyecon-frames",
+        sellerId: "suzie",
+        sellerName: "Suzie Agatha",
         unread: 1,
         messages: [
-          { id: "m1", from: "me", text: "Hi Ama, does the MacBook come with the original box?", at: t - 3 * HOUR },
-          { id: "m2", from: "them", text: "Hi! Yes, box and charger both included. Want to see it at the library?", at: t - 2.5 * HOUR },
+          { id: "m1", from: "me", text: "Hi Suzie, can Eyecon fit my prescription lenses in these frames?", at: t - 3 * HOUR },
+          {
+            id: "m2",
+            from: "them",
+            text: "Hi! Yes, bring your prescription and they'll be ready in two days. Meet at the library?",
+            at: t - 2.5 * HOUR,
+          },
         ],
       },
     ],
@@ -588,9 +621,9 @@ export function seedState(): State {
       {
         id: "n-seed-2",
         kind: "message",
-        title: "Ama Owusu",
-        body: "Hi! Yes, box and charger both included. Want to see it at the library?",
-        href: `/inbox?c=${conversationIdFor("macbook-air-m1")}`,
+        title: "Suzie Agatha",
+        body: "Hi! Yes, bring your prescription and they'll be ready in two days. Meet at the library?",
+        href: `/inbox?c=${conversationIdFor("eyecon-frames")}`,
         at: t - 2.5 * HOUR,
         read: false,
       },
@@ -598,7 +631,7 @@ export function seedState(): State {
         id: "n-seed-3",
         kind: "order",
         title: "Ready for pickup",
-        body: "Efua marked Calculus: Early Transcendentals ready at the Engineering block.",
+        body: "Pelagie marked your study table ready at the Main gate.",
         href: "/me",
         at: t - 20 * HOUR,
         read: true,
@@ -606,5 +639,6 @@ export function seedState(): State {
     ],
     reviews: [],
     savedSearches: [],
+    reports: [],
   };
 }

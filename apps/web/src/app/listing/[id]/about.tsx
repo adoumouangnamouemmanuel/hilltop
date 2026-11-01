@@ -65,7 +65,8 @@ export function SellerCard({ seller, isMe, extraReviews }: { seller: Seller; isM
             <Verified />
           </p>
           <p className="truncate text-[13px] text-ink-500">
-            {seller.major} · Class of {seller.classOf}
+            {seller.shop && <span className="font-medium text-ink-700">{seller.shop} · </span>}
+            {seller.major ? `${seller.major}${seller.classOf ? ` · Class of ${seller.classOf}` : ""}` : seller.specialty}
           </p>
         </div>
       </div>

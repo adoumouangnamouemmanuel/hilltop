@@ -10,20 +10,20 @@ import { buttonClass, cn } from "@hilltop/ui/ui";
 import { Badge, Card, Confirm, EmptyState, Gate, PageHeader, SearchField, Segmented, Select } from "@/components/kit";
 import { RowMenu } from "@/components/row-menu";
 import { MARKETPLACE_URL } from "@/components/shell";
-import { dismissReports, setFeatured, setListingState } from "@/lib/model";
-import { perform, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
+import { dismissReports, editDraft, setListingState } from "@/lib/model";
+import { perform, useAdmin, useCan, usePublished, useWorkingConfig } from "@/lib/store";
 import { useQueryState } from "@/lib/use-query";
 import type { ListingState, ModListing } from "@/lib/types";
 
 type View = "all" | "reported" | "featured" | "hidden" | "removed";
 
-const filters: Record<View, (l: ModListing) => boolean> = {
+const filtersFor = (featured: string[]): Record<View, (l: ModListing) => boolean> => ({
   all: (l) => l.state !== "removed",
   reported: (l) => l.reports.length > 0 && l.state === "live",
-  featured: (l) => l.featured && l.state === "live",
+  featured: (l) => featured.includes(l.id) && l.state === "live",
   hidden: (l) => l.state === "hidden",
   removed: (l) => l.state === "removed",
-};
+});
 
 const stateBadge: Record<ListingState, React.ReactNode> = {
   live: (
@@ -59,6 +59,30 @@ export function ListingsView() {
 function ListingsInner() {
   const s = useAdmin();
   const config = useWorkingConfig();
+  const { config: published } = usePublished();
+  const featuredIds = config.featured.listingIds;
+  const filters = useMemo(() => filtersFor(featuredIds), [featuredIds]);
+  const isFeatured = (l: ModListing) => featuredIds.includes(l.id);
+  // Featuring edits the platform config, so it goes live with the next publish.
+  const toggleFeatured = (l: ModListing) =>
+    perform(
+      (st, now) =>
+        editDraft(
+          st,
+          published,
+          "listings.feature",
+          `${isFeatured(l) ? "Unfeatured" : "Featured"} ${l.title}`,
+          (c) => ({
+            ...c,
+            featured: {
+              ...c.featured,
+              listingIds: isFeatured(l) ? c.featured.listingIds.filter((x) => x !== l.id) : [...c.featured.listingIds, l.id],
+            },
+          }),
+          now,
+        ),
+      isFeatured(l) ? "Removed from featured. Publish to update the marketplace." : "Added to featured. Publish to update the marketplace.",
+    );
   const [view, setView] = useQueryState<View>("view", "all");
   const [q, setQ] = useQueryState<string>("q", "");
   const [category, setCategory] = useQueryState<string>("category", "");
@@ -73,7 +97,7 @@ function ListingsInner() {
       .filter((l) => !category || l.category === category)
       .filter((l) => !term || `${l.title} ${l.sellerName}`.toLowerCase().includes(term))
       .sort((a, b) => b.reports.length - a.reports.length || b.postedAt - a.postedAt);
-  }, [s.listings, view, q, category]);
+  }, [s.listings, view, q, category, filters]);
 
   const catLabel = (id: string) => config.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -145,14 +169,10 @@ function ListingsInner() {
                             onClick: () => window.open(`${MARKETPLACE_URL}/listing/${l.id}`, "_blank", "noopener"),
                           },
                           {
-                            label: l.featured ? "Stop featuring" : "Feature",
-                            icon: l.featured ? StarOff : Star,
+                            label: isFeatured(l) ? "Stop featuring" : "Feature",
+                            icon: isFeatured(l) ? StarOff : Star,
                             hidden: !canFeature || l.state !== "live",
-                            onClick: () =>
-                              perform(
-                                (st, now) => setFeatured(st, l.id, !l.featured, now),
-                                l.featured ? "No longer featured" : "Listing featured",
-                              ),
+                            onClick: () => toggleFeatured(l),
                           },
                           {
                             label: "Hide",
@@ -184,7 +204,8 @@ function ListingsInner() {
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
                   {stateBadge[l.state]}
-                  {l.featured && <Badge tone="maroon">Featured</Badge>}
+                  {isFeatured(l) && <Badge tone="maroon">Featured</Badge>}
+                  {l.promoted && <Badge tone="neutral">Promoted</Badge>}
                   <span className="ml-auto text-xs text-ink-400 tabular">
                     {l.views.toLocaleString()} views · <RelativeTime at={l.postedAt} />
                   </span>

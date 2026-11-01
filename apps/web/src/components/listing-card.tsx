@@ -36,7 +36,9 @@ export function ListingCard({
   sizes?: string;
 }) {
   const { saved, toggleSaved } = useStore();
-  const sale = useConfig().events.moveOut;
+  const config = useConfig();
+  const sale = config.events.moveOut;
+  const featured = config.featured.listingIds.includes(listing.id);
   const isSaved = saved.includes(listing.id);
   const off = discountPercent(listing.price, listing.originalPrice);
   const [first, second] = listing.images;
@@ -107,7 +109,7 @@ export function ListingCard({
           <h3 className="truncate text-[13px] text-ink-700">{listing.title}</h3>
           <p className="truncate text-xs text-ink-400">
             {meta || listing.pickup}
-            {listing.promoted && <span> · Promoted</span>}
+            {featured ? <span> · Featured</span> : listing.promoted && <span> · Promoted</span>}
           </p>
         </div>
       </Link>

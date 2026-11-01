@@ -7,7 +7,9 @@ import { Eye, Heart, MoreHorizontal, Pencil, Plus, RefreshCw, Tag, Trash2, Undo2
 import type { Listing, ListingStatus } from "@/lib/data";
 import { formatCedi, postedLabel } from "@/lib/format";
 import { useDismiss } from "@/lib/hooks";
+import { useConfig } from "@/lib/config";
 import { useStore } from "@/lib/store";
+import { expiresIn } from "@hilltop/shared/ranking";
 import { toast } from "@/lib/toast";
 import { SafeImage } from "@/components/safe-image";
 import { Sheet } from "@/components/sheet";
@@ -15,12 +17,14 @@ import { buttonClass, cn } from "@/components/ui";
 
 const sections: { status: ListingStatus; title: string; empty: string }[] = [
   { status: "active", title: "Active", empty: "Nothing live right now." },
+  { status: "expired", title: "Expired", empty: "Nothing has expired. Listings come down after a while unless you renew them." },
   { status: "draft", title: "Drafts", empty: "No drafts. Save one from the Sell page to finish later." },
   { status: "sold", title: "Sold", empty: "Sold items show up here." },
 ];
 
 export function ListingsManager() {
   const { myListings } = useStore();
+  const { maxActive } = useConfig().listings;
   const [deleting, setDeleting] = useState<Listing | null>(null);
   const [tab, setTab] = useState<ListingStatus>("active");
   const byStatus = (s: ListingStatus) => myListings.filter((l) => (l.status ?? "active") === s);
@@ -30,7 +34,14 @@ export function ListingsManager() {
   return (
     <section>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink-950">Your listings</h2>
+        <div>
+          <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink-950">Your listings</h2>
+          {maxActive > 0 && (
+            <p className="text-xs text-ink-500">
+              {byStatus("active").length} of {maxActive} active listings
+            </p>
+          )}
+        </div>
         <Link href="/sell" className={buttonClass("dark", "sm")}>
           <Plus className="size-3.5" aria-hidden /> New listing
         </Link>
@@ -77,7 +88,9 @@ export function ListingsManager() {
 
 function ListingRow({ listing, onDelete }: { listing: Listing; onDelete: () => void }) {
   const { setListingStatus, renewListing } = useStore();
+  const { expiryDays } = useConfig().listings;
   const status = listing.status ?? "active";
+  const left = status === "active" ? expiresIn(listing, expiryDays) : null;
   return (
     <motion.li
       layout
@@ -111,6 +124,10 @@ function ListingRow({ listing, onDelete }: { listing: Listing; onDelete: () => v
             <Heart className="size-3" aria-hidden /> {listing.saves}
           </span>
           <span>{postedLabel(listing.postedDaysAgo)}</span>
+          {left !== null && left <= 5 && (
+            <span className="font-medium text-warning">{left <= 1 ? "Expires today" : `Expires in ${left} days`}</span>
+          )}
+          {status === "expired" && <span className="font-medium text-warning">Hidden from buyers</span>}
         </p>
       </div>
       <ActionMenu
@@ -133,6 +150,18 @@ function ListingRow({ listing, onDelete }: { listing: Listing; onDelete: () => v
                   onClick: () => {
                     renewListing(listing.id);
                     toast("Renewed. It shows as new again.", { tone: "success" });
+                  },
+                },
+              ]
+            : []),
+          ...(status === "expired"
+            ? [
+                {
+                  label: "Renew listing",
+                  icon: RefreshCw,
+                  onClick: () => {
+                    renewListing(listing.id);
+                    toast("Renewed. It's live again.", { tone: "success" });
                   },
                 },
               ]

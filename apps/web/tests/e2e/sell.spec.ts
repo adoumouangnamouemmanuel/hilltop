@@ -49,3 +49,15 @@ test("save a draft, then find it under your listings", async ({ page }) => {
   await page.getByRole("tab", { name: /Drafts/ }).click();
   await expect(page.getByText("Half-finished lamp listing")).toBeVisible();
 });
+
+test("expired listings can be renewed", async ({ page }) => {
+  await signIn(page, "/me");
+  await page.getByRole("tab", { name: /Selling/ }).click();
+  await page.getByRole("tab", { name: /Expired/ }).click();
+  const row = page.locator("li").filter({ hasText: "Adjustable desk lamp" });
+  await expect(row.getByText("Hidden from buyers")).toBeVisible();
+  await row.getByRole("button", { name: /Actions for Adjustable desk lamp/ }).click();
+  await page.getByRole("menuitem", { name: "Renew listing" }).click();
+  await page.getByRole("tab", { name: /Active/ }).click();
+  await expect(page.locator("li").filter({ hasText: "Adjustable desk lamp" })).toBeVisible();
+});

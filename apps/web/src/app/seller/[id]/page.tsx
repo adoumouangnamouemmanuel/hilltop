@@ -15,7 +15,10 @@ export async function generateMetadata({ params }: PageProps<"/seller/[id]">): P
   const { id } = await params;
   const seller = await getSeller(id);
   return seller
-    ? { title: seller.name, description: `${seller.name} sells on Hilltop. ${seller.sales} items sold, rated ${seller.rating}.` }
+    ? {
+        title: seller.name,
+        description: `${seller.shop ? `${seller.shop} by ` : ""}${seller.name}: ${seller.specialty.toLowerCase()} on Hilltop. ${seller.sales} items sold, rated ${seller.rating}.`,
+      }
     : { title: "Seller" };
 }
 
@@ -42,13 +45,20 @@ export default async function SellerPage({ params }: PageProps<"/seller/[id]">) 
             {seller.name}
             <Verified className="[&_svg]:size-5" />
           </h1>
+          <p className="mt-1 text-[15px] text-ink-700">
+            {seller.shop && <span className="font-semibold text-ink-950">{seller.shop} · </span>}
+            {seller.specialty}
+          </p>
           <div className="mt-2 flex items-center gap-2 text-sm">
             <SellerRating seller={seller} />
           </div>
           <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-ink-500">
-            <li className="flex items-center gap-1.5">
-              <GraduationCap className="size-4" aria-hidden /> {seller.major}, class of {seller.classOf}
-            </li>
+            {seller.major && (
+              <li className="flex items-center gap-1.5">
+                <GraduationCap className="size-4" aria-hidden /> {seller.major}
+                {seller.classOf && `, class of ${seller.classOf}`}
+              </li>
+            )}
             <li className="flex items-center gap-1.5">
               <Package className="size-4" aria-hidden /> {seller.sales} items sold
             </li>

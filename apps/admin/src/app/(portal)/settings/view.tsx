@@ -14,7 +14,11 @@ import {
   ShieldCheck,
   ToggleRight,
   Trash2,
+  TrendingUp,
+  X,
 } from "lucide-react";
+import { listings as catalogListings } from "@hilltop/shared/seed";
+import { rankScore } from "@hilltop/shared/ranking";
 import { formatCedi } from "@hilltop/shared/format";
 import { paymentPlan } from "@hilltop/shared/payments";
 import { deepEqual, platformConfigSchema, type PlatformConfig } from "@hilltop/shared/config";
@@ -56,8 +60,15 @@ const sections = [
     id: "listings",
     label: "Listings",
     icon: Package,
-    keys: ["listings", "conditions", "pickupSpots", "search"],
-    description: "Limits, conditions, pickup spots and search.",
+    keys: ["listings", "reports", "conditions", "pickupSpots", "search"],
+    description: "Limits, expiry, reporting, conditions, pickup spots and search.",
+  },
+  {
+    id: "ranking",
+    label: "Ranking & featured",
+    icon: TrendingUp,
+    keys: ["ranking", "featured"],
+    description: "How Best match orders listings, and the team's featured picks.",
   },
   {
     id: "rules",
@@ -77,6 +88,7 @@ const forms: Record<SectionId, (p: SectionProps) => React.ReactNode> = {
   general: General,
   payments: Payments,
   protection: Protection,
+  ranking: Ranking,
   listings: Listings,
   rules: Rules,
   features: Features,
@@ -471,9 +483,62 @@ function Payments({ value: c, set, err }: SectionProps) {
 
 function Listings({ value: c, set, err }: SectionProps) {
   const l = c.listings;
-  const num = (key: "maxPhotos" | "titleMax" | "descriptionMax" | "maxPrice") => (v: number) => set({ listings: { ...l, [key]: v } });
+  const num = (key: "maxPhotos" | "titleMax" | "descriptionMax" | "maxPrice" | "expiryDays" | "maxActive") => (v: number) =>
+    set({ listings: { ...l, [key]: v } });
+  const r = c.reports;
   return (
     <>
+      <Group title="Keeping the marketplace fresh" description="Old and excess listings are the main source of clutter.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Listings expire after"
+            error={err("listings.expiryDays")}
+            hint="Sellers can renew with one tap. 0 keeps listings up until sold."
+          >
+            {(id) => <NumberInput id={id} value={l.expiryDays} onChange={num("expiryDays")} suffix="days" min={0} max={365} />}
+          </Field>
+          <Field label="Active listings per student" error={err("listings.maxActive")} hint="Drafts don't count. 0 means no limit.">
+            {(id) => <NumberInput id={id} value={l.maxActive} onChange={num("maxActive")} min={0} max={500} />}
+          </Field>
+        </div>
+      </Group>
+      <Group
+        title="Reporting"
+        description="Students can report listings; reports appear in the Listings moderation queue."
+        action={
+          r.enabled ? (
+            <AddButton
+              onClick={() => set({ reports: { ...r, reasons: [...r.reasons, { id: `reason-${Date.now().toString(36)}`, label: "" }] } })}
+            >
+              Add reason
+            </AddButton>
+          ) : undefined
+        }
+      >
+        <Row title="Let students report listings" description="Shows a Report this listing link on every listing.">
+          <Switch label="Let students report listings" checked={r.enabled} onChange={(v) => set({ reports: { ...r, enabled: v } })} />
+        </Row>
+        {r.enabled && (
+          <ul className="space-y-2">
+            {r.reasons.map((reason, i) => (
+              <li key={reason.id} className="flex gap-2">
+                <TextInput
+                  aria-label="Report reason"
+                  value={reason.label}
+                  placeholder="e.g. Counterfeit item"
+                  onChange={(e) => set({ reports: { ...r, reasons: replaceAt(r.reasons, i, { label: e.target.value }) } })}
+                  aria-invalid={!!err(`reports.reasons.${i}.label`)}
+                />
+                <RemoveButton
+                  label={`Remove ${reason.label}`}
+                  onClick={() => set({ reports: { ...r, reasons: r.reasons.filter((_, j) => j !== i) } })}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Group>
+
       <Group title="Limits">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Photos per listing" error={err("listings.maxPhotos")}>
@@ -935,3 +1000,139 @@ function Protection({ value: c, set, err }: SectionProps) {
     </>
   );
 }
+
+const signals = [
+  { key: "freshness", label: "Freshness", help: "Newer listings rank higher, fading over the expiry window." },
+  { key: "photos", label: "Photos", help: "Listings with more photos (up to four)." },
+  { key: "popularity", label: "Popularity", help: "Saves and views." },
+  { key: "sellerRating", label: "Seller rating", help: "Sellers with better reviews." },
+  { key: "promoted", label: "Paid promotion", help: "Listings sellers paid to boost." },
+  { key: "featured", label: "Featured by the team", help: "Listings you pick below." },
+] as const;
+
+function Ranking({ value: c, set, err }: SectionProps) {
+  const w = c.ranking;
+  const f = c.featured;
+  const [query, setQuery] = useState("");
+  const byId = (id: string) => catalogListings.find((l) => l.id === id);
+  const top = [...catalogListings]
+    .filter((l) => (l.status ?? "active") === "active")
+    .sort((a, b) => rankScore(b, c) - rankScore(a, c))
+    .slice(0, 6);
+  const matches = query.trim()
+    ? catalogListings.filter((l) => !f.listingIds.includes(l.id) && l.title.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6)
+    : [];
+
+  return (
+    <>
+      <Group
+        title="Best match weights"
+        description="When a search doesn't decide the order (or there is no search), these signals do. 0 ignores a signal."
+      >
+        <ul className="space-y-4">
+          {signals.map((sig) => (
+            <li key={sig.key} className="grid items-center gap-x-4 gap-y-1 sm:grid-cols-[180px_1fr_40px]">
+              <div>
+                <p className="text-[13.5px] font-medium text-ink-950">{sig.label}</p>
+                <p className="text-xs text-ink-500">{sig.help}</p>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={w[sig.key]}
+                aria-label={sig.label}
+                onChange={(e) => set({ ranking: { ...w, [sig.key]: Number(e.target.value) } })}
+                className="w-full accent-[var(--maroon-700)]"
+              />
+              <span className="text-right text-sm font-semibold text-ink-950 tabular">{w[sig.key]}</span>
+            </li>
+          ))}
+        </ul>
+        <div>
+          <p className="mb-2 text-xs font-medium text-ink-500">Top of Best match with these weights</p>
+          <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line">
+            {top.map((l, i) => (
+              <li key={l.id} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
+                <span className="w-4 text-ink-400 tabular">{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-ink-900">{l.title}</span>
+                {f.listingIds.includes(l.id) && <span className="text-[11px] font-medium text-maroon-700">Featured</span>}
+                {l.promoted && <span className="text-[11px] text-ink-500">Promoted</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      </Group>
+
+      <Group
+        title="Featured listings"
+        description="Shown in their own row on the home page, in this order. You can also feature from the Listings page."
+      >
+        <Field label="Row title" error={err("featured.title")} className="sm:w-1/2">
+          {(id) => (
+            <TextInput id={id} value={f.title} maxLength={40} onChange={(e) => set({ featured: { ...f, title: e.target.value } })} />
+          )}
+        </Field>
+        <ul className="space-y-1.5">
+          {f.listingIds.map((id, i) => (
+            <li key={id} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2 text-[13px]">
+              <span className="w-4 text-ink-400 tabular">{i + 1}</span>
+              <span className="min-w-0 flex-1 truncate text-ink-900">{byId(id)?.title ?? `${id} (not found)`}</span>
+              <button
+                type="button"
+                onClick={() => set({ featured: { ...f, listingIds: swapAt(f.listingIds, i, i - 1) } })}
+                disabled={i === 0}
+                className="rounded-md px-1.5 text-xs text-ink-500 hover:text-ink-950 disabled:opacity-30"
+              >
+                Up
+              </button>
+              <button
+                type="button"
+                onClick={() => set({ featured: { ...f, listingIds: f.listingIds.filter((x) => x !== id) } })}
+                aria-label={`Remove ${byId(id)?.title ?? id}`}
+                className="grid size-7 place-items-center rounded-md text-ink-400 hover:bg-maroon-50 hover:text-maroon-700"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="relative">
+          <TextInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search listings to feature"
+            aria-label="Search listings to feature"
+          />
+          {matches.length > 0 && (
+            <ul className="mt-1.5 divide-y divide-line overflow-hidden rounded-xl border border-line">
+              {matches.map((l) => (
+                <li key={l.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set({ featured: { ...f, listingIds: [...f.listingIds, l.id] } });
+                      setQuery("");
+                    }}
+                    className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] text-ink-900 hover:bg-surface"
+                  >
+                    {l.title}
+                    <span className="text-xs text-ink-500">Add</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Group>
+    </>
+  );
+}
+
+const swapAt = <T,>(list: T[], i: number, j: number) => {
+  if (j < 0 || j >= list.length) return list;
+  const next = [...list];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+};

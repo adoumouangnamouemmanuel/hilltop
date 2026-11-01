@@ -6,9 +6,11 @@ import { listings as seedListings } from "./data";
 import { mergeListings } from "./model";
 import { queryListings, type ListingQuery } from "./queries";
 import { readState, useStore } from "./store";
+import { runtimeConfig } from "./config";
+import { withExpiry } from "@hilltop/shared/ranking";
 
 // In the browser, API reads include the user's own listings and changes.
-registerListingSource(() => mergeListings(seedListings, readState()));
+registerListingSource(() => withExpiry(mergeListings(seedListings, readState()), runtimeConfig().listings.expiryDays));
 
 /** Client counterpart of api.getListings, live-updating as the user acts. */
 export function useListings(q: ListingQuery = {}) {

@@ -2,7 +2,8 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import { currentUser, getListing, listings as seedListings, type Listing, type ListingStatus } from "./data";
-import { runtimeConfig } from "./config";
+import { runtimeConfig, useConfig } from "./config";
+import { withExpiry } from "@hilltop/shared/ranking";
 import * as M from "./model";
 import { showSystemNotification } from "./push";
 import { toast } from "./toast";
@@ -236,6 +237,9 @@ export const actions = {
   markSearchSeen(id: string, matchIds: string[]) {
     commit((s) => M.markSearchSeen(s, id, matchIds));
   },
+  reportListing(listingId: string, reason: string, details: string) {
+    commit((s) => M.reportListing(s, { listingId, reason, details, at: Date.now() }));
+  },
   recordView(id: string) {
     if (state.recentlyViewed[0] !== id) commit((s) => M.recordView(s, id));
   },
@@ -243,9 +247,12 @@ export const actions = {
 
 export function useStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const allListings = useMemo(() => M.mergeListings(seedListings, snapshot), [snapshot]);
+  const { expiryDays } = useConfig().listings;
+  // Expiry is derived from the configured window, so changing it in the admin applies at once.
+  const allListings = useMemo(() => withExpiry(M.mergeListings(seedListings, snapshot), expiryDays), [snapshot, expiryDays]);
+  const myListings = useMemo(() => withExpiry(snapshot.myListings, expiryDays), [snapshot.myListings, expiryDays]);
   const activeListings = useMemo(() => allListings.filter(M.isActive), [allListings]);
-  return { ...snapshot, ...actions, allListings, activeListings };
+  return { ...snapshot, ...actions, myListings, allListings, activeListings };
 }
 
 /** A listing by id, including the user's own and with their changes applied. */

@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfig } from "@/lib/config";
 import { useStore } from "@/lib/store";
 import { useListings } from "@/lib/use-listings";
 import { ListingRail } from "./rail";
@@ -7,6 +8,8 @@ import { ListingRail } from "./rail";
 /** Product rows read through the data layer, so they include the user's own listings. */
 export function HomeRails({ part }: { part: "top" | "bottom" }) {
   const { recentlyViewed } = useStore();
+  const { featured } = useConfig();
+  const picks = useListings({ ids: featured.listingIds });
   const recent = useListings({ ids: recentlyViewed, includeSold: true });
   const trending = useListings({ sort: "popular", limit: 12 });
   const fresh = useListings({ postedWithinDays: 1, sort: "newest" });
@@ -18,6 +21,7 @@ export function HomeRails({ part }: { part: "top" | "bottom" }) {
     return (
       <>
         {recent.length > 0 && <ListingRail title="Pick up where you left off" href="/saved?tab=recent" listings={recent} />}
+        {picks.length > 0 && <ListingRail title={featured.title} subtitle="Picked by the Hilltop team" listings={picks} />}
         <ListingRail title="Trending on campus" href="/browse?sort=popular" listings={trending} />
         <ListingRail title="Just listed" href="/browse?sort=newest" listings={fresh} />
       </>

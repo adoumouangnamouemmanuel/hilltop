@@ -61,26 +61,28 @@ describe("applyFilters", () => {
   });
 
   it("filters by category attributes, including booleans", () => {
-    const apple = applyFilters(listings, f({ category: "phones", attrs: { brand: ["Apple"] } }));
+    const apple = applyFilters(listings, f({ category: "audio", attrs: { brand: ["Apple"] } }));
     expect(apple.length).toBeGreaterThan(0);
     expect(apple.every((l) => l.attributes?.brand === "Apple")).toBe(true);
 
     const examSafe = applyFilters(listings, f({ category: "calculators", attrs: { exam: ["true"] } }));
-    expect(ids(examSafe)).toEqual(["casio-fx991"]);
+    expect(ids(examSafe).sort()).toEqual(["casio-fx82", "casio-fx991", "casio-fx991ex"]);
+    const classwiz = applyFilters(listings, f({ category: "calculators", attrs: { model: ["Casio fx-991EX"] } }));
+    expect(ids(classwiz)).toEqual(["casio-fx991ex"]);
   });
 
   it("treats multiple values of one attribute as OR, and different attributes as AND", () => {
-    const either = applyFilters(listings, f({ category: "jewellery", attrs: { type: ["Ring", "Earrings"] } }));
-    expect(new Set(either.map((l) => l.attributes?.type))).toEqual(new Set(["Ring", "Earrings"]));
+    const either = applyFilters(listings, f({ category: "jewellery", attrs: { type: ["Watch", "Earrings"] } }));
+    expect(new Set(either.map((l) => l.attributes?.type))).toEqual(new Set(["Watch", "Earrings"]));
 
-    const both = applyFilters(listings, f({ category: "jewellery", attrs: { type: ["Necklace"], handmade: ["true"] } }));
-    expect(ids(both)).toEqual(["pendant-necklace"]);
+    const both = applyFilters(listings, f({ category: "jewellery", attrs: { type: ["Bracelet"], handmade: ["true"] } }));
+    expect(ids(both)).toEqual(["beaded-bracelets"]);
   });
 
   it("applies the price range inclusively", () => {
     const result = applyFilters(listings, f({ min: 100, max: 180 }));
     expect(result.every((l) => l.price >= 100 && l.price <= 180)).toBe(true);
-    expect(ids(result)).toContain("calculus-textbook"); // exactly 180
+    expect(ids(result)).toContain("leather-watch"); // exactly 180
   });
 
   it("drops items without a condition when a condition is required", () => {
@@ -108,9 +110,9 @@ describe("applyFilters", () => {
 
 describe("text search", () => {
   it("requires every word to match somewhere", () => {
-    const l = listings.find((x) => x.id === "iphone-12")!;
-    expect(matchScore(l, "iphone 128gb")).toBeGreaterThan(0);
-    expect(matchScore(l, "iphone samsung")).toBe(0);
+    const l = listings.find((x) => x.id === "power-bank")!;
+    expect(matchScore(l, "power 20,000mah")).toBeGreaterThan(0);
+    expect(matchScore(l, "power samsung")).toBe(0);
   });
 
   it("ranks title matches above description matches", () => {
@@ -119,7 +121,7 @@ describe("text search", () => {
   });
 
   it("matches attribute values and the category label", () => {
-    const l = listings.find((x) => x.id === "rayban-wayfarer")!;
+    const l = listings.find((x) => x.id === "eyecon-sunglasses")!;
     expect(matchScore(l, "acetate")).toBeGreaterThan(0);
     expect(matchScore(l, "glasses", "Glasses")).toBeGreaterThan(0);
   });
@@ -131,16 +133,16 @@ describe("text search", () => {
 
 describe("facets", () => {
   it("counts values ignoring the facet's own selection", () => {
-    const filters = f({ category: "phones", attrs: { brand: ["Apple"] } });
+    const filters = f({ category: "audio", attrs: { brand: ["Apple"] } });
     const counts = attributeFacet(listings, filters, "brand");
-    expect(counts.get("Apple")).toBe(3);
-    expect(counts.get("Samsung")).toBe(1);
+    expect(counts.get("Apple")).toBe(1);
+    expect(counts.get("Other")).toBe(3);
   });
 
   it("respects the other active filters", () => {
-    const counts = attributeFacet(listings, f({ category: "phones", max: 2000 }), "brand");
+    const counts = attributeFacet(listings, f({ category: "audio", max: 100 }), "brand");
     expect(counts.get("Apple")).toBe(1);
-    expect(counts.has("Samsung")).toBe(false);
+    expect(counts.get("Other")).toBe(1);
   });
 
   it("only offers select and boolean attributes as filters", () => {

@@ -112,6 +112,9 @@ export type SavedSearch = {
   alerts: boolean;
 };
 
+/** A listing the user reported to the moderation team. */
+export type ListingReport = { listingId: string; reason: string; details: string; at: number };
+
 export type ListingOverride = { stock?: number; status?: ListingStatus };
 
 export type State = {
@@ -129,4 +132,6 @@ export type State = {
   notifications: AppNotification[];
   reviews: Review[];
   savedSearches: SavedSearch[];
+  /** Listings this user reported. Older saved state may not have it. */
+  reports?: ListingReport[];
 };

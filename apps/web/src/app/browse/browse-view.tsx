@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { BellPlus, BellRing, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { formatCedi } from "@/lib/format";
+import { rankScore } from "@hilltop/shared/ranking";
 import {
   applyFilters,
   countActive,
@@ -38,7 +39,8 @@ export function BrowseView() {
   const params = useSearchParams();
   // Only listings that are on sale; drafts and sold items never show in search.
   const { activeListings: allListings, savedSearches, saveSearch, removeSearch } = useStore();
-  const { events, features } = useConfig();
+  const config = useConfig();
+  const { events, features } = config;
   const saleName = events.moveOut.name;
   const catalog = useCatalog();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -48,7 +50,16 @@ export function BrowseView() {
 
   const filters = useMemo(() => parseFilters(new URLSearchParams(params.toString())), [params]);
   const labelOf = (id: string) => catalog.get(id).label;
-  const results = useMemo(() => applyFilters(allListings, filters, (id) => catalog.get(id).label), [allListings, filters, catalog]);
+  const results = useMemo(
+    () =>
+      applyFilters(
+        allListings,
+        filters,
+        (id) => catalog.get(id).label,
+        (l) => rankScore(l, config),
+      ),
+    [allListings, filters, catalog, config],
+  );
   const active = countActive(filters);
   const current = filters.category ? catalog.get(filters.category) : null;
 

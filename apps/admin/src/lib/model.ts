@@ -95,12 +95,6 @@ export const dismissReports = (s: AdminState, id: string, now: number) =>
     listings: s.listings.map((l) => (l.id === id ? { ...l, reports: [] } : l)),
   }));
 
-export const setFeatured = (s: AdminState, id: string, featured: boolean, now: number) =>
-  act(s, "listings.feature", { action: featured ? "Featured listing" : "Unfeatured listing", target: title(s, id) }, now, (s) => ({
-    ...s,
-    listings: s.listings.map((l) => (l.id === id ? { ...l, featured } : l)),
-  }));
-
 const title = (s: AdminState, id: string) => s.listings.find((l) => l.id === id)?.title ?? id;
 
 // Orders and disputes
@@ -226,7 +220,7 @@ export const newRoleId = (label: string, roles: Role[]) => {
 export function editDraft(
   s: AdminState,
   published: PlatformConfig,
-  permission: "settings.edit" | "catalog.edit",
+  permission: "settings.edit" | "catalog.edit" | "listings.feature",
   action: string,
   update: (c: PlatformConfig) => PlatformConfig,
   now: number,
