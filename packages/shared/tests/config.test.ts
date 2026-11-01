@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deepEqual, defaultConfig, diffConfig, emailAllowed, findBannedWord, parseConfig, percent } from "@hilltop/shared/config";
-import { allPermissions, can, defaultRoles, togglePermission } from "@hilltop/shared/permissions";
+import { deepEqual, defaultConfig, diffConfig, emailAllowed, findBannedWord, parseConfig, percent } from "../src/config";
+import { allPermissions, can, defaultRoles, togglePermission } from "../src/permissions";
 
 describe("platform config", () => {
   it("fills missing fields from defaults", () => {

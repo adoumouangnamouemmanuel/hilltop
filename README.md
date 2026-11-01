@@ -117,7 +117,8 @@ Categories come from the published platform config (`packages/shared/src/config.
 
 ## Tests
 
-- `apps/admin/tests/unit`: permissions and role safeguards, audit entries, moderation, refunds and disputes, drafts, metrics, CSV, and the shared config and permission helpers.
+- `apps/admin/tests/unit`: permissions and role safeguards, audit entries, moderation, refunds and disputes, drafts, metrics and CSV.
+- `packages/shared/tests`: config parsing, diffs, email domains, banned words and role permissions.
 - `apps/web/tests/unit`: search and filters, the order/dispute/chat/offer state machine, validation, queries, specs and formatting.
 - `apps/web/tests/e2e`: buying with protection through to a review, disputes, seller fulfilment, filters and URL state, search, keyboard sort menu, publishing and drafts, the seller dashboard, and mobile flows (filter sheet, chat, no horizontal scrolling).
 
