@@ -990,19 +990,7 @@ export type Database = {
       };
     };
     Functions: {
-      has_permission: { Args: { permission: string }; Returns: boolean };
-      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
-      is_trusted_caller: { Args: Record<PropertyKey, never>; Returns: boolean };
       my_permissions: { Args: Record<PropertyKey, never>; Returns: string[] };
-      my_profile_id: { Args: Record<PropertyKey, never>; Returns: string };
-      profile_claim_emails: {
-        Args: Record<PropertyKey, never>;
-        Returns: {
-          claim_email: string;
-          linked: boolean;
-          profile_id: string;
-        }[];
-      };
     };
     Enums: {
       dispute_state: "open" | "withdrawn" | "refunded" | "released";

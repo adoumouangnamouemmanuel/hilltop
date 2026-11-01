@@ -43,20 +43,20 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
 
-select isnt(public.my_profile_id(), null, 'the student is recognised');
-select is(public.has_permission('listings.moderate'), false, 'students have no admin powers');
+select isnt(private.my_profile_id(), null, 'the student is recognised');
+select is(private.has_permission('listings.moderate'), false, 'students have no admin powers');
 
 select lives_ok($$insert into public.listings (id, seller_id, title, price, category, pickup, status)
-  values ('student-lamp', public.my_profile_id(), 'Desk lamp', 50, 'hostel', 'Library', 'active')$$,
+  values ('student-lamp', private.my_profile_id(), 'Desk lamp', 50, 'hostel', 'Library', 'active')$$,
   'students list items as themselves');
 select throws_ok($$insert into public.listings (seller_id, title, price, category, pickup)
   values (md5('seller:wellington')::uuid, 'Fake', 1, 'other', 'Library')$$,
   '42501', null, 'students can''t list as someone else');
 select throws_ok($$insert into public.listings (seller_id, title, price, category, pickup, status)
-  values (public.my_profile_id(), 'Sneaky', 1, 'other', 'Library', 'hidden')$$,
+  values (private.my_profile_id(), 'Sneaky', 1, 'other', 'Library', 'hidden')$$,
   '42501', null, 'new listings can''t start in a moderation state');
 select throws_ok($$insert into public.listings (seller_id, title, price, category, pickup, views)
-  values (public.my_profile_id(), 'Popular', 1, 'other', 'Library', 9999)$$,
+  values (private.my_profile_id(), 'Popular', 1, 'other', 'Library', 9999)$$,
   '42501', null, 'students can''t set view counts');
 
 select lives_ok($$update public.listings set title = 'Bright desk lamp' where id = 'student-lamp'$$, 'students edit their listings');
@@ -68,26 +68,26 @@ select is((select title from public.listings where id = 'casio-fx991'), 'Casio f
 select throws_ok($$update public.profiles set verified = true where user_id = auth.uid()$$,
   '42501', null, 'students can''t verify themselves');
 
-select lives_ok($$insert into public.saved_listings (profile_id, listing_id) values (public.my_profile_id(), 'casio-fx991')$$, 'students save listings');
+select lives_ok($$insert into public.saved_listings (profile_id, listing_id) values (private.my_profile_id(), 'casio-fx991')$$, 'students save listings');
 select is((select count(*)::int from public.saved_listings), 1, 'students see only their saved listings');
 
-select lives_ok($$insert into public.reports (listing_id, reporter_id, reason) values ('casio-fx991', public.my_profile_id(), 'scam')$$,
+select lives_ok($$insert into public.reports (listing_id, reporter_id, reason) values ('casio-fx991', private.my_profile_id(), 'scam')$$,
   'students report other people''s listings');
-select throws_ok($$insert into public.reports (listing_id, reporter_id, reason) values ('student-lamp', public.my_profile_id(), 'scam')$$,
+select throws_ok($$insert into public.reports (listing_id, reporter_id, reason) values ('student-lamp', private.my_profile_id(), 'scam')$$,
   '42501', null, 'students can''t report their own listing');
 
-select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx991', public.my_profile_id(), 120)$$,
+select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx991', private.my_profile_id(), 120)$$,
   'students make offers');
 select throws_ok($$update public.offers set status = 'accepted' where listing_id = 'casio-fx991'$$,
   '42501', null, 'buyers can''t accept their own offer');
 
 select lives_ok($$insert into public.conversations (listing_id, buyer_id, seller_id)
-  values ('casio-fx991', public.my_profile_id(), md5('seller:wellington')::uuid)$$, 'students message sellers');
+  values ('casio-fx991', private.my_profile_id(), md5('seller:wellington')::uuid)$$, 'students message sellers');
 select lives_ok($$insert into public.messages (conversation_id, sender_id, body)
-  select id, public.my_profile_id(), 'Is it still available?' from public.conversations where listing_id = 'casio-fx991'$$,
+  select id, private.my_profile_id(), 'Is it still available?' from public.conversations where listing_id = 'casio-fx991'$$,
   'students send messages');
 select throws_ok($$insert into public.conversations (listing_id, buyer_id, seller_id)
-  values ('casio-fx991', public.my_profile_id(), md5('seller:petra')::uuid)$$,
+  values ('casio-fx991', private.my_profile_id(), md5('seller:petra')::uuid)$$,
   '42501', null, 'conversations must be with the listing''s actual seller');
 
 select is((select count(*)::int from public.config_draft), 0, 'students can''t see the config draft');
@@ -117,10 +117,10 @@ select ok((select posted_at > now() - interval '1 minute' from public.listings w
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "33333333-3333-3333-3333-333333333333", "role": "authenticated"}', true);
 
-select is(public.has_permission('listings.moderate'), true, 'the moderator role grants moderation');
+select is(private.has_permission('listings.moderate'), true, 'the moderator role grants moderation');
 select lives_ok($$update public.listings set status = 'hidden' where id = 'student-lamp'$$, 'moderators hide listings');
 select is((select count(*)::int from public.reports), 1, 'moderators see reports');
-select lives_ok($$update public.reports set status = 'actioned', handled_by = public.my_profile_id(), handled_at = now()$$,
+select lives_ok($$update public.reports set status = 'actioned', handled_by = private.my_profile_id(), handled_at = now()$$,
   'moderators handle reports');
 select throws_ok($$insert into public.config_releases (config) values ('{}')$$, '42501', null, 'moderators can''t publish config');
 select throws_ok($$insert into public.admin_roles (id, name) values ('rogue', 'Rogue')$$, '42501', null, 'moderators can''t create roles');
