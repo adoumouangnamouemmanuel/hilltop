@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { quickSignIn } from "./helpers";
+import { quickSignIn, signIn } from "./helpers";
 
 const photo = path.join(__dirname, "..", "..", "public", "icons", "icon-512.png");
 
