@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Lock, Loader2 } from "lucide-react";
+import { ArrowLeft, Lock, Loader2, MapPin } from "lucide-react";
 import { getListing } from "@/lib/data";
 import { formatCedi } from "@/lib/format";
 import { Logo, LogoMark } from "./logo";
@@ -17,13 +17,30 @@ const testimonials = [
   { quote: "I sell cookies every morning. Hilltop is basically my shopfront.", name: "Abena O.", role: "Business, class of 2027" },
 ];
 
-/** Split-screen frame for sign in and sign up, with an editorial photo panel. */
-export function AuthShell({ image, children }: { image: string; children: React.ReactNode }) {
+export type CampusPhoto = {
+  src: StaticImageData;
+  /** Where on campus it was taken, shown on the photo. */
+  place: string;
+  /** CSS object-position, to keep the subject in frame when cropped. */
+  position?: string;
+};
+
+/** Split-screen frame for sign in and sign up, with a photo of the Ashesi campus. */
+export function AuthShell({ image, children }: { image: CampusPhoto; children: React.ReactNode }) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Mobile photo header */}
       <div className="relative h-60 overflow-hidden lg:hidden">
-        <Image src={image} alt="" fill priority sizes="100vw" className="animate-ken-burns object-cover" />
+        <Image
+          src={image.src}
+          alt={`${image.place}, Ashesi University`}
+          fill
+          priority
+          placeholder="blur"
+          sizes="100vw"
+          style={{ objectPosition: image.position }}
+          className="animate-ken-burns object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/60" />
         <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
           <Link
@@ -66,8 +83,28 @@ export function AuthShell({ image, children }: { image: string; children: React.
       {/* Desktop photo panel */}
       <div className="relative hidden p-3 lg:block">
         <div className="sticky top-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-[2rem] bg-ink-950">
-          <Image src={image} alt="" fill priority sizes="55vw" quality={90} className="animate-ken-burns object-cover" />
+          <Image
+            src={image.src}
+            alt={`${image.place}, Ashesi University`}
+            fill
+            priority
+            placeholder="blur"
+            sizes="55vw"
+            quality={90}
+            style={{ objectPosition: image.position }}
+            className="animate-ken-burns object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
+
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="absolute top-6 left-6 flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md"
+          >
+            <MapPin className="size-3.5" aria-hidden />
+            {image.place}, Ashesi University
+          </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: -10 }}

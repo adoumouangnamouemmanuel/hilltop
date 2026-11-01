@@ -4,12 +4,12 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, KeyRound, Loader2, ShieldCheck } from "lucide-react";
-import { unsplash } from "@hilltop/shared/catalog";
+import { ArrowRight, KeyRound, Loader2, MapPin, ShieldCheck } from "lucide-react";
 import { LogoMark } from "@hilltop/ui/logo";
 import { ThemeToggle } from "@hilltop/ui/theme-toggle";
 import { Avatar, buttonClass, cn } from "@hilltop/ui/ui";
 import { startSession } from "@/app/actions";
+import engineeringBuilding from "@/assets/campus/engineering-building.jpg";
 import { Badge, Field, TextInput } from "@/components/kit";
 import { signIn, useAdmin, useHydrated, usePublished } from "@/lib/store";
 
@@ -148,14 +148,20 @@ export function SignIn() {
 
       <div className="relative hidden overflow-hidden bg-ink-950 lg:block">
         <Image
-          src={unsplash("1517245386807-bb43f82c33c4", 2000)}
-          alt=""
+          src={engineeringBuilding}
+          alt="King Engineering Building, Ashesi University"
           fill
           priority
+          placeholder="blur"
           sizes="55vw"
-          className="animate-ken-burns object-cover opacity-80"
+          quality={90}
+          className="animate-ken-burns object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#2a0a0f] via-[#2a0a0f]/55 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#2a0a0f]/95 via-[#2a0a0f]/25 to-black/10" />
+        <p className="absolute top-8 left-8 flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md">
+          <MapPin className="size-3.5" aria-hidden />
+          King Engineering Building, Ashesi University
+        </p>
         <div className="absolute inset-x-0 bottom-0 p-12 text-white">
           <p className="max-w-md text-[30px] leading-tight font-semibold tracking-[-0.035em]">
             Everything the marketplace does, configured from one place.
