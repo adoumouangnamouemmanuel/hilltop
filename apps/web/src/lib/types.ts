@@ -6,7 +6,13 @@ import type { Listing, ListingStatus } from "./data";
  * will return, so the UI won't change when the mock store is replaced.
  */
 
-export type User = { name: string; email: string };
+export type User = {
+  name: string;
+  email: string;
+  /** The student's profile in the database, and its public handle (their seller URL). */
+  profileId?: string;
+  handle?: string;
+};
 
 /**
  * paid      money is held, seller hasn't prepared the item yet

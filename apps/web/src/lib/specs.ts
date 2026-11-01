@@ -32,19 +32,23 @@ export function factsFor(listing: Listing, category: CategoryDef): [string, stri
   ];
 }
 
-/** Seller profile for a listing, with a stand-in for listings the current user created. */
-export function sellerFor(listing: Listing, userName?: string): Seller & { isMe: boolean } {
+/**
+ * Seller profile for a listing. The signed-in student's own listings may not be in
+ * the public market yet (drafts, or just published), so they get a stand-in.
+ */
+export function sellerFor(listing: Listing, me?: { handle?: string; name: string } | null): Seller & { isMe: boolean } {
+  const isMe = !!me?.handle && listing.sellerId === me.handle;
   const seller = getSeller(listing.sellerId);
-  if (seller) return { ...seller, isMe: false };
+  if (seller) return { ...seller, isMe };
   return {
-    id: "me",
-    name: userName ?? "You",
+    id: listing.sellerId,
+    name: isMe ? me!.name : "A student",
     specialty: "Ashesi student",
-    rating: 5,
+    rating: 0,
     reviews: 0,
     sales: 0,
     responseTime: "within an hour",
-    joined: "2026",
-    isMe: true,
+    joined: String(new Date().getFullYear()),
+    isMe,
   };
 }

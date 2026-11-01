@@ -11,6 +11,7 @@ import { toast } from "./toast";
 import type { PaymentPlan } from "@hilltop/shared/payments";
 import { signOutEverywhere } from "./auth";
 import { supabase } from "./supabase";
+import * as Mine from "./mine";
 import type { DisputeReason, Review, SavedSearch, State, User } from "./types";
 
 /*
@@ -109,18 +110,55 @@ export function resetDemo() {
   commit(() => M.seedState());
 }
 
+// The signed-in student's own data starts empty and is loaded from the database.
+const noMine: Pick<State, "myListings" | "saved" | "savedSearches" | "reports"> = {
+  myListings: [],
+  saved: [],
+  savedSearches: [],
+  reports: [],
+};
+let mineLoadedFor: string | null = null;
+
+/** Reloads the student's listings, saved items, searches and reports from the database. */
+async function refreshMine() {
+  const profileId = state.user?.profileId;
+  if (!profileId) return;
+  const mine = await Mine.loadMine(profileId);
+  // Ignore an answer for someone who has since signed out.
+  if (mine && state.user?.profileId === profileId) {
+    mineLoadedFor = profileId;
+    commit((s) => ({ ...s, ...mine }));
+  }
+}
+
+/** Shows a database error and reloads, undoing an optimistic change. */
+function failed(message: string | null) {
+  if (!message) return;
+  toast(message);
+  refreshMine();
+}
+
+const me = () => state.user?.profileId;
+
 export const actions = {
   /** Mirrors the Supabase session; called by <AuthSync /> whenever it changes. */
   setUser(user: User | null) {
-    if (state.user?.email === user?.email && state.user?.name === user?.name) return;
-    commit((s) => ({ ...s, user }));
+    const switched = state.user?.profileId !== user?.profileId;
+    const same = !switched && state.user?.email === user?.email && state.user?.name === user?.name;
+    if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}) }));
+    if (switched) mineLoadedFor = null;
+    if (user?.profileId && mineLoadedFor !== user.profileId) refreshMine();
   },
+  refreshMine,
   async signOut() {
     await signOutEverywhere();
-    commit((s) => ({ ...s, user: null }));
+    commit((s) => ({ ...s, user: null, ...noMine }));
   },
   toggleSaved(id: string) {
-    commit((s) => ({ ...s, saved: s.saved.includes(id) ? s.saved.filter((x) => x !== id) : [...s.saved, id] }));
+    const saving = !state.saved.includes(id);
+    commit((s) => ({ ...s, saved: saving ? [...s.saved, id] : s.saved.filter((x) => x !== id) }));
+    const profileId = me();
+    if (profileId) Mine.setSavedRemote(profileId, id, saving).then(failed);
   },
 
   // Orders
@@ -161,22 +199,34 @@ export const actions = {
     commit((s) => M.addReview(s, { ...r, id: uid("rev"), at: Date.now(), author: s.user?.name ?? "You" }));
   },
 
-  // Listings
-  saveListing(listing: Listing) {
+  // Listings: photos are uploaded first, then the listing and its photos are saved.
+  async saveListing(listing: Listing): Promise<{ listing: Listing } | { error: string }> {
+    const { profileId, handle } = state.user ?? {};
+    if (!profileId || !handle) return { error: "Sign in to sell." };
     const isNew = !state.myListings.some((l) => l.id === listing.id);
-    commit((s) => {
-      const next = M.upsertListing(s, listing);
-      return isNew && M.isActive(listing) ? M.alertMatches(next, listing, Date.now()) : next;
-    });
+    let images: string[];
+    try {
+      images = await Mine.uploadPhotos(listing.images);
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "A photo didn't upload. Try again." };
+    }
+    const saved = { ...listing, images, sellerId: handle };
+    const error = await Mine.saveListingRemote(saved, profileId, isNew);
+    if (error) return { error };
+    commit((s) => M.upsertListing(s, saved));
+    return { listing: saved };
   },
   setListingStatus(id: string, status: ListingStatus) {
     commit((s) => M.setListingStatus(s, id, status));
+    Mine.setListingStatusRemote(id, status).then(failed);
   },
   renewListing(id: string) {
     commit((s) => M.renewListing(s, id));
+    Mine.renewListingRemote(id).then(failed);
   },
   deleteListing(id: string) {
     commit((s) => M.deleteListing(s, id));
+    Mine.deleteListingRemote(id).then(failed);
   },
 
   // Offers: the seller answers a few seconds later.
@@ -227,20 +277,32 @@ export const actions = {
   clearRecentSearches() {
     commit((s) => ({ ...s, recentSearches: [] }));
   },
-  saveSearch(search: Omit<SavedSearch, "id" | "createdAt" | "alerts">) {
-    commit((s) => M.saveSearch(s, { ...search, id: uid("ss"), createdAt: Date.now(), alerts: true }));
+  async saveSearch(search: Omit<SavedSearch, "id" | "createdAt" | "alerts">) {
+    const profileId = me();
+    if (!profileId || state.savedSearches.some((x) => x.query === search.query)) return;
+    const created = await Mine.saveSearchRemote(profileId, search);
+    if (!created) return toast("Couldn't save this search. Try again.");
+    commit((s) => M.saveSearch(s, { ...search, ...created, alerts: true }));
   },
   removeSearch(id: string) {
     commit((s) => M.removeSearch(s, id));
+    Mine.removeSearchRemote(id);
   },
   toggleAlerts(id: string) {
     commit((s) => M.toggleAlerts(s, id));
+    const search = state.savedSearches.find((x) => x.id === id);
+    if (search) Mine.updateSearchRemote(id, { alerts: search.alerts });
   },
   markSearchSeen(id: string, matchIds: string[]) {
+    const search = state.savedSearches.find((x) => x.id === id);
+    if (!search || search.seenIds.join() === matchIds.join()) return;
     commit((s) => M.markSearchSeen(s, id, matchIds));
+    Mine.updateSearchRemote(id, { seen_ids: matchIds });
   },
   reportListing(listingId: string, reason: string, details: string) {
     commit((s) => M.reportListing(s, { listingId, reason, details, at: Date.now() }));
+    const profileId = me();
+    if (profileId) Mine.reportRemote(profileId, { listingId, reason, details }).then(failed);
   },
   recordView(id: string) {
     if (state.recentlyViewed[0] !== id) commit((s) => M.recordView(s, id));

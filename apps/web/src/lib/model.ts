@@ -1,4 +1,3 @@
-import { unsplash } from "./catalog";
 import { getSeller, type Listing, type ListingStatus } from "./data";
 import { autoReleaseAt, holdsMoney } from "@hilltop/shared/payments";
 import { formatCedi } from "./format";
@@ -38,7 +37,9 @@ export const isSoldOut = (l: Listing) => l.stock !== undefined && l.stock <= 0;
 
 /** Platform listings with the user's changes applied, plus the user's own listings first. */
 export function mergeListings(seed: Listing[], s: Pick<State, "myListings" | "overrides">): Listing[] {
-  const patched = seed.map((l) => (s.overrides[l.id] ? { ...l, ...s.overrides[l.id] } : l));
+  // The student's own copy wins over the public one, which can be a minute behind.
+  const mine = new Set(s.myListings.map((l) => l.id));
+  const patched = seed.filter((l) => !mine.has(l.id)).map((l) => (s.overrides[l.id] ? { ...l, ...s.overrides[l.id] } : l));
   return [...s.myListings, ...patched];
 }
 
@@ -433,73 +434,6 @@ export function recordView(s: State, id: string): State {
 
 // ---------- Seed ----------
 
-const myWatch: Listing = {
-  id: "my-smartwatch",
-  title: "White smartwatch, 42mm",
-  price: 380,
-  category: "jewellery",
-  condition: "Like new",
-  images: [unsplash("1523275335684-37898b6baf30")],
-  description: "Tracks steps, sleep and notifications. Barely worn, charger included.",
-  attributes: { type: "Watch", material: "Stainless steel", size: "42mm" },
-  sellerId: "me",
-  pickup: "Library",
-  postedDaysAgo: 3,
-  saves: 28,
-  views: 341,
-};
-
-const myEyeliner: Listing = {
-  id: "my-eyeliner",
-  title: "Liquid eyeliner pen, unused",
-  price: 40,
-  category: "beauty",
-  condition: "New",
-  images: [unsplash("1631214524020-7e18db9a8f92")],
-  description: "Waterproof black liner. Wrong shade for me, never opened.",
-  attributes: { type: "Makeup", sealed: true },
-  sellerId: "me",
-  pickup: "Cafeteria",
-  postedDaysAgo: 9,
-  status: "sold",
-  saves: 9,
-  views: 124,
-};
-
-/** Past the default 30-day window, so it shows under Expired until renewed. */
-const myLamp: Listing = {
-  id: "my-desk-lamp",
-  title: "Adjustable desk lamp",
-  price: 70,
-  category: "hostel",
-  condition: "Good",
-  images: [unsplash("1507473885765-e6ed057f782c")],
-  description: "Bright LED lamp with three brightness levels. Works perfectly.",
-  attributes: { type: "Lighting" },
-  sellerId: "me",
-  pickup: "Hostel C",
-  postedDaysAgo: 34,
-  saves: 4,
-  views: 61,
-};
-
-const myCalculator: Listing = {
-  id: "my-calculator",
-  title: "Casio fx-82MS calculator",
-  price: 60,
-  category: "calculators",
-  condition: "Good",
-  images: [unsplash("1587145820266-a5951ee6f620")],
-  description: "Reliable for Statistics and Accounting. Fresh battery.",
-  attributes: { model: "Casio fx-82MS", exam: true, power: "Solar and battery" },
-  sellerId: "me",
-  pickup: "Library",
-  postedDaysAgo: 16,
-  status: "sold",
-  saves: 14,
-  views: 210,
-};
-
 export function seedState(): State {
   const t = SEED_TIME;
   return {
@@ -508,7 +442,8 @@ export function seedState(): State {
     recentSearches: [],
     recentlyViewed: [],
     offers: {},
-    myListings: [myWatch, myEyeliner, myCalculator, myLamp],
+    // Loaded from the database for the signed-in student.
+    myListings: [],
     overrides: {},
     orders: [
       {

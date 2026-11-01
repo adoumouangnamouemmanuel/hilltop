@@ -28,9 +28,10 @@ select is((select status::text from public.admin_members where email = 'emmanuel
   'the owner invite becomes active on first sign-in');
 
 -- Logged-out visitors -----------------------------------------------------------------
+select set_config('test.public_listings', (select count(*)::text from public.listings where status in ('active', 'sold')), true);
 set local role anon;
 select set_config('request.jwt.claims', '{"role": "anon"}', true);
-select is((select count(*)::int from public.listings), 68, 'visitors see live listings');
+select is((select count(*)::int from public.listings), current_setting('test.public_listings')::int, 'visitors see live and sold listings');
 select ok((select count(*) from public.current_config) = 1, 'visitors can read the published config');
 select throws_ok('select claim_email from public.profiles', '42501', null, 'visitors can''t read claim emails');
 select throws_ok('select * from public.orders', '42501', null, 'visitors can''t read orders');
@@ -170,6 +171,39 @@ select is(private.hook_before_user_created('{"user": {"email": "someone@ashesi.e
 insert into public.admin_members (email, name, role_id) values ('helper@gmail.com', 'Outside Helper', 'viewer');
 select is(private.hook_before_user_created('{"user": {"email": "helper@gmail.com"}}'::jsonb), '{}'::jsonb,
   'invited admins can sign up with any email');
+
+-- Listing rules from the published config ----------------------------------------------
+reset role;
+select set_config('test.stu', (select id::text from public.profiles where user_id = '11111111-1111-1111-1111-111111111111'), true);
+insert into public.config_releases (config, note)
+select jsonb_set(jsonb_set(config, '{listings,maxActive}', '1'), '{listings,bannedWords}', '["counterfeit"]'), 'test limits'
+from public.current_config;
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select lives_ok($$insert into public.listings (id, seller_id, title, price, category, pickup, status)
+  values ('stu-draft', current_setting('test.stu')::uuid, 'Half done', 0, '', 'Library', 'draft')$$,
+  'drafts can be saved before a category is picked');
+select throws_ok($$update public.listings set status = 'active' where id = 'stu-draft'$$,
+  '23514', null, 'a listing needs a category to go live');
+select throws_ok($$insert into public.listings (id, seller_id, title, price, category, pickup, status)
+  values ('stu-fake', current_setting('test.stu')::uuid, 'Counterfeit watch', 50, 'jewellery', 'Library', 'active')$$,
+  '23514', 'This listing contains words that aren''t allowed on Hilltop', 'banned words are refused');
+select lives_ok($$insert into public.listings (id, seller_id, title, price, category, pickup, status)
+  values ('stu-one', current_setting('test.stu')::uuid, 'Desk fan', 50, 'hostel', 'Library', 'active')$$,
+  'a student can list up to the cap');
+select throws_ok($$insert into public.listings (id, seller_id, title, price, category, pickup, status)
+  values ('stu-two', current_setting('test.stu')::uuid, 'Kettle', 50, 'hostel', 'Library', 'active')$$,
+  '23514', 'You can have 1 active listings at a time', 'the active listing cap is enforced');
+select lives_ok($$insert into public.listings (id, seller_id, title, price, category, pickup, status)
+  values ('stu-three', current_setting('test.stu')::uuid, 'Kettle', 50, 'hostel', 'Library', 'draft')$$,
+  'drafts don''t count toward the cap');
+select lives_ok($$insert into public.listing_views (listing_id) values ('stu-one')$$, 'anyone can count a view');
+select lives_ok($$insert into public.listing_views (listing_id) values ('stu-three')$$, 'viewing a draft is harmless');
+reset role;
+select is((select views from public.listings where id = 'stu-one'), 1, 'a view bumps the counter');
+select is((select views from public.listings where id = 'stu-three'), 0, 'views only count on live listings');
+select is((select count(*)::int from public.listing_views), 0, 'view rows are never stored');
 
 select * from finish();
 rollback;

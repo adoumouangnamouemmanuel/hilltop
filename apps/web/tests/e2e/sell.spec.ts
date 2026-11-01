@@ -28,7 +28,9 @@ test("publish a listing with category-specific details", async ({ page }) => {
   await page.getByLabel("Your price").fill("220");
 
   await page.getByRole("button", { name: "Publish listing" }).click();
-  await page.waitForURL(/\/listing\/my-/);
+  await page.waitForURL(/\/listing\/casio-fx-991ex-barely-used-[0-9a-f]{6}$/);
+  // The photo was uploaded, not kept in the browser.
+  await expect(page.locator("main img").first()).toHaveAttribute("src", /api(%2F|\/)photos/);
   await expect(page.getByRole("heading", { level: 1, name: "Casio fx-991EX, barely used" })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "Yes" }).first()).toBeVisible();
   await expect(page.getByText("Allowed in exams").first()).toBeVisible();
@@ -42,7 +44,7 @@ test("save a draft, then find it under your listings", async ({ page }) => {
   await signIn(page, "/sell");
   await page.getByLabel("Title").fill("Half-finished lamp listing");
   await page.getByRole("button", { name: "Save as draft" }).click();
-  await expect(page).toHaveURL(/edit=my-/);
+  await expect(page).toHaveURL(/edit=half-finished-lamp-listing-/);
   await expect(page.getByRole("heading", { level: 1, name: "Finish your draft" })).toBeVisible();
 
   await page.goto("/me?tab=selling");

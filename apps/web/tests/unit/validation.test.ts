@@ -119,7 +119,7 @@ describe("form conversion", () => {
     );
     expect(listing.attributes).toEqual({ brand: "Apple" });
     expect(listing.extra).toEqual([["Warranty", "6 months"]]);
-    expect(listing.sellerId).toBe("me");
+    expect(listing.sellerId).toBe("");
   });
 
   it("ignores an original price that isn't higher", () => {

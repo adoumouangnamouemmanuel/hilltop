@@ -161,7 +161,8 @@ export function toListing(
     extra: v.extra.filter((e) => e.label.trim() && e.value.trim()).map((e) => [e.label.trim(), e.value.trim()]),
     stock: v.stock ? Number(v.stock) : undefined,
     food: v.category === "food" ? { cutoff: v.foodCutoff, slots: v.foodSlots.map((s) => s.trim()).filter(Boolean) } : undefined,
-    sellerId: "me",
+    // Set to the seller's handle when saved.
+    sellerId: "",
     pickup: v.pickup,
     postedDaysAgo: meta.previous?.postedDaysAgo ?? 0,
     promoted: v.boost !== "none" || meta.previous?.promoted,

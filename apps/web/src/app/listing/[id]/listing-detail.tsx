@@ -37,7 +37,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
   const [copied, setCopied] = useState(false);
 
   const listing = findListing(allListings, id) ?? initial;
-  const visible = listing && (listing.status !== "draft" || listing.sellerId === "me");
+  const visible = listing && (listing.status !== "draft" || (!!user?.handle && listing.sellerId === user.handle));
 
   useEffect(() => {
     if (visible) recordView(id);
@@ -50,7 +50,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
 
   if (!listing || !visible) return <NotFound />;
 
-  const seller = sellerFor(listing, user?.name);
+  const seller = sellerFor(listing, user);
   const category = catalog.get(listing.category);
   const specs = specsFor(listing, category);
   const highlights = specs.filter((s) => s.highlight).slice(0, 4);

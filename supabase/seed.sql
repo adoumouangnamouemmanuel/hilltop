@@ -23,6 +23,10 @@ insert into public.profiles (id, handle, name, shop_name, specialty, class_of, m
   (md5('seller:hadjara')::uuid, 'hadjara', 'Hadjara Ouedrago', null, 'Earrings, women''s shoes and bracelets', null, null, 'within 20 min', true, 39)
 on conflict (id) do nothing;
 
+-- Kofi Darko, a demo student whose shop is claimed when they first sign in.
+insert into public.profiles (id, handle, name, claim_email) values (md5('seller:kofi-darko')::uuid, 'kofi-darko', 'Kofi Darko', 'kofi.darko@ashesi.edu.gh')
+on conflict (id) do nothing;
+
 insert into public.listings (id, seller_id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, promoted_until, status, posted_at, views, saves) values
   ('casio-fx991', md5('seller:wellington')::uuid, 'Casio fx-991ES Plus', 'The one everyone needs for Calculus, Statistics and engineering maths. Cover included, new battery.', 160, 280, 'calculators', 'Good', '{"model":"Casio fx-991ES Plus","exam":true,"power":"Solar and battery"}'::jsonb, '[]'::jsonb, 'Engineering block', 6, null, false, now() + interval '7 days', 'active', now() - interval '1 days', 290, 38),
   ('casio-fx991ex', md5('seller:wellington')::uuid, 'Casio fx-991EX ClassWiz', 'High-resolution screen, spreadsheet mode and QR graphs. Allowed in most exams. Comes with its hard cover.', 260, null, 'calculators', 'Like new', '{"model":"Casio fx-991EX","exam":true,"power":"Solar and battery"}'::jsonb, '[]'::jsonb, 'Engineering block', 3, null, false, null, 'active', now() - interval '2 days', 94, 16),
@@ -91,7 +95,11 @@ insert into public.listings (id, seller_id, title, description, price, original_
   ('eyecon-frames', md5('seller:suzie')::uuid, 'Frames for prescription lenses', 'Choose your frame and Eyecon fits your prescription lenses. Bring your prescription.', 150, null, 'eyewear', 'New', '{"type":"Frames only","frame":"Acetate","fit":"Unisex","case":true,"brand":"Other"}'::jsonb, '[]'::jsonb, 'Library', 10, null, false, null, 'active', now() - interval '3 days', 25, 17),
   ('drop-earrings', md5('seller:hadjara')::uuid, 'Drop earrings', 'Statement earrings for events and photos. Gold and silver.', 45, null, 'jewellery', 'New', '{"type":"Earrings","material":"Gold-plated"}'::jsonb, '[]'::jsonb, 'Hostel A', 15, null, false, null, 'active', now() - interval '2 days', 62, 24),
   ('ladies-heels', md5('seller:hadjara')::uuid, 'Heels and flats, ladies', 'Block heels, pumps and flat sandals. Sizes 36 to 41.', 180, null, 'fashion', 'New', '{"type":"Shoes","fit":"Women","size":"36 to 41","brand":"Other"}'::jsonb, '[]'::jsonb, 'Hostel A', 8, null, false, null, 'active', now() - interval '1 days', 99, 31),
-  ('chain-bracelet', md5('seller:hadjara')::uuid, 'Chain bracelets', 'Gold and silver chain bracelets. Stackable.', 40, null, 'jewellery', 'New', '{"type":"Bracelet","material":"Gold-plated"}'::jsonb, '[]'::jsonb, 'Hostel A', 20, null, false, null, 'active', now() - interval '4 days', 136, 38)
+  ('chain-bracelet', md5('seller:hadjara')::uuid, 'Chain bracelets', 'Gold and silver chain bracelets. Stackable.', 40, null, 'jewellery', 'New', '{"type":"Bracelet","material":"Gold-plated"}'::jsonb, '[]'::jsonb, 'Hostel A', 20, null, false, null, 'active', now() - interval '4 days', 136, 38),
+  ('my-smartwatch', md5('seller:kofi-darko')::uuid, 'White smartwatch, 42mm', 'Tracks steps, sleep and notifications. Barely worn, charger included.', 380, null, 'jewellery', 'Like new', '{"type":"Watch","material":"Stainless steel","size":"42mm"}'::jsonb, '[]'::jsonb, 'Library', null, null, false, null, 'active', now() - interval '3 days', 341, 28),
+  ('my-eyeliner', md5('seller:kofi-darko')::uuid, 'Liquid eyeliner pen, unused', 'Waterproof black liner. Wrong shade for me, never opened.', 40, null, 'beauty', 'New', '{"type":"Makeup","sealed":true}'::jsonb, '[]'::jsonb, 'Cafeteria', null, null, false, null, 'sold', now() - interval '9 days', 124, 9),
+  ('my-calculator', md5('seller:kofi-darko')::uuid, 'Casio fx-82MS calculator', 'Reliable for Statistics and Accounting. Fresh battery.', 60, null, 'calculators', 'Good', '{"model":"Casio fx-82MS","exam":true,"power":"Solar and battery"}'::jsonb, '[]'::jsonb, 'Library', null, null, false, null, 'sold', now() - interval '16 days', 210, 14),
+  ('my-desk-lamp', md5('seller:kofi-darko')::uuid, 'Adjustable desk lamp', 'Bright LED lamp with three brightness levels. Works perfectly.', 70, null, 'hostel', 'Good', '{"type":"Lighting"}'::jsonb, '[]'::jsonb, 'Hostel C', null, null, false, null, 'active', now() - interval '34 days', 61, 4)
 on conflict (id) do nothing;
 
 insert into public.listing_photos (listing_id, url, position) values
@@ -200,5 +208,9 @@ insert into public.listing_photos (listing_id, url, position) values
   ('drop-earrings', 'https://images.unsplash.com/photo-1764181106586-1ca290a3a395?w=1600&q=80&auto=format', 0),
   ('ladies-heels', 'https://images.unsplash.com/photo-1535043934128-cf0b28d52f95?w=1600&q=80&auto=format', 0),
   ('ladies-heels', 'https://images.unsplash.com/photo-1619510331283-a46c425e48bb?w=1600&q=80&auto=format', 1),
-  ('chain-bracelet', 'https://images.unsplash.com/photo-1602173574767-37ac01994b2a?w=1600&q=80&auto=format', 0)
+  ('chain-bracelet', 'https://images.unsplash.com/photo-1602173574767-37ac01994b2a?w=1600&q=80&auto=format', 0),
+  ('my-smartwatch', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600&q=80&auto=format', 0),
+  ('my-eyeliner', 'https://images.unsplash.com/photo-1631214524020-7e18db9a8f92?w=1600&q=80&auto=format', 0),
+  ('my-calculator', 'https://images.unsplash.com/photo-1587145820266-a5951ee6f620?w=1600&q=80&auto=format', 0),
+  ('my-desk-lamp', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=1600&q=80&auto=format', 0)
 on conflict (listing_id, position) do nothing;

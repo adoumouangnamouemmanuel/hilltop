@@ -68,8 +68,9 @@ describe("specs", () => {
   });
 
   it("stands in for the current user as seller", () => {
-    expect(sellerFor({ ...getListing("bucket")!, sellerId: "me" }, "Kofi Darko")).toMatchObject({ name: "Kofi Darko", isMe: true });
-    expect(sellerFor(getListing("bucket")!).isMe).toBe(false);
+    const me = { handle: "kofi-darko", name: "Kofi Darko" };
+    expect(sellerFor({ ...getListing("bucket")!, sellerId: "kofi-darko" }, me)).toMatchObject({ name: "Kofi Darko", isMe: true });
+    expect(sellerFor(getListing("bucket")!, me).isMe).toBe(false);
   });
 });
 

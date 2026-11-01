@@ -65,7 +65,13 @@ export function toUser(user: AuthUser | null | undefined): User | null {
       .split(/[._]/)
       .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
       .join(" ");
-  return { name, email: user.email };
+  const app = user.app_metadata ?? {};
+  return {
+    name,
+    email: user.email,
+    profileId: typeof app.profile_id === "string" ? app.profile_id : undefined,
+    handle: typeof app.handle === "string" ? app.handle : undefined,
+  };
 }
 
 /** Signs in with the school's identity provider when one is set up (e.g. "azure" for Microsoft). */

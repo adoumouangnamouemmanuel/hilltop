@@ -24,7 +24,7 @@ import { borderFor, fieldClass, LabeledInput, Pill, Section } from "./form-bits"
 import { PhotoPicker } from "./photo-picker";
 import { Preview } from "./preview";
 
-const newListingId = () => `my-${Date.now().toString(36)}`;
+import { listingIdFor } from "@/lib/mine";
 
 export function SellForm() {
   const router = useRouter();
@@ -96,19 +96,26 @@ export function SellForm() {
   const atCap = cap > 0 && activeCount >= cap && !(editing && isActive(editing));
 
   const publish = handleSubmit(
-    (v) => {
+    async (v) => {
       if (atCap) {
         toast(`You can have ${cap} active listings at a time. Mark one as sold, or save this as a draft.`);
         return;
       }
       setStatus("publishing");
-      const listing = toListing(v, { id: editing?.id ?? newListingId(), status: "active", previous: editing }, category?.noCondition);
-      setTimeout(() => {
-        saveListing(listing);
-        setStatus("done");
-        toast(editing && !isDraft ? "Changes saved" : "Your listing is live", { tone: "success" });
-        setTimeout(() => router.push(`/listing/${listing.id}`), 600);
-      }, 600);
+      const listing = toListing(
+        v,
+        { id: editing?.id ?? listingIdFor(v.title), status: "active", previous: editing },
+        category?.noCondition,
+      );
+      const result = await saveListing(listing);
+      if ("error" in result) {
+        setStatus("idle");
+        toast(result.error);
+        return;
+      }
+      setStatus("done");
+      toast(editing && !isDraft ? "Changes saved" : "Your listing is live", { tone: "success" });
+      setTimeout(() => router.push(`/listing/${listing.id}`), 600);
     },
     () => {
       toast("Some details need fixing before you can publish");
@@ -118,15 +125,21 @@ export function SellForm() {
     },
   );
 
-  function saveDraft() {
+  async function saveDraft() {
     const v = getValues();
     const problem = draftProblem(v);
     if (problem) {
       setError("title", { message: problem });
       return;
     }
-    const listing = toListing(v, { id: editing?.id ?? newListingId(), status: "draft", previous: editing }, category?.noCondition);
-    saveListing(listing);
+    const listing = toListing(v, { id: editing?.id ?? listingIdFor(v.title), status: "draft", previous: editing }, category?.noCondition);
+    setStatus("publishing");
+    const result = await saveListing(listing);
+    setStatus("idle");
+    if ("error" in result) {
+      toast(result.error);
+      return;
+    }
     toast("Draft saved", { tone: "success", action: { label: "View drafts", href: "/me?tab=selling" } });
     if (!editing) router.replace(`/sell?edit=${listing.id}`, { scroll: false });
   }
