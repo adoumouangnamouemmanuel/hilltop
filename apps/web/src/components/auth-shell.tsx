@@ -4,25 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Lock, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Lock, Loader2, MapPin } from "lucide-react";
 // Sample items for the illustration, not live listings.
 import { getListing } from "@hilltop/shared/seed";
 import { formatCedi } from "@/lib/format";
 import { Logo, LogoMark } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
-import { Avatar, cn } from "./ui";
+import { cn } from "./ui";
 
+// What Hilltop promises, until real students' words can replace it.
 const testimonials = [
   {
-    quote: "Sold my old study table in a day and got paid the moment she picked it up.",
-    name: "Nana A.",
-    role: "Economics, class of 2026",
+    quote: "Only Ashesi students. Every account is checked against a school email.",
+    name: "Verified",
+    role: "No strangers from group chats",
   },
-  { quote: "Finally no more sending MoMo to strangers in WhatsApp groups.", name: "Kojo A.", role: "Computer Science, class of 2027" },
   {
-    quote: "I run my little shop from my hostel room. Hilltop is basically my shopfront.",
-    name: "Abena O.",
-    role: "Business, class of 2027",
+    quote: "Meet in public spots on campus and pay when you have the item in your hands.",
+    name: "Safe meet-ups",
+    role: "Library, Cafeteria, Main gate",
+  },
+  {
+    quote: "Your hostel room can be a shop. List in a minute, from your phone.",
+    name: "Sell anything",
+    role: "Food, fashion, books, gadgets",
   },
 ];
 
@@ -121,14 +126,8 @@ export function AuthShell({ image, children }: { image: CampusPhoto; children: R
             transition={{ delay: 0.3 }}
             className="absolute top-6 right-6 flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-1.5 pr-4 pl-1.5 text-sm text-white backdrop-blur-md"
           >
-            <span className="flex -space-x-2">
-              {["Ama O", "Kojo A", "Esi B", "Yaw B"].map((n) => (
-                <span key={n} className="rounded-full ring-2 ring-black/20">
-                  <Avatar name={n} size={28} />
-                </span>
-              ))}
-            </span>
-            2,400+ verified students
+            <BadgeCheck className="ml-1.5 size-4" aria-hidden />
+            For Ashesi students only
           </motion.div>
 
           <FloatingOrder />
@@ -187,7 +186,6 @@ function Testimonials() {
         >
           <blockquote className="text-xl leading-snug font-medium tracking-[-0.01em]">&ldquo;{t.quote}&rdquo;</blockquote>
           <figcaption className="mt-5 flex items-center gap-3">
-            <Avatar name={t.name} size={36} />
             <span>
               <span className="block text-sm font-semibold">{t.name}</span>
               <span className="text-xs text-white/65">{t.role}</span>
@@ -201,7 +199,7 @@ function Testimonials() {
             key={j}
             type="button"
             onClick={() => setI(j)}
-            aria-label={`Testimonial ${j + 1}`}
+            aria-label={`Point ${j + 1}`}
             className="h-1 flex-1 overflow-hidden rounded-full bg-white/20"
           >
             {j === i && (

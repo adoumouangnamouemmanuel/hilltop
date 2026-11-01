@@ -8,8 +8,7 @@ import { ArrowRight, ChartNoAxesColumn } from "lucide-react";
 import { formatCedi } from "@/lib/format";
 import { payoutState } from "@/lib/model";
 import { useConfig } from "@/lib/config";
-import { resetDemo, useStore } from "@/lib/store";
-import { toast } from "@/lib/toast";
+import { useStore } from "@/lib/store";
 import type { Order } from "@/lib/types";
 import { PushPrompt } from "@/components/notifications";
 import { ThemeSegmented } from "@/components/theme-toggle";
@@ -204,19 +203,14 @@ export function MyMarket() {
                 <p className="mt-2 text-xs text-ink-500">Manage notification permissions in your browser settings at any time.</p>
               </section>
               <section>
-                <h2 className="text-sm font-semibold text-ink-950">Demo data</h2>
-                <p className="mt-1 text-sm text-ink-500">Everything you do is saved in this browser. Reset to start over.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetDemo();
-                    toast("Demo reset");
-                    router.push("/");
-                  }}
-                  className={buttonClass("outline", "md", "mt-3")}
-                >
-                  Reset demo
-                </button>
+                <h2 className="text-sm font-semibold text-ink-950">Your account</h2>
+                <p className="mt-1 text-sm text-ink-500">
+                  To delete your account or ask what Hilltop keeps about you, see{" "}
+                  <Link href="/privacy" className="font-medium text-ink-950 underline underline-offset-4">
+                    Privacy
+                  </Link>
+                  .
+                </p>
               </section>
             </div>
           )}

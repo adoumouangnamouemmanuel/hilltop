@@ -194,7 +194,7 @@ const ticketsCategory: CategoryDef = {
 export const defaultConfig: PlatformConfig = {
   version: 1,
   publishedAt: null,
-  brand: { name: "Hilltop", tagline: "The Ashesi student marketplace", supportEmail: "hello@hilltop.market" },
+  brand: { name: "Hilltop", tagline: "The Ashesi student marketplace", supportEmail: "support@hilltop.lumavok.com" },
   access: { allowedEmailDomains: ["ashesi.edu.gh"], allowSingleSignOn: true },
   fees: { buyerProtectionRate: 0.04, sellerFeeRate: 0 },
   payments: {

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { stateFile, type Who } from "./auth";
 
 /** Navigates and waits until React has hydrated, so typing and key presses aren't lost. */
@@ -20,4 +20,12 @@ export async function signIn(page: Page, next = "/", who: Who = "student") {
 
 export async function expectToast(page: Page, text: string | RegExp) {
   await expect(page.locator("[aria-live='polite']").getByText(text).first()).toBeVisible();
+}
+
+/** Clicks a button that opens a panel until `field` shows: the layout settles as the student's data loads. */
+export async function openPanel(page: Page, button: string, field: Locator) {
+  await expect(async () => {
+    if (!(await field.isVisible())) await page.getByRole("button", { name: button }).click();
+    await expect(field).toBeVisible({ timeout: 2000 });
+  }).toPass();
 }

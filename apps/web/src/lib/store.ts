@@ -120,11 +120,6 @@ export function readState() {
   return state;
 }
 
-/** Wipes the demo back to its starting point. */
-export function resetDemo() {
-  commit(() => M.seedState());
-}
-
 // The signed-in student's own data starts empty and is loaded from the database.
 const noMine: Pick<
   State,

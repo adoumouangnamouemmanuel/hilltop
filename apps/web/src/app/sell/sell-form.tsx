@@ -33,7 +33,8 @@ export function SellForm() {
   const catalog = useCatalog();
   const config = useConfig();
   const { maxPhotos, titleMax, descriptionMax } = config.listings;
-  const boostPlans = enabledBoostPlans(config);
+  // Promotion is paid, so it waits for paying in the app.
+  const boostPlans = config.payments.inApp ? enabledBoostPlans(config) : [];
   const editing = editId ? myListings.find((l) => l.id === editId) : undefined;
   const [status, setStatus] = useState<"idle" | "publishing" | "done">("idle");
 
@@ -348,46 +349,48 @@ export function SellForm() {
             />
           </Section>
 
-          <Section title="Promote" hint="Optional" id="promote">
-            <Controller
-              control={control}
-              name="boost"
-              render={({ field }) => (
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {[{ id: "none" as const, label: "No promotion", price: 0, reach: "Standard placement" }, ...boostPlans].map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => field.onChange(p.id)}
-                      aria-pressed={field.value === p.id}
-                      className={cn(
-                        "rounded-xl border p-3.5 text-left transition-colors",
-                        field.value === p.id ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
-                      )}
-                    >
-                      <span className="flex items-center justify-between text-sm font-medium text-ink-950">
-                        {p.label}
-                        <span className="tabular">{p.price ? formatCedi(p.price) : "Free"}</span>
-                      </span>
-                      <span className="mt-0.5 block text-xs text-ink-500">{p.reach}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            />
-            {config.events.moveOut.enabled && (
+          {boostPlans.length > 0 && (
+            <Section title="Promote" hint="Optional" id="promote">
               <Controller
                 control={control}
-                name="moveOut"
+                name="boost"
                 render={({ field }) => (
-                  <Checkbox checked={field.value} onChange={field.onChange} className="mt-4 rounded-xl border border-line-strong p-4">
-                    <span className="block font-medium text-ink-950">Add to the {config.events.moveOut.name}</span>
-                    <span className="text-xs text-ink-500">Featured to everyone shopping the end-of-semester sale.</span>
-                  </Checkbox>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[{ id: "none" as const, label: "No promotion", price: 0, reach: "Standard placement" }, ...boostPlans].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => field.onChange(p.id)}
+                        aria-pressed={field.value === p.id}
+                        className={cn(
+                          "rounded-xl border p-3.5 text-left transition-colors",
+                          field.value === p.id ? "border-ink-950 bg-surface" : "border-line-strong hover:border-ink-400",
+                        )}
+                      >
+                        <span className="flex items-center justify-between text-sm font-medium text-ink-950">
+                          {p.label}
+                          <span className="tabular">{p.price ? formatCedi(p.price) : "Free"}</span>
+                        </span>
+                        <span className="mt-0.5 block text-xs text-ink-500">{p.reach}</span>
+                      </button>
+                    ))}
+                  </div>
                 )}
               />
-            )}
-          </Section>
+              {config.events.moveOut.enabled && (
+                <Controller
+                  control={control}
+                  name="moveOut"
+                  render={({ field }) => (
+                    <Checkbox checked={field.value} onChange={field.onChange} className="mt-4 rounded-xl border border-line-strong p-4">
+                      <span className="block font-medium text-ink-950">Add to the {config.events.moveOut.name}</span>
+                      <span className="text-xs text-ink-500">Featured to everyone shopping the end-of-semester sale.</span>
+                    </Checkbox>
+                  )}
+                />
+              )}
+            </Section>
+          )}
         </div>
 
         <aside className="lg:sticky lg:top-[132px] lg:self-start">

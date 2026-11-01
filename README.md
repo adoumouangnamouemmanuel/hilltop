@@ -2,7 +2,7 @@
 
 A student marketplace for Ashesi: accounts verified to `@ashesi.edu.gh` emails, and payments held until the buyer confirms collection.
 
-Built with Next.js 16 (App Router), Tailwind CSS v4, Framer Motion, react-hook-form + zod, Poppins and Supabase. Sign-in, the platform config, the admin team and the audit log are real; listings, orders and messages still run on mock data behind a data layer that is being moved to Supabase.
+Built with Next.js 16 (App Router), Tailwind CSS v4, Framer Motion, react-hook-form + zod, Poppins and Supabase, running on Cloudflare Workers. Everything is real: sign-in, listings and photos, messages, offers, notifications, orders, reviews, the admin portal and the platform config. Paying in the app (Paystack) is the one piece still to come; until then every order is reserved in the app and paid to the seller at pickup.
 
 The repository is an npm workspaces monorepo:
 
@@ -13,9 +13,9 @@ packages/shared Platform config schema, permissions, catalog, seed data, formatt
 packages/ui     Design system: tokens, primitives, charts, sheets, hooks
 ```
 
-## Demo data
+## Local demo data
 
-The demo sellers are Ashesi students and what they actually sell (calculators, braids, chapati, Eyecon glasses and so on), in `packages/shared/src/seed.ts`. Prices, ratings, review counts and sales figures are placeholders until real data comes from the backend; programme and class year are optional and only shown when a student adds them.
+The local database is seeded with Ashesi sellers and what they actually sell (calculators, braids, chapati, Eyecon glasses and so on), from `packages/shared/src/seed.ts`, plus a demo student, Kofi Darko, whose shop is claimed when you sign in as kofi.darko@ashesi.edu.gh. Prices and sales figures are placeholders. None of this is loaded into production.
 
 ## Getting started
 
@@ -33,7 +33,7 @@ Copy `apps/web/.env.example` and `apps/admin/.env.example` to `.env.local` in ea
 
 **Signing in:** both apps email a 6-digit code (valid 10 minutes). Locally, emails go to Mailpit at http://127.0.0.1:54324. Only addresses on the allowed school domains (admin Settings → General) can create a marketplace account. The admin portal only lets in people on its team; the owner invited by `supabase/bootstrap.sql` is the first.
 
-**Settings → Reset demo** on `/me` restores the marketplace's mock data.
+`npm run db:reset` puts the local database back to the seed.
 
 ## Scripts
 
@@ -55,9 +55,9 @@ A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.gi
 ## Features
 
 - **Browse and search**: per-category filters generated from each category's schema, facet counts, price histogram slider, removable chips, sort, infinite scroll, saved searches with alerts. All filter state lives in the URL.
-- **Listings**: multi-photo gallery with a magnifying lens and full-screen zoom, spec tiles, offers (sellers answer in the demo), chat, buyer protection, sold and sold-out states. Server-rendered titles, Open Graph images and Product JSON-LD.
-- **Checkout**: Mobile Money or card, meet-up times; for food, quantity, pickup windows and same-day cut-offs, with stock going down after each order.
-- **Payment protection (hybrid)**: orders from a set price, or in chosen categories, are paid in the app and held; cheaper ones are reserved and paid to the seller at pickup, with optional protection. Pre-orders take a deposit. Held money is released when the buyer confirms collection, or automatically a set time after the seller marks it handed over unless a problem is reported. Every rule, including switching to "protect everything" or "pay at pickup only", is set in the admin under Settings → Payment protection.
+- **Listings**: multi-photo gallery with a magnifying lens and full-screen zoom, spec tiles, offers that sellers accept or decline, chat, sold and sold-out states. Server-rendered titles, Open Graph images and Product JSON-LD.
+- **Checkout**: reserve and pay the seller at pickup, meet-up times; for food, quantity, pickup windows and same-day cut-offs, with stock going down after each order.
+- **Payment protection (hybrid, once paying in the app is on)**: orders from a set price, or in chosen categories, are paid in the app and held; cheaper ones are reserved and paid to the seller at pickup, with optional protection. Pre-orders take a deposit. Held money is released when the buyer confirms collection, or automatically a set time after the seller marks it handed over unless a problem is reported. Every rule, including switching to "protect everything" or "pay at pickup only", is set in the admin under Settings → Payment protection.
 - **Orders**: buyer and seller views, Paid → Ready → Collected → Released timeline, payout status, disputes that freeze payment, reviews that feed seller ratings.
 - **Selling**: dynamic fields per category, custom details, drafts, edit, mark sold, renew, delete. Photos are compressed in the browser. Listings expire after a set number of days unless renewed, and each student has a cap on active listings.
 - **Reporting and ranking**: students can report a listing with a reason; Best match orders listings by weighted freshness, photos, popularity, seller rating, paid promotion and the team's featured picks, which also get their own row on the home page.
@@ -82,7 +82,7 @@ Permissions are defined in `packages/shared/src/permissions.ts` (each guards a r
 
 Published releases live in the `config_releases` table and the shared draft in `config_draft`; the marketplace reads the newest release through the public `current_config` view, caches it for two minutes on the server, refreshes it in open tabs on focus, and falls back to defaults if Supabase is unreachable.
 
-Admins sign in with an emailed code; `apps/admin/src/lib/session.tsx` loads their team row and role. The database enforces every permission with row-level security, so the portal hiding a control is only a convenience. The team, roles, drafts, releases and audit log are stored in Supabase; users, listings, orders and disputes in the portal are still mock data. On production the portal also sits behind Cloudflare Access.
+Admins sign in with an emailed code; `apps/admin/src/lib/session.tsx` loads their team row and role. The database enforces every permission with row-level security, so the portal hiding a control is only a convenience. The team, roles, drafts, releases and audit log are stored in Supabase; so are students (with their emails, for admins with users.view), listings and reports, orders and disputes, loaded in `apps/admin/src/lib/operations.ts`. On production the portal also sits behind Cloudflare Access.
 
 ## Deploying
 
@@ -116,12 +116,15 @@ Supabase (Postgres) holds everything; the schema lives in `supabase/migrations`.
 ```
 apps/web/src/lib/
   catalog.ts      Category schemas: each declares its attributes; filters, specs and the sell form are generated from them
-  data.ts         Seed listings, sellers, reviews (the mock "database")
+  market.ts       Public listings and sellers from Supabase; market-server.ts caches them on the server for a minute
+  mine.ts         The student's own listings, photos (uploaded via /api/photos to R2), saved items, searches and reports
+  social.ts       Conversations, messages, offers and notifications, live via Supabase Realtime with polling as a fallback
+  orders.ts       Orders and reviews; the database prices orders and allows only valid status changes
   types.ts        Domain types: orders, disputes, conversations, notifications, saved searches
-  model.ts        Pure state transitions (placeOrder, markReady, openDispute, sendMessage...). No React, fully unit-tested
-  store.ts        Client store: persists state, wraps model.ts, simulates the other side (seller replies, offer answers)
+  model.ts        Pure state transitions, used for instant updates before the database confirms. Fully unit-tested
+  store.ts        Client store: loads the student's data, applies changes optimistically and writes them to Supabase
   queries.ts      Pure listing queries shared by server and client
-  api.ts          The data layer. Async functions the server calls; swap these bodies for fetch() when the backend exists
+  api.ts          Server-side reads for pages
   use-listings.ts Client counterpart of api.getListings that includes the user's own listings
   search.ts       Search scoring, filters, facets and their URL format
   validation.ts   Zod listing schema built per category; reusable on the server
@@ -130,18 +133,25 @@ apps/web/src/lib/
 
 Categories come only from the published platform config (`packages/shared/src/config.ts`) and are managed by admins; sellers who need a new one ask the support team. `useCatalog()` returns the visible ones. `lib/config-server.ts` and `lib/config.tsx` load the config on the server and keep it fresh in the browser.
 
-### Connecting a backend
+### Rules the database enforces
 
-1. Replace the bodies in `apps/web/src/lib/api.ts` with `fetch` calls.
-2. Replace the actions in `apps/web/src/lib/store.ts` with mutations against the API. The transitions in `model.ts` describe exactly what each endpoint should do.
-3. Validate listing submissions on the server with `buildListingSchema()` from `validation.ts`.
-4. For push notifications, set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and implement `savePushSubscription` in `apps/web/src/lib/push.ts`. The service worker in `apps/web/public/sw.js` already handles `push` events.
+Students write with plain inserts and updates; triggers and row-level security decide what's allowed, so a modified app can't get around them: listing limits from the published config (price cap, banned words, active listing cap), offer minimums, order pricing (an accepted offer counts) and status moves, stock, suspended accounts, and rate limits on messages, offers, orders and reports. Notifications are written by the database when something happens to someone. See `supabase/migrations` and the tests in `supabase/tests`.
+
+### Still to come
+
+- Paying in the app (Paystack), which switches on buyer protection, deposits and promotion (`payments.inApp` in the config).
+- Push notifications: set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and implement `savePushSubscription` in `apps/web/src/lib/push.ts`.
+- Deleting accounts from the portal, which needs the Supabase secret key as a Worker secret.
+
+### Backups
+
+`.github/workflows/backup.yml` dumps the production database nightly into the private `hilltop-backups` R2 bucket once the `SUPABASE_DB_URL`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` repository secrets exist.
 
 ## Tests
 
 - `apps/admin/tests/unit`: permissions and role safeguards, audit entries, moderation, refunds and disputes, drafts, metrics and CSV.
 - `packages/shared/tests`: config parsing, diffs, email domains, banned words and role permissions.
 - `apps/web/tests/unit`: search and filters, the order/dispute/chat/offer state machine, validation, queries, specs and formatting.
-- `apps/web/tests/e2e`: real sign-up and sign-in with emailed codes, buying with protection through to a review, disputes, seller fulfilment, filters and URL state, search, keyboard sort menu, publishing and drafts, the seller dashboard, and mobile flows (filter sheet, chat, no horizontal scrolling).
+- `apps/web/tests/e2e`: real sign-up and sign-in with emailed codes, two students messaging and agreeing an offer, reserving and handing over, cancelling, buying with protection through to a review, disputes, seller fulfilment, filters and URL state, search, keyboard sort menu, publishing and drafts, the seller dashboard, and mobile flows (filter sheet, chat, no horizontal scrolling).
 
 Product photos load from Unsplash, so the app and e2e tests need internet access.

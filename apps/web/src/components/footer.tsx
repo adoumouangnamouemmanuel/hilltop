@@ -10,7 +10,7 @@ import { ThemeSegmented } from "./theme-toggle";
 export function Footer() {
   const pathname = usePathname();
   const { categories } = useCatalog();
-  const { events, brand } = useConfig();
+  const { events, brand, payments } = useConfig();
   if (pathname.startsWith("/sign")) return null;
 
   const columns: { title: string; links: [string, string][] }[] = [
@@ -19,7 +19,7 @@ export function Footer() {
       title: "Sell",
       links: [
         ["List an item", "/sell"],
-        ["Promote a listing", "/sell#promote"],
+        ...(payments.inApp ? [["Promote a listing", "/sell#promote"] as [string, string]] : []),
         ...(events.moveOut.enabled ? [[events.moveOut.name, "/move-out"] as [string, string]] : []),
       ],
     },
@@ -36,6 +36,7 @@ export function Footer() {
       links: [
         ["How it works", "/#how"],
         ["Safe meet-ups", "/#how"],
+        ["Privacy", "/privacy"],
         ["Contact us", `mailto:${brand.supportEmail}`],
       ],
     },

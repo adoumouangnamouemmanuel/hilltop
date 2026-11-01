@@ -1,0 +1,43 @@
+name: Database backup
+
+# Nightly dump of the production database to the private hilltop-backups R2 bucket.
+# Needs three repository secrets; until they exist the job is skipped.
+#   SUPABASE_DB_URL       Supabase → Connect → Session pooler connection string (with the password)
+#   R2_ACCESS_KEY_ID      R2 API token with write access to hilltop-backups
+#   R2_SECRET_ACCESS_KEY
+on:
+  schedule:
+    - cron: "30 2 * * *" # 02:30 UTC, the quietest hour at Ashesi
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://5355b49c1a233e2cb0db485b587408fd.r2.cloudflarestorage.com
+    steps:
+      - name: Skip until the secrets are added
+        id: ready
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ] && [ -n "$AWS_ACCESS_KEY_ID" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "Backup secrets aren't set; skipping."; fi
+      - uses: supabase/setup-cli@v1
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          version: 2.122.0
+      - name: Dump the database
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only -f data.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f roles.sql
+          tar czf backup.tar.gz schema.sql data.sql roles.sql
+      - name: Upload to R2
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          key="db/$(date -u +%Y/%m/%Y-%m-%dT%H%MZ).tar.gz"
+          aws s3 cp backup.tar.gz "s3://hilltop-backups/$key" --endpoint-url "$R2_ENDPOINT"
+          echo "Saved $key"

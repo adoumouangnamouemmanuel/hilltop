@@ -283,5 +283,22 @@ select lives_ok($$update public.orders set status = 'cancelled' where listing_id
 reset role;
 select is((select stock from public.listings where id = 'casio-fx991ex'), 3, 'cancelling puts the stock back');
 
+-- Suspension and rate limits ---------------------------------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select throws_ok($$insert into public.messages (conversation_id, sender_id, body)
+  select c.id, current_setting('test.stu')::uuid, 'spam' from public.conversations c, generate_series(1, 25) where c.listing_id = 'casio-fx82'$$,
+  '23514', 'You''re going a bit fast. Wait a minute and try again.', 'messages are rate limited');
+reset role;
+update public.profiles set status = 'suspended' where id = current_setting('test.stu')::uuid;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select throws_ok($$insert into public.messages (conversation_id, sender_id, body)
+  select id, current_setting('test.stu')::uuid, 'hello' from public.conversations where listing_id = 'casio-fx82'$$,
+  '23514', null, 'suspended students can''t message');
+select throws_ok($$insert into public.orders (listing_id, quantity, payment_kind) values ('stylus-pen', 1, 'pickup')$$,
+  '23514', null, 'suspended students can''t order');
+reset role;
+
 select * from finish();
 rollback;

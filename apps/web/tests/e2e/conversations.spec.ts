@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { openPanel, signIn } from "./helpers";
 
 // Two real students: Esi buys, Kofi sells his smartwatch. Realtime isn't running in
 // the tests, so each side reloads to see what the other did.
@@ -8,12 +8,12 @@ test("a buyer offers and messages; the seller accepts and replies", async ({ bro
   const seller = await (await browser.newContext()).newPage();
 
   await signIn(buyer, "/listing/my-smartwatch", "buyer");
-  await buyer.getByRole("button", { name: "Make offer" }).click();
+  await openPanel(buyer, "Make offer", buyer.getByLabel("Your offer in cedis"));
   await buyer.getByLabel("Your offer in cedis").fill("340");
   await buyer.getByRole("button", { name: "Send", exact: true }).click();
   await expect(buyer.getByText(/Offer of GH₵340 sent/).first()).toBeVisible();
 
-  await buyer.getByRole("button", { name: "Message" }).click();
+  await openPanel(buyer, "Message", buyer.getByLabel("Message to Kofi Darko"));
   const note = `Can we meet at the library? ${Date.now()}`;
   await buyer.getByLabel("Message to Kofi Darko").fill(note);
   await buyer.getByRole("button", { name: "Send message" }).click();
