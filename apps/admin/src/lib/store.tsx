@@ -16,7 +16,8 @@ import type { AdminState } from "./types";
  * permission and validation errors as toasts.
  */
 
-const KEY = "hilltop-admin-v1";
+// Cached operational records must be reseeded when the demo catalog changes.
+const KEY = "hilltop-admin-v2-ashesi";
 let state: AdminState | null = null;
 const listeners = new Set<() => void>();
 

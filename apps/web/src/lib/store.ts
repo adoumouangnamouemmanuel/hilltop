@@ -16,7 +16,8 @@ import type { DisputeReason, Review, SavedSearch, State } from "./types";
  * offer answers). Swap these actions for API calls once the backend exists.
  */
 
-const STORAGE_KEY = "hilltop-market:v4";
+// Keep the Ashesi demo separate from state saved against the previous catalog.
+const STORAGE_KEY = "hilltop-market:v5-ashesi";
 
 const initialState = M.seedState();
 let state: State = initialState;
