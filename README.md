@@ -103,6 +103,15 @@ Both apps run on Cloudflare Workers through the OpenNext adapter (`@opennextjs/c
 
 The admin still stores published releases on the local filesystem, which Workers don't keep between requests. They move to Supabase in the next phase.
 
+## Database
+
+Supabase (Postgres) holds everything; the schema lives in `supabase/migrations`.
+
+- **Local:** `npx supabase start` (needs Docker), then `npm run db:reset` to rebuild with the seed, `npm run db:test` for the security tests, `npm run db:types` to regenerate `packages/shared/src/database.types.ts`.
+- **Seed:** `npm run db:seed-files` regenerates `supabase/bootstrap.sql` (roles, default config, owner invite; also used on production) and `supabase/seed.sql` (demo sellers and listings; local only) from the shared TypeScript data.
+- **Security model:** every table is closed by default; access is granted column by column and filtered by row-level policies. Admin powers come from `has_permission()`, which reads the roles and team managed in the admin portal. Profiles can exist before their owner signs up: the team creates a seller's shop with a claim email, and the student's first sign-in with that email links it.
+- **CI** applies the migrations to a fresh database and runs the security tests, the schema linter and Supabase's advisors on every push.
+
 ## Architecture
 
 ```

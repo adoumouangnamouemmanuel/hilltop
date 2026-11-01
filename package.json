@@ -15,13 +15,19 @@
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "node .husky/install.mjs"
+    "prepare": "node .husky/install.mjs",
+    "db:seed-files": "tsx scripts/generate-seed.ts",
+    "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/database.types.ts && prettier --write packages/shared/src/database.types.ts",
+    "db:test": "supabase test db",
+    "db:reset": "npm run db:seed-files && supabase db reset"
   },
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
-    "prettier-plugin-tailwindcss": "^0.8.1"
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "supabase": "^2.122.0",
+    "tsx": "^4.23.15"
   },
   "lint-staged": {
     "*.{ts,tsx,mjs,js,css,json,md,yml}": [
