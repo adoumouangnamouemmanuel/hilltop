@@ -8,7 +8,8 @@ import { can } from "@hilltop/shared/permissions";
 import { useBodyScrollLock, useFocusTrap } from "@hilltop/ui/hooks";
 import { setTheme, useTheme } from "@hilltop/ui/theme";
 import { cn } from "@hilltop/ui/ui";
-import { signOut, useAdmin, useSession } from "@/lib/store";
+import { useAdmin, useSession } from "@/lib/store";
+import { useAdminSession } from "@/lib/session";
 import { navItems } from "./nav";
 
 type Command = { id: string; label: string; group: string; icon: React.ElementType; hint?: string; run: () => void };
@@ -21,6 +22,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 function Palette({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { role } = useSession();
+  const { signOut } = useAdminSession();
   const s = useAdmin();
   const { isDark } = useTheme();
   const [query, setQuery] = useState("");
@@ -83,12 +85,12 @@ function Palette({ onClose }: { onClose: () => void }) {
         icon: Moon,
         run: () => setTheme(isDark ? "light" : "dark"),
       },
-      { id: "signout", label: "Sign out", group: "Actions", icon: LogOut, run: signOut },
+      { id: "signout", label: "Sign out", group: "Actions", icon: LogOut, run: () => void signOut() },
     ];
     const all = [...pages, ...actions, ...records];
     if (!q) return all;
     return all.filter((c) => `${c.label} ${c.hint ?? ""} ${c.group}`.toLowerCase().includes(q)).slice(0, 40);
-  }, [query, role, s.users, s.listings, s.orders, isDark, router, onClose]);
+  }, [query, role, s.users, s.listings, s.orders, isDark, router, onClose, signOut]);
 
   useEffect(() => {
     list.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });

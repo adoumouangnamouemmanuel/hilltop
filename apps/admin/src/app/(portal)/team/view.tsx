@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { Check, Lock, Mail, Pencil, Plus, Trash2, UserMinus, UserPlus } from "lucide-react";
-import { OWNER_ROLE, permissionGroups, togglePermission, type Permission, type Role } from "@hilltop/shared/permissions";
+import { OWNER_ROLE, permissionGroups, type Permission, type Role } from "@hilltop/shared/permissions";
 import { Sheet } from "@hilltop/ui/sheet";
 import { RelativeTime } from "@hilltop/ui/controls";
 import { Avatar, buttonClass, cn } from "@hilltop/ui/ui";
 import { Badge, Card, CardHeader, Confirm, Field, Gate, PageHeader, Segmented, Select, TextInput } from "@/components/kit";
 import { RowMenu } from "@/components/row-menu";
-import { changeMemberRole, deleteRole, inviteMember, newRoleId, removeMember, saveRole } from "@/lib/model";
-import { perform, useAdmin, useCan } from "@/lib/store";
+import { toast } from "@hilltop/ui/toast";
+import { newRoleId } from "@/lib/model";
+import { useCan, useSession } from "@/lib/store";
+import { useTeam } from "@/lib/team";
 import { useQueryState } from "@/lib/use-query";
 import type { Member } from "@/lib/types";
+
+type TeamData = ReturnType<typeof useTeam> & { team: Member[]; sessionId?: string };
+const TeamContext = createContext<TeamData | null>(null);
+const useTeamData = () => useContext(TeamContext)!;
+
+/** Shows a success toast when a team change went through. */
+const done = (result: Promise<{ ok: boolean }>, message: string) =>
+  result.then((r) => {
+    if (r.ok) toast(message, { tone: "success" });
+    return r.ok;
+  });
 
 export function TeamView() {
   return (
@@ -22,14 +35,16 @@ export function TeamView() {
 }
 
 function TeamInner() {
-  const s = useAdmin();
+  const data = useTeam();
+  const { member } = useSession();
+  const s: TeamData = { ...data, team: data.members, sessionId: member?.id };
   const [tab, setTab] = useQueryState<"members" | "roles">("tab", "members");
   const canManage = useCan("team.manage");
   const [inviting, setInviting] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | "new" | null>(null);
 
   return (
-    <>
+    <TeamContext value={s}>
       <PageHeader title="Team & roles" description="Who can use the portal and exactly what each role is allowed to do.">
         {canManage &&
           (tab === "members" ? (
@@ -57,12 +72,12 @@ function TeamInner() {
       {tab === "members" ? <Members /> : <Roles onEdit={setEditingRole} />}
       <InviteSheet open={inviting} onClose={() => setInviting(false)} />
       <RoleSheet role={editingRole} onClose={() => setEditingRole(null)} />
-    </>
+    </TeamContext>
   );
 }
 
 function Members() {
-  const s = useAdmin();
+  const s = useTeamData();
   const canManage = useCan("team.manage");
   const [removing, setRemoving] = useState<Member | null>(null);
   const roleName = (id: string) => s.roles.find((r) => r.id === id)?.name ?? "No role";
@@ -99,9 +114,7 @@ function Members() {
                 <Select
                   aria-label={`Role for ${m.name}`}
                   value={m.roleId}
-                  onChange={(e) =>
-                    perform((st, now) => changeMemberRole(st, m.id, e.target.value, now), `${m.name} is now ${roleName(e.target.value)}`)
-                  }
+                  onChange={(e) => done(s.changeRole(m, e.target.value), `${m.name} is now ${roleName(e.target.value)}`)}
                   className="h-9 w-full sm:w-44"
                 >
                   {s.roles.map((r) => (
@@ -136,18 +149,18 @@ function Members() {
         title={`Remove ${removing?.name}?`}
         body="They lose access to the portal immediately. Their past actions stay in the audit log."
         confirmLabel="Remove"
-        onConfirm={() => removing && perform((st, now) => removeMember(st, removing.id, now), `${removing.name} removed`)}
+        onConfirm={() => removing && done(s.remove(removing), `${removing.name} removed`)}
       />
     </Card>
   );
 }
 
 function Roles({ onEdit }: { onEdit: (r: Role) => void }) {
-  const s = useAdmin();
+  const s = useTeamData();
   const canManage = useCan("team.manage");
   const members = (id: string) => s.team.filter((m) => m.roleId === id).length;
 
-  const toggle = (role: Role, p: Permission) => perform((st, now) => saveRole(st, togglePermission(role, p), now));
+  const toggle = (role: Role, p: Permission) => s.togglePermission(role, p);
 
   return (
     <Card>
@@ -243,14 +256,14 @@ function Roles({ onEdit }: { onEdit: (r: Role) => void }) {
 }
 
 function InviteSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const s = useAdmin();
+  const s = useTeamData();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState("viewer");
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  function submit() {
-    if (perform((st, now) => inviteMember(st, { name, email, roleId }, now), `Invite sent to ${email.trim()}`)) {
+  async function submit() {
+    if (await done(s.invite({ name, email, roleId }), `${name.trim()} can now sign in with ${email.trim()}`)) {
       setName("");
       setEmail("");
       onClose();
@@ -300,7 +313,7 @@ function RoleSheet({ role, onClose }: { role: Role | "new" | null; onClose: () =
 }
 
 function RoleForm({ role, onClose }: { role: Role | "new"; onClose: () => void }) {
-  const s = useAdmin();
+  const s = useTeamData();
   const isNew = role === "new";
   const [name, setName] = useState(isNew ? "" : role.name);
   const [description, setDescription] = useState(isNew ? "" : role.description);
@@ -309,7 +322,7 @@ function RoleForm({ role, onClose }: { role: Role | "new"; onClose: () => void }
   const [confirmDelete, setConfirmDelete] = useState(false);
   const members = isNew ? 0 : s.team.filter((m) => m.roleId === role.id).length;
 
-  function save() {
+  async function save() {
     const base = isNew
       ? {
           id: newRoleId(name, s.roles),
@@ -318,7 +331,7 @@ function RoleForm({ role, onClose }: { role: Role | "new"; onClose: () => void }
           permissions: [...(s.roles.find((r) => r.id === copyFrom)?.permissions ?? [])],
         }
       : { ...role, name: name.trim(), description: description.trim() };
-    if (perform((st, now) => saveRole(st, base, now), isNew ? `${base.name} role created` : "Role updated")) onClose();
+    if (await done(s.saveRole(base, isNew), isNew ? `${base.name} role created` : "Role updated")) onClose();
   }
 
   return (
@@ -365,7 +378,7 @@ function RoleForm({ role, onClose }: { role: Role | "new"; onClose: () => void }
               )}
               <button
                 type="button"
-                onClick={() => perform((st, now) => deleteRole(st, role.id, fallback, now), `${role.name} deleted`) && onClose()}
+                onClick={async () => (await done(s.deleteRole(role, fallback), `${role.name} deleted`)) && onClose()}
                 className={buttonClass("primary", "sm", "w-full")}
               >
                 Delete role

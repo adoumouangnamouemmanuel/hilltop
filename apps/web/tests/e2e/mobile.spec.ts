@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { open, quickSignIn } from "./helpers";
+import { open, signIn } from "./helpers";
 
 test("mobile filter sheet opens, filters and closes", async ({ page }) => {
   await open(page, "/browse?category=audio");
@@ -13,7 +13,7 @@ test("mobile filter sheet opens, filters and closes", async ({ page }) => {
 });
 
 test("chat with a seller from the inbox", async ({ page }) => {
-  await quickSignIn(page, "/inbox");
+  await signIn(page, "/inbox");
   await page.getByRole("button", { name: /Suzie Agatha/ }).click();
   await page.getByLabel("Message Suzie Agatha").fill("Can we meet today?");
   await page.getByRole("button", { name: "Send", exact: true }).click();

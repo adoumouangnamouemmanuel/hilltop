@@ -1,11 +1,11 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { quickSignIn } from "./helpers";
+import { signIn } from "./helpers";
 
 const photo = path.join(__dirname, "..", "..", "public", "icons", "icon-512.png");
 
 test("publishing needs the basics and explains what's missing", async ({ page }) => {
-  await quickSignIn(page, "/sell");
+  await signIn(page, "/sell");
   await page.getByRole("button", { name: "Publish listing" }).click();
   await expect(page.getByText("Add at least one photo")).toBeVisible();
   await expect(page.getByText("Pick a category")).toBeVisible();
@@ -13,7 +13,7 @@ test("publishing needs the basics and explains what's missing", async ({ page })
 });
 
 test("publish a listing with category-specific details", async ({ page }) => {
-  await quickSignIn(page, "/sell");
+  await signIn(page, "/sell");
 
   await page.locator('input[type="file"]').setInputFiles(photo);
   await expect(page.getByRole("button", { name: "Cover photo" })).toBeVisible();
@@ -39,7 +39,7 @@ test("publish a listing with category-specific details", async ({ page }) => {
 });
 
 test("save a draft, then find it under your listings", async ({ page }) => {
-  await quickSignIn(page, "/sell");
+  await signIn(page, "/sell");
   await page.getByLabel("Title").fill("Half-finished lamp listing");
   await page.getByRole("button", { name: "Save as draft" }).click();
   await expect(page).toHaveURL(/edit=my-/);
@@ -51,7 +51,7 @@ test("save a draft, then find it under your listings", async ({ page }) => {
 });
 
 test("expired listings can be renewed", async ({ page }) => {
-  await quickSignIn(page, "/me");
+  await signIn(page, "/me");
   await page.getByRole("tab", { name: /Selling/ }).click();
   await page.getByRole("tab", { name: /Expired/ }).click();
   const row = page.locator("li").filter({ hasText: "Adjustable desk lamp" });

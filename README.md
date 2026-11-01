@@ -2,7 +2,7 @@
 
 A student marketplace for Ashesi: accounts verified to `@ashesi.edu.gh` emails, and payments held until the buyer confirms collection.
 
-Built with Next.js 16 (App Router, Cache Components), Tailwind CSS v4, Framer Motion, react-hook-form + zod, and Poppins. There is no backend yet: everything runs on mock data behind a data layer that is ready to be swapped for API calls.
+Built with Next.js 16 (App Router), Tailwind CSS v4, Framer Motion, react-hook-form + zod, Poppins and Supabase. Sign-in, the platform config, the admin team and the audit log are real; listings, orders and messages still run on mock data behind a data layer that is being moved to Supabase.
 
 The repository is an npm workspaces monorepo:
 
@@ -19,38 +19,38 @@ The demo sellers are Ashesi students and what they actually sell (calculators, b
 
 ## Getting started
 
+Both apps need a Supabase. Locally that's the Supabase CLI with Docker running:
+
 ```bash
 npm install
+npx supabase start   # local Supabase; prints its URL and keys
+npm run db:reset     # schema, default config and demo data
 npm run dev          # marketplace on http://localhost:3000
 npm run dev:admin    # admin portal on http://localhost:3002
 ```
 
-Marketplace: any `@ashesi.edu.gh` address and any 6-digit code will sign you in. **Settings → Reset demo** on `/me` restores the starting data.
+Copy `apps/web/.env.example` and `apps/admin/.env.example` to `.env.local` in each app, with the local URL and publishable key (`npx supabase status`). `.env.local` takes precedence over the production values in `.env.production`.
 
-Admin: pick anyone from the demo team on the sign-in page to see what their role allows. **Reset demo data** is in the account menu.
+**Signing in:** both apps email a 6-digit code (valid 10 minutes). Locally, emails go to Mailpit at http://127.0.0.1:54324. Only addresses on the allowed school domains (admin Settings → General) can create a marketplace account. The admin portal only lets in people on its team; the owner invited by `supabase/bootstrap.sql` is the first.
 
-To have the marketplace follow what the admin publishes, create `apps/web/.env.local` with:
-
-```bash
-NEXT_PUBLIC_CONFIG_URL=http://localhost:3002/api/config
-```
+**Settings → Reset demo** on `/me` restores the marketplace's mock data.
 
 ## Scripts
 
-| Command             | What it does                                             |
-| ------------------- | -------------------------------------------------------- |
-| `npm run dev`       | Marketplace development server                           |
-| `npm run dev:admin` | Admin portal development server                          |
-| `npm run build`     | Production builds of both apps                           |
-| `npm test`          | Unit tests (Vitest) in every workspace                   |
-| `npm run test:e2e`  | End-to-end tests (Playwright) against a production build |
-| `npm run lint`      | ESLint                                                   |
-| `npm run typecheck` | Generates route types, then runs TypeScript              |
-| `npm run format`    | Prettier, including Tailwind class sorting               |
+| Command             | What it does                                                     |
+| ------------------- | ---------------------------------------------------------------- |
+| `npm run dev`       | Marketplace development server                                   |
+| `npm run dev:admin` | Admin portal development server                                  |
+| `npm run build`     | Production builds of both apps                                   |
+| `npm test`          | Unit tests (Vitest) in every workspace                           |
+| `npm run test:e2e`  | End-to-end tests (Playwright): production build + local Supabase |
+| `npm run lint`      | ESLint                                                           |
+| `npm run typecheck` | Generates route types, then runs TypeScript                      |
+| `npm run format`    | Prettier, including Tailwind class sorting                       |
 
-First-time e2e setup: `npx playwright install chromium`, then `npm run build -w @hilltop/web && npm run test:e2e`.
+First-time e2e setup: `npx playwright install chromium`, then with the local Supabase running, `npm run build -w @hilltop/web && npm run test:e2e -w @hilltop/web`. The tests sign in for real, reading codes from Mailpit, and refuse to run against anything but a local Supabase.
 
-A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.github/workflows/ci.yml`) runs format check, lint, typecheck, unit tests, build and Playwright on every push.
+A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.github/workflows/ci.yml`) runs format check, lint, typecheck, unit tests, build, the database checks and Playwright (against a local Supabase) on every push.
 
 ## Features
 
@@ -80,9 +80,9 @@ A separate Next.js app for running the marketplace. Nothing in the marketplace i
 
 Permissions are defined in `packages/shared/src/permissions.ts` (each guards a real action); which roles hold them is configured in the portal. Every action goes through `apps/admin/src/lib/model.ts`, which checks the permission and writes the audit entry, so the rules are unit-tested.
 
-The live config is served at `GET /api/config` (public, CORS-enabled, holds no secrets). Releases are stored in `apps/admin/.data/` (or `CONFIG_STORE_DIR`), with an in-memory fallback on read-only filesystems; swap `apps/admin/src/lib/config-store.ts` for a database when the backend lands. The marketplace caches the config for a few minutes on the server, refreshes it in open tabs on focus, and falls back to defaults if the portal is unreachable.
+Published releases live in the `config_releases` table and the shared draft in `config_draft`; the marketplace reads the newest release through the public `current_config` view, caches it for two minutes on the server, refreshes it in open tabs on focus, and falls back to defaults if Supabase is unreachable.
 
-Admin identities and operational data are mock data in the browser for now. Publishing runs on the server and, when `ADMIN_ACCESS_KEY` is set, requires that key at sign-in. Keep the portal behind your host's access protection (for example Vercel deployment protection) until real authentication is added.
+Admins sign in with an emailed code; `apps/admin/src/lib/session.tsx` loads their team row and role. The database enforces every permission with row-level security, so the portal hiding a control is only a convenience. The team, roles, drafts, releases and audit log are stored in Supabase; users, listings, orders and disputes in the portal are still mock data. On production the portal also sits behind Cloudflare Access.
 
 ## Deploying
 
@@ -96,12 +96,10 @@ Both apps run on Cloudflare Workers through the OpenNext adapter (`@opennextjs/c
 - **Automatic:** every push to `main` that passes CI is deployed by the `deploy` job in `.github/workflows/ci.yml`. It needs the `CLOUDFLARE_API_TOKEN` repository secret.
 - **Manual:** `npm run deploy -w @hilltop/web` (or `@hilltop/admin`) after `npx wrangler login`. OpenNext isn't fully supported on Windows, so prefer CI.
 - **Local Workers preview:** `npm run preview -w @hilltop/web` builds and serves the production Worker locally.
-- **Config:** `apps/*/wrangler.jsonc` (bindings, domains, Sentry DSN), `apps/*/open-next.config.ts` (caching) and `apps/*/.env.production` (public build-time values). Secrets such as `ADMIN_ACCESS_KEY` are set in the Cloudflare dashboard.
+- **Config:** `apps/*/wrangler.jsonc` (bindings, domains, Sentry DSN), `apps/*/open-next.config.ts` (caching) and `apps/*/.env.production` (public build-time values). Secrets, when needed, are set in the Cloudflare dashboard.
 - **Images:** `packages/ui/src/image-loader.ts` resizes Unsplash photos on Unsplash's CDN and serves other files as they are, since Workers have no built-in Next.js image optimiser.
 - **Caching:** cached pages live in the `hilltop-web-opennext-cache` R2 bucket. Next's Cache Components are off because the adapter can hang requests with `"use cache"` on Next 16.4 (opennextjs-cloudflare#1464); the platform config uses fetch caching instead.
 - **Errors:** Sentry wraps each Worker (`apps/*/worker.ts`) and the browser (`instrumentation-client.ts`).
-
-The admin still stores published releases on the local filesystem, which Workers don't keep between requests. They move to Supabase in the next phase.
 
 ## Database
 
@@ -110,6 +108,7 @@ Supabase (Postgres) holds everything; the schema lives in `supabase/migrations`.
 - **Local:** `npx supabase start` (needs Docker), then `npm run db:reset` to rebuild with the seed, `npm run db:test` for the security tests, `npm run db:types` to regenerate `packages/shared/src/database.types.ts`.
 - **Seed:** `npm run db:seed-files` regenerates `supabase/bootstrap.sql` (roles, default config, owner invite; also used on production) and `supabase/seed.sql` (demo sellers and listings; local only) from the shared TypeScript data.
 - **Security model:** every table is closed by default; access is granted column by column and filtered by row-level policies. Admin powers come from `has_permission()`, which reads the roles and team managed in the admin portal. Profiles can exist before their owner signs up: the team creates a seller's shop with a claim email, and the student's first sign-in with that email links it.
+- **Sign-up rules:** the `before_user_created` Auth Hook (`private.hook_before_user_created`) only lets school emails and invited admins create accounts; `handle_new_user` creates the profile, links a claimed shop and activates an admin invite. Sign-in emails use `supabase/templates/code.html`.
 - **CI** applies the migrations to a fresh database and runs the security tests, the schema linter and Supabase's advisors on every push.
 
 ## Architecture
@@ -143,6 +142,6 @@ Categories come only from the published platform config (`packages/shared/src/co
 - `apps/admin/tests/unit`: permissions and role safeguards, audit entries, moderation, refunds and disputes, drafts, metrics and CSV.
 - `packages/shared/tests`: config parsing, diffs, email domains, banned words and role permissions.
 - `apps/web/tests/unit`: search and filters, the order/dispute/chat/offer state machine, validation, queries, specs and formatting.
-- `apps/web/tests/e2e`: buying with protection through to a review, disputes, seller fulfilment, filters and URL state, search, keyboard sort menu, publishing and drafts, the seller dashboard, and mobile flows (filter sheet, chat, no horizontal scrolling).
+- `apps/web/tests/e2e`: real sign-up and sign-in with emailed codes, buying with protection through to a review, disputes, seller fulfilment, filters and URL state, search, keyboard sort menu, publishing and drafts, the seller dashboard, and mobile flows (filter sheet, chat, no horizontal scrolling).
 
 Product photos load from Unsplash, so the app and e2e tests need internet access.

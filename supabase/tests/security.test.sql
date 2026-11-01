@@ -157,5 +157,19 @@ reset role;
 select throws_ok($$update public.admin_members set role_id = 'viewer' where email = 'emmanuel.adoum@ashesi.edu.gh'; set constraints all immediate$$,
   '42501', null, 'the last owner can''t be demoted');
 
+-- Sign-up hook ---------------------------------------------------------------------
+-- Only school emails and invited admins can create accounts.
+select is(private.hook_before_user_created('{"user": {"email": "new.student@ashesi.edu.gh"}}'::jsonb), '{}'::jsonb,
+  'school emails can sign up');
+select is(private.hook_before_user_created('{"user": {"email": "New.Student@Ashesi.edu.gh"}}'::jsonb), '{}'::jsonb,
+  'the domain check ignores case');
+select is(private.hook_before_user_created('{"user": {"email": "someone@gmail.com"}}'::jsonb)->'error'->>'http_code', '403',
+  'other emails are turned away');
+select is(private.hook_before_user_created('{"user": {"email": "someone@ashesi.edu.gh.evil.com"}}'::jsonb)->'error'->>'http_code', '403',
+  'look-alike domains are turned away');
+insert into public.admin_members (email, name, role_id) values ('helper@gmail.com', 'Outside Helper', 'viewer');
+select is(private.hook_before_user_created('{"user": {"email": "helper@gmail.com"}}'::jsonb), '{}'::jsonb,
+  'invited admins can sign up with any email');
+
 select * from finish();
 rollback;

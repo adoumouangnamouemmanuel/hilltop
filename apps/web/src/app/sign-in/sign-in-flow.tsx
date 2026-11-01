@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { emailAllowed } from "@hilltop/shared/config";
 import { useConfig } from "@/lib/config";
-import { useStore } from "@/lib/store";
+import { requestCode, schoolSignInAvailable, signInWithSchool, verifyCode } from "@/lib/auth";
 import { toast } from "@/lib/toast";
 import { MicrosoftButton, OrDivider, OtpInput } from "@/components/auth-shell";
 import { buttonClass, cn } from "@/components/ui";
@@ -23,7 +23,6 @@ export function SignInFlow() {
   const router = useRouter();
   const params = useSearchParams();
   const destination = safeNext(params.get("next"));
-  const { signIn } = useStore();
   const config = useConfig();
   const domain = config.access.allowedEmailDomains[0];
   const domainList = config.access.allowedEmailDomains.map((d) => `@${d}`).join(" or ");
@@ -31,16 +30,12 @@ export function SignInFlow() {
   const [email, setEmail] = useState("");
   // The address the code went to; kept apart from the input, which is still mounted while it animates out.
   const [sentTo, setSentTo] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    params.get("error") === "school" ? "School sign-in didn't finish. Try again, or use an email code." : null,
+  );
   const [busy, setBusy] = useState<"sso" | "code" | "verify" | null>(null);
 
-  function finish(address: string) {
-    signIn(address);
-    toast("Welcome back", { tone: "success" });
-    router.push(destination);
-  }
-
-  function submitEmail(e: React.FormEvent) {
+  async function submitEmail(e: React.FormEvent) {
     e.preventDefault();
     const value = email.trim().toLowerCase();
     if (!emailAllowed(value, config)) {
@@ -49,11 +44,24 @@ export function SignInFlow() {
     }
     setError(null);
     setBusy("code");
-    setTimeout(() => {
-      setSentTo(value);
-      setBusy(null);
-      setStep("code");
-    }, 600);
+    const problem = await requestCode(value);
+    setBusy(null);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setSentTo(value);
+    setStep("code");
+  }
+
+  async function verify(code: string) {
+    setBusy("verify");
+    const problem = await verifyCode(sentTo, code);
+    setBusy(null);
+    if (problem) return problem;
+    toast("Welcome back", { tone: "success" });
+    router.push(destination);
+    return null;
   }
 
   return (
@@ -75,14 +83,18 @@ export function SignInFlow() {
             Log in with your Ashesi account to buy and sell.
           </motion.p>
 
-          {config.access.allowSingleSignOn && (
+          {config.access.allowSingleSignOn && schoolSignInAvailable() && (
             <>
               <motion.div variants={item} className="mt-8">
                 <MicrosoftButton
                   loading={busy === "sso"}
-                  onClick={() => {
+                  onClick={async () => {
                     setBusy("sso");
-                    setTimeout(() => finish(`kofi.darko@${domain}`), 900);
+                    const problem = await signInWithSchool(destination);
+                    if (problem) {
+                      setBusy(null);
+                      setError(problem);
+                    }
                   }}
                 />
               </motion.div>
@@ -156,10 +168,8 @@ export function SignInFlow() {
           email={sentTo}
           busy={busy === "verify"}
           onBack={() => setStep("email")}
-          onComplete={() => {
-            setBusy("verify");
-            setTimeout(() => finish(sentTo), 900);
-          }}
+          onComplete={verify}
+          onResend={() => requestCode(sentTo)}
         />
       )}
     </AnimatePresence>
@@ -171,13 +181,19 @@ export function CodeStep({
   busy,
   onBack,
   onComplete,
+  onResend,
 }: {
   email: string;
   busy: boolean;
   onBack: () => void;
-  onComplete: () => void;
+  /** Checks the code; resolves to an error message, or null when it worked. */
+  onComplete: (code: string) => Promise<string | null>;
+  onResend: () => Promise<string | null>;
 }) {
   const [resent, setResent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Remounting the input clears the digits after a wrong code.
+  const [attempt, setAttempt] = useState(0);
   return (
     <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.25 }}>
       <button type="button" onClick={onBack} className="-ml-1 inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-950">
@@ -196,22 +212,42 @@ export function CodeStep({
         Enter the 6-digit code we sent to <span className="font-medium text-ink-950">{email}</span>
       </p>
       <div className="mt-8">
-        <OtpInput onComplete={onComplete} disabled={busy} />
+        <OtpInput
+          key={attempt}
+          disabled={busy}
+          onComplete={async (code) => {
+            setError(null);
+            const problem = await onComplete(code);
+            if (problem) {
+              setError(problem);
+              setAttempt((a) => a + 1);
+            }
+          }}
+        />
       </div>
+      {error && (
+        <p role="alert" className="mt-3 text-[13px] text-maroon-700">
+          {error}
+        </p>
+      )}
       <div className="mt-6 flex h-5 items-center justify-between text-sm text-ink-500">
         {busy ? (
           <span className="flex items-center gap-2 text-ink-950">
             <Loader2 className="size-4 animate-spin" aria-hidden /> Verifying
           </span>
         ) : (
-          <span>Demo: any 6 digits work</span>
+          <span>The code expires in 10 minutes</span>
         )}
         <button
           type="button"
           disabled={resent}
-          onClick={() => {
+          onClick={async () => {
             setResent(true);
-            toast("New code sent");
+            const problem = await onResend();
+            if (problem) {
+              setError(problem);
+              setResent(false);
+            } else toast("New code sent");
           }}
           className="font-medium text-ink-950 underline underline-offset-4 disabled:text-ink-400 disabled:no-underline"
         >

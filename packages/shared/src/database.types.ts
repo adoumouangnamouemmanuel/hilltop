@@ -177,7 +177,7 @@ export type Database = {
           published_at?: string;
           published_by?: string | null;
           published_by_name?: string | null;
-          version: number;
+          version?: number;
         };
         Update: {
           changes?: string[];

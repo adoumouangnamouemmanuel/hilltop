@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowRight, CheckCircle2, Copy, Download, History, Loader2, Rocket, RotateCcw, Upload } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, History, Loader2, Rocket, RotateCcw, Upload } from "lucide-react";
 import { diffConfig, parseConfig, percent, platformConfigSchema, type PlatformConfig } from "@hilltop/shared/config";
 import { RelativeTime } from "@hilltop/ui/controls";
 import { toast } from "@hilltop/ui/toast";
 import { Avatar, buttonClass, cn } from "@hilltop/ui/ui";
-import { publishConfig } from "@/app/actions";
+import { supabase } from "@/lib/supabase";
+import type { Json } from "@hilltop/shared/database.types";
 import { Badge, Card, CardHeader, Confirm, EmptyState, Gate, PageHeader, TextInput } from "@/components/kit";
 import { discardDraft, editDraft, recordPublish } from "@/lib/model";
 import { perform, useAdmin, useCan, usePublished, useSession } from "@/lib/store";
@@ -53,10 +53,9 @@ function download(name: string, data: unknown) {
 }
 
 function PublishInner() {
-  const router = useRouter();
   const s = useAdmin();
   const { member } = useSession();
-  const { config: live, releases } = usePublished();
+  const { config: live, releases, refresh } = usePublished();
   const canPublish = useCan("settings.publish");
   const canEdit = useCan("settings.edit");
   const [note, setNote] = useState("");
@@ -79,15 +78,21 @@ function PublishInner() {
     if (!draft || !member) return;
     setIssues([]);
     startTransition(async () => {
-      const result = await publishConfig({ config: draft, by: member.name, note: note.trim() });
-      if (!result.ok) {
-        setIssues(result.issues ?? []);
-        toast(result.error);
+      const client = supabase();
+      if (!client) return;
+      // The database checks the publish permission and numbers the release.
+      const { data, error } = await client
+        .from("config_releases")
+        .insert({ config: draft as unknown as { [key: string]: Json }, note: note.trim(), changes })
+        .select("version")
+        .single();
+      if (error || !data) {
+        toast(error?.code === "42501" ? "You don't have permission to publish." : "Publishing failed. Try again.");
         return;
       }
-      perform((st, now) => recordPublish(st, result.version, note.trim(), now), `Version ${result.version} is live`);
+      perform((st, now) => recordPublish(st, data.version, note.trim(), now), `Version ${data.version} is live`);
       setNote("");
-      router.refresh();
+      await refresh();
     });
   }
 
@@ -108,8 +113,6 @@ function PublishInner() {
       toast("Couldn't read that file. Use a JSON export from this portal.");
     }
   }
-
-  const endpoint = typeof window === "undefined" ? "/api/config" : `${window.location.origin}/api/config`;
 
   return (
     <>
@@ -241,24 +244,6 @@ function PublishInner() {
         </div>
 
         <div className="space-y-4">
-          <Card className="p-5">
-            <p className="text-[13px] font-semibold text-ink-950">Connect the marketplace</p>
-            <p className="mt-1 text-xs leading-relaxed text-ink-500">
-              Set this as NEXT_PUBLIC_CONFIG_URL on the marketplace deployment. It serves the live version as public JSON.
-            </p>
-            <div className="mt-3 flex items-center gap-2 rounded-xl bg-surface p-1.5 pl-3">
-              <code className="min-w-0 flex-1 truncate text-[12.5px] text-ink-900">{endpoint}</code>
-              <button
-                type="button"
-                onClick={() => navigator.clipboard?.writeText(endpoint).then(() => toast("Copied"))}
-                aria-label="Copy URL"
-                className="grid size-8 place-items-center rounded-lg text-ink-500 hover:bg-elevated hover:text-ink-950"
-              >
-                <Copy className="size-4" aria-hidden />
-              </button>
-            </div>
-          </Card>
-
           <Card>
             <CardHeader title="Release history" description="Restore an older version into the draft, then publish it to roll back." />
             {releases.length === 0 ? (

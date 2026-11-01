@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -8,7 +8,7 @@ import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { firstName } from "@/lib/format";
 import { emailAllowed } from "@hilltop/shared/config";
 import { useConfig } from "@/lib/config";
-import { useStore } from "@/lib/store";
+import { requestCode, schoolSignInAvailable, signInWithSchool, verifyCode } from "@/lib/auth";
 import { MicrosoftButton, OrDivider } from "@/components/auth-shell";
 import { Confetti } from "@/components/confetti";
 import { buttonClass, cn } from "@/components/ui";
@@ -36,11 +36,11 @@ const field =
 export function SignUpFlow() {
   const router = useRouter();
   const destination = safeNext(useSearchParams().get("next"));
-  const { signIn } = useStore();
   const config = useConfig();
   const domain = config.access.allowedEmailDomains[0];
   const domainList = config.access.allowedEmailDomains.map((d) => `@${d}`).join(" or ");
   const [step, setStep] = useState<"details" | "code" | "done">("details");
+  const ids = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [year, setYear] = useState<number | null>(null);
@@ -48,6 +48,7 @@ export function SignUpFlow() {
   const [agree, setAgree] = useState(false);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState<"sso" | "send" | "verify" | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const errors = {
     name: name.trim().split(/\s+/).length < 2 && "Enter your first and last name",
@@ -58,21 +59,32 @@ export function SignUpFlow() {
   const firstError = Object.values(errors).find(Boolean);
   const show = (k: keyof typeof errors) => touched && errors[k];
 
-  function submit(e: React.FormEvent) {
+  const address = email.trim().toLowerCase();
+  const details = { fullName: name.trim(), classOf: year, major };
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
     if (firstError) return;
+    setSendError(null);
     setBusy("send");
-    setTimeout(() => {
-      setBusy(null);
-      setStep("code");
-    }, 600);
+    const problem = await requestCode(address, details);
+    setBusy(null);
+    if (problem) {
+      setSendError(problem);
+      return;
+    }
+    setStep("code");
   }
 
-  function complete(fullName: string, address: string) {
-    signIn(address, fullName);
+  async function verify(code: string) {
+    setBusy("verify");
+    const problem = await verifyCode(address, code);
+    setBusy(null);
+    if (problem) return problem;
     setStep("done");
     setTimeout(() => router.push(destination), 1800);
+    return null;
   }
 
   return (
@@ -94,14 +106,18 @@ export function SignUpFlow() {
             Buy and sell with people from your campus. Takes a minute.
           </motion.p>
 
-          {config.access.allowSingleSignOn && (
+          {config.access.allowSingleSignOn && schoolSignInAvailable() && (
             <>
               <motion.div variants={item} className="mt-7">
                 <MicrosoftButton
                   loading={busy === "sso"}
-                  onClick={() => {
+                  onClick={async () => {
                     setBusy("sso");
-                    setTimeout(() => complete("Kofi Darko", `kofi.darko@${domain}`), 900);
+                    const problem = await signInWithSchool(destination);
+                    if (problem) {
+                      setBusy(null);
+                      setSendError(problem);
+                    }
                   }}
                 />
               </motion.div>
@@ -112,8 +128,9 @@ export function SignUpFlow() {
           )}
 
           <motion.div variants={item} className="space-y-4">
-            <Field label="Full name" error={show("name")}>
+            <Field label="Full name" htmlFor={`${ids}-name`} error={show("name")}>
               <input
+                id={`${ids}-name`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
@@ -121,8 +138,9 @@ export function SignUpFlow() {
                 className={cn(field, show("name") ? "border-maroon-600" : "border-line-strong")}
               />
             </Field>
-            <Field label="Ashesi email" error={show("email")}>
+            <Field label="Ashesi email" htmlFor={`${ids}-email`} error={show("email")}>
               <input
+                id={`${ids}-email`}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
@@ -156,9 +174,10 @@ export function SignUpFlow() {
                 ))}
               </div>
             </Field>
-            <Field label="Major (optional)">
+            <Field label="Major (optional)" htmlFor={`${ids}-major`}>
               <div className="relative">
                 <select
+                  id={`${ids}-major`}
                   value={major}
                   onChange={(e) => setMajor(e.target.value)}
                   className={cn(field, "appearance-none border-line-strong pr-10", !major && "text-ink-400")}
@@ -186,6 +205,11 @@ export function SignUpFlow() {
           </motion.div>
 
           <motion.div variants={item}>
+            {sendError && (
+              <p role="alert" className="mt-4 text-[13px] text-maroon-700">
+                {sendError}
+              </p>
+            )}
             <button type="submit" disabled={busy === "send"} className={buttonClass("dark", "lg", "mt-6 w-full")}>
               {busy === "send" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Create account"}
             </button>
@@ -202,16 +226,11 @@ export function SignUpFlow() {
       {step === "code" && (
         <CodeStep
           key="code"
-          email={email.trim().toLowerCase()}
+          email={address}
           busy={busy === "verify"}
           onBack={() => setStep("details")}
-          onComplete={() => {
-            setBusy("verify");
-            setTimeout(() => {
-              setBusy(null);
-              complete(name, email.trim().toLowerCase());
-            }, 900);
-          }}
+          onComplete={verify}
+          onResend={() => requestCode(address, details)}
         />
       )}
 
@@ -233,7 +252,7 @@ export function SignUpFlow() {
               <Check className="size-10" strokeWidth={3} aria-hidden />
             </motion.span>
           </div>
-          <h1 className="mt-8 text-[30px] font-semibold tracking-[-0.035em] text-ink-950">You&rsquo;re in, {firstName(name || "Kofi")}</h1>
+          <h1 className="mt-8 text-[30px] font-semibold tracking-[-0.035em] text-ink-950">You&rsquo;re in, {firstName(name || "there")}</h1>
           <p className="mt-2 text-[15px] text-ink-500">Your student account is verified. Taking you to the market.</p>
         </motion.div>
       )}
@@ -241,11 +260,25 @@ export function SignUpFlow() {
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: string | false; children: React.ReactNode }) {
+/** A labelled form row. Pass `htmlFor` for a single input; otherwise the label names the group (e.g. the year buttons). */
+function Field({
+  label,
+  htmlFor,
+  error,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  error?: string | false;
+  children: React.ReactNode;
+}) {
+  const labelId = useId();
   return (
-    <div>
+    <div role={htmlFor ? undefined : "group"} aria-labelledby={htmlFor ? undefined : labelId}>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <span className="text-sm font-medium text-ink-950">{label}</span>
+        <label id={labelId} htmlFor={htmlFor} className="text-sm font-medium text-ink-950">
+          {label}
+        </label>
         <AnimatePresence>
           {error && (
             <motion.span

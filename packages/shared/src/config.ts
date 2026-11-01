@@ -344,3 +344,16 @@ export function dateRange(startsAt: string, endsAt: string, withYear = false) {
 
 /** Whether an event is switched on and hasn't finished yet. */
 export const eventLive = (e: { enabled: boolean; endsAt: string }, now: number) => e.enabled && new Date(e.endsAt).getTime() > now;
+
+/** A row of the database's current_config view (or a config release). */
+export type ConfigRelease = { config: unknown; version: number; published_at: string | null };
+
+/**
+ * The live config from a published release: the release's number and date win
+ * over whatever the stored JSON says, and anything invalid falls back to defaults.
+ */
+export function configFromRelease(row: ConfigRelease | null | undefined): { config: PlatformConfig; issues: string[] } {
+  if (!row) return { config: defaultConfig, issues: [] };
+  const raw = typeof row.config === "object" && row.config !== null ? row.config : {};
+  return parseConfig({ ...raw, version: row.version, publishedAt: row.published_at });
+}

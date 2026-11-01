@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { defaultConfig, parseConfig, type FeatureFlag, type PlatformConfig } from "@hilltop/shared/config";
+import { configFromRelease, defaultConfig, type FeatureFlag, type PlatformConfig } from "@hilltop/shared/config";
+import { supabase } from "./supabase";
 
 /*
  * The platform config in the browser. The server passes the config it loaded;
@@ -15,7 +16,6 @@ const ConfigContext = createContext<PlatformConfig>(defaultConfig);
 let runtime: PlatformConfig = defaultConfig;
 export const runtimeConfig = () => runtime;
 
-const CONFIG_URL = process.env.NEXT_PUBLIC_CONFIG_URL;
 const REFRESH_MS = 30_000;
 
 export function ConfigProvider({ initial, children }: { initial: PlatformConfig; children: React.ReactNode }) {
@@ -26,15 +26,16 @@ export function ConfigProvider({ initial, children }: { initial: PlatformConfig;
   }, [config]);
 
   useEffect(() => {
-    if (!CONFIG_URL) return;
+    const client = supabase();
+    if (!client) return;
     let last = 0;
     const refresh = async () => {
       if (Date.now() - last < REFRESH_MS) return;
       last = Date.now();
       try {
-        const res = await fetch(CONFIG_URL, { cache: "no-store" });
-        if (!res.ok) return;
-        const { config: next, issues } = parseConfig(await res.json());
+        const { data, error } = await client.from("current_config").select("config, version, published_at").maybeSingle();
+        if (error || !data) return;
+        const { config: next, issues } = configFromRelease(data as { config: unknown; version: number; published_at: string | null });
         if (!issues.length) setConfig((prev) => (next.version !== prev.version || next.publishedAt !== prev.publishedAt ? next : prev));
       } catch {}
     };

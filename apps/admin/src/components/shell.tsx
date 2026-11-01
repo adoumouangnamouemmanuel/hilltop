@@ -11,8 +11,10 @@ import { LogoMark } from "@hilltop/ui/logo";
 import { ThemeSegmented, ThemeToggle } from "@hilltop/ui/theme-toggle";
 import { Avatar, cn } from "@hilltop/ui/ui";
 import { useBodyScrollLock, useDismiss, useFocusTrap } from "@hilltop/ui/hooks";
-import { endSession } from "@/app/actions";
-import { resetDemo, signOut, useAdmin, useHydrated, usePublished, useSession } from "@/lib/store";
+import { adoptDraft, adoptSession, resetDemo, useAdmin, useHydrated, usePublished, useSession } from "@/lib/store";
+import { useAdminSession } from "@/lib/session";
+import { supabase } from "@/lib/supabase";
+import type { PlatformConfig } from "@hilltop/shared/config";
 import { CommandPalette } from "./command-palette";
 import { isActive, navGroups } from "./nav";
 
@@ -35,15 +37,33 @@ function useBadges() {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { member } = useSession();
+  const session = useAdminSession();
   const mounted = useHydrated();
   const [palette, setPalette] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const ready = session.status === "ready";
+  const member = ready ? session.member : undefined;
+  const role = ready ? session.role : undefined;
 
-  // Admin data lives in the browser, so the portal renders after hydration.
+  // Signed out, or signed in but not on the team: back to sign-in.
   useEffect(() => {
-    if (mounted && !member) router.replace("/sign-in");
-  }, [mounted, member, router]);
+    if (session.status === "signed-out" || session.status === "not-admin") router.replace("/sign-in");
+  }, [session.status, router]);
+
+  // The local demo model checks actions against the admin's real role.
+  useEffect(() => {
+    if (member && role) adoptSession(member, role);
+  }, [member, role]);
+
+  // The shared config draft lives in the database.
+  useEffect(() => {
+    if (!ready) return;
+    supabase()
+      ?.from("config_draft")
+      .select("config")
+      .maybeSingle()
+      .then(({ data }) => adoptDraft((data?.config as PlatformConfig | undefined) ?? null));
+  }, [ready]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -191,6 +211,7 @@ function SidebarContent({ onSearch, onNavigate }: { onSearch: () => void; onNavi
 
 function AccountMenu({ onSearch }: { onSearch: () => void }) {
   const { member, role } = useSession();
+  const { signOut } = useAdminSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(ref, open, () => setOpen(false));
@@ -229,13 +250,7 @@ function AccountMenu({ onSearch }: { onSearch: () => void }) {
             >
               Reset demo data
             </MenuButton>
-            <MenuButton
-              icon={LogOut}
-              onClick={async () => {
-                signOut();
-                await endSession();
-              }}
-            >
+            <MenuButton icon={LogOut} onClick={() => signOut()}>
               Sign out
             </MenuButton>
           </motion.div>

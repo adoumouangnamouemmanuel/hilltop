@@ -25,6 +25,7 @@ import { CategoryIcon } from "@hilltop/ui/category-icon";
 import { cn } from "@hilltop/ui/ui";
 import { Card, CardHeader, Gate, PageHeader, Segmented, Stat } from "@/components/kit";
 import { byCategory, disputeDue, overview, type Period } from "@/lib/metrics";
+import { useAuditLog } from "@/lib/audit";
 import { useAdmin, usePublished, useSession } from "@/lib/store";
 
 export function Overview() {
@@ -48,6 +49,7 @@ function Delta({ value }: { value: number | null }) {
 
 function OverviewInner() {
   const s = useAdmin();
+  const { entries: recent } = useAuditLog(6);
   const { member } = useSession();
   const { config } = usePublished();
   const [period, setPeriod] = useState<Period>(30);
@@ -209,7 +211,7 @@ function OverviewInner() {
             </Link>
           </CardHeader>
           <ul className="divide-y divide-line">
-            {s.audit.slice(0, 6).map((a) => (
+            {recent.map((a) => (
               <li key={a.id} className="flex items-start gap-3 px-5 py-3">
                 <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ink-300" aria-hidden />
                 <p className="min-w-0 flex-1 text-[13px] text-ink-700">

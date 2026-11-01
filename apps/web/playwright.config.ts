@@ -3,11 +3,13 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 3100;
 
 /**
- * End-to-end tests run against a production build (`npm run build` first).
+ * End-to-end tests run against a production build (`npm run build` first) and a
+ * local Supabase (`npx supabase start`), signing in with codes read from its Mailpit.
  * Product photos load from Unsplash, so the tests need internet access.
  */
 export default defineConfig({
   testDir: "tests/e2e",
+  globalSetup: "./tests/e2e/global-setup.ts",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,

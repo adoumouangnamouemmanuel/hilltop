@@ -6,7 +6,7 @@ import { permissionGroups } from "@hilltop/shared/permissions";
 import { Avatar, buttonClass } from "@hilltop/ui/ui";
 import { Badge, Card, EmptyState, Gate, PageHeader, SearchField, Select } from "@/components/kit";
 import { downloadCsv } from "@/lib/csv";
-import { useAdmin } from "@/lib/store";
+import { useAuditLog } from "@/lib/audit";
 import { useQueryState } from "@/lib/use-query";
 
 const when = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -21,19 +21,19 @@ export function AuditView() {
 }
 
 function AuditInner() {
-  const s = useAdmin();
+  const { entries } = useAuditLog();
   const [q, setQ] = useQueryState<string>("q", "");
   const [actor, setActor] = useQueryState<string>("actor", "");
   const [area, setArea] = useQueryState<string>("area", "");
 
-  const actors = [...new Set(s.audit.map((a) => a.actor))].sort();
+  const actors = [...new Set(entries.map((a) => a.actor))].sort();
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return s.audit
+    return entries
       .filter((a) => !actor || a.actor === actor)
       .filter((a) => !area || a.permission.split(".")[0] === area)
       .filter((a) => !term || `${a.action} ${a.target ?? ""} ${a.actor}`.toLowerCase().includes(term));
-  }, [s.audit, q, actor, area]);
+  }, [entries, q, actor, area]);
 
   const days = useMemo(() => {
     const out: { day: string; items: typeof rows }[] = [];

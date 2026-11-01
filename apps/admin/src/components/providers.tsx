@@ -3,20 +3,20 @@
 import { useEffect } from "react";
 import { MotionConfig } from "framer-motion";
 import { Toaster } from "@hilltop/ui/toaster";
-import { PublishedProvider } from "@/lib/store";
+import { PublishedProvider, SessionProvider } from "@/lib/session";
 
-type Published = Parameters<typeof PublishedProvider>[0]["value"];
-
-export function Providers({ published, children }: { published: Published; children: React.ReactNode }) {
+export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.dataset.hydrated = "true";
   }, []);
   return (
-    <PublishedProvider value={published}>
-      <MotionConfig reducedMotion="user">
-        {children}
-        <Toaster />
-      </MotionConfig>
-    </PublishedProvider>
+    <SessionProvider>
+      <PublishedProvider>
+        <MotionConfig reducedMotion="user">
+          {children}
+          <Toaster />
+        </MotionConfig>
+      </PublishedProvider>
+    </SessionProvider>
   );
 }

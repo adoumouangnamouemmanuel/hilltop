@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
-import { currentUser, getListing, listings as seedListings, type Listing, type ListingStatus } from "./data";
+import { getListing, listings as seedListings, type Listing, type ListingStatus } from "./data";
 import { runtimeConfig, useConfig } from "./config";
 import { withExpiry } from "@hilltop/shared/ranking";
 import * as M from "./model";
 import { showSystemNotification } from "./push";
 import { toast } from "./toast";
 import type { PaymentPlan } from "@hilltop/shared/payments";
-import type { DisputeReason, Review, SavedSearch, State } from "./types";
+import { signOutEverywhere } from "./auth";
+import type { DisputeReason, Review, SavedSearch, State, User } from "./types";
 
 /*
  * Client-side mock backend. State transitions live in model.ts; this file adds
@@ -105,17 +106,13 @@ export function resetDemo() {
 }
 
 export const actions = {
-  signIn(email: string, fullName?: string) {
-    const name =
-      fullName?.trim() ||
-      email
-        .split("@")[0]
-        .split(/[._]/)
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-        .join(" ");
-    commit((s) => ({ ...s, user: { name: name || currentUser.name, email } }));
+  /** Mirrors the Supabase session; called by <AuthSync /> whenever it changes. */
+  setUser(user: User | null) {
+    if (state.user?.email === user?.email && state.user?.name === user?.name) return;
+    commit((s) => ({ ...s, user }));
   },
-  signOut() {
+  async signOut() {
+    await signOutEverywhere();
     commit((s) => ({ ...s, user: null }));
   },
   toggleSaved(id: string) {

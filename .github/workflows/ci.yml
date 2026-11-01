@@ -48,6 +48,17 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Tests sign in for real against a local Supabase, reading codes from its Mailpit.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - run: supabase start -x realtime,studio,imgproxy,edge-runtime,logflare,vector,storage-api,postgres-meta,supavisor
+      - name: Point the build at the local Supabase
+        run: |
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY" >> "$GITHUB_ENV"
+          echo "MAILPIT_URL=$MAILPIT_URL" >> "$GITHUB_ENV"
       - run: npx playwright install --with-deps chromium
       - run: npm run build -w @hilltop/web
       - run: npm run test:e2e -w @hilltop/web

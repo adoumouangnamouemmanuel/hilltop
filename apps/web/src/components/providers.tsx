@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { MotionConfig } from "framer-motion";
 import type { PlatformConfig } from "@hilltop/shared/config";
 import { ConfigProvider } from "@/lib/config";
+import { AuthSync } from "./auth-sync";
 import { Pwa } from "./pwa";
 
 export function Providers({ config, children }: { config: PlatformConfig; children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export function Providers({ config, children }: { config: PlatformConfig; childr
   return (
     <ConfigProvider initial={config}>
       <MotionConfig reducedMotion="user">
+        <AuthSync />
         {children}
         <Pwa />
       </MotionConfig>
