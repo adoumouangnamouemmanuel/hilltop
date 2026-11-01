@@ -64,3 +64,21 @@ test("sellers mark incoming orders ready", async ({ page }) => {
   await sale.getByRole("button", { name: "Mark ready for pickup" }).click();
   await expect(sale.getByText("Ready for pickup")).toBeVisible();
 });
+
+test("cheaper items are reserved and paid at pickup, with optional protection", async ({ page }) => {
+  await signIn(page, "/listing/casio-fx991");
+  await page.getByRole("button", { name: "Buy now" }).first().click();
+  const checkout = page.getByRole("dialog", { name: "Checkout" });
+  // Off by default below the protection threshold; switching it on adds the fee.
+  await checkout.getByRole("switch", { name: "Buyer protection" }).click();
+  await expect(checkout.getByRole("button", { name: /^Pay GH₵/ })).toBeVisible();
+  await checkout.getByRole("switch", { name: "Buyer protection" }).click();
+  await checkout.getByRole("button", { name: "Reserve, pay at pickup" }).click();
+
+  await expect(page.getByText("Reserved for you")).toBeVisible();
+  await page.getByRole("link", { name: "View order" }).click();
+  await page.waitForURL("**/me");
+  const order = page.locator("li").filter({ hasText: "Casio fx-991ES Plus" }).first();
+  await expect(order.getByText("Reserved, pay at pickup")).toBeVisible();
+  await expect(order.getByRole("button", { name: "Report a problem" })).toHaveCount(0);
+});

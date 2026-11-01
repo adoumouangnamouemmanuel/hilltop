@@ -64,7 +64,9 @@ function OverviewInner() {
   const reported = s.listings.filter((l) => l.reports.length && l.state === "live");
   const unverified = s.users.filter((u) => !u.verified && u.status === "active");
   const draftChanges = s.draft ? diffConfig(config, s.draft).length : 0;
-  const held = s.orders.filter((o) => o.status === "paid" || o.status === "ready").reduce((n, o) => n + o.amount, 0);
+  const held = s.orders
+    .filter((o) => o.payment !== "pickup" && (o.status === "paid" || o.status === "ready" || o.status === "disputed"))
+    .reduce((n, o) => n + o.paidInApp - o.fee, 0);
 
   const queues = [
     {

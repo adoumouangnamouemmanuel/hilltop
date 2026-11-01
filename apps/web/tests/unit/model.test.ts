@@ -11,8 +11,10 @@ function order(s: State, id: string) {
   return s.orders.find((o) => o.id === id)!;
 }
 
-function buy(s: State, l: Listing, quantity = 1, id = "ord-t1") {
-  return M.placeOrder(s, { id, listing: l, quantity, unitPrice: l.price, fee: 1, now: T });
+const held = (total: number): M.PlaceOrderInput["payment"] => ({ kind: "protected", paidInApp: total + 1, dueAtPickup: 0, fee: 1 });
+
+function buy(s: State, l: Listing, quantity = 1, id = "ord-t1", payment = held(l.price * quantity)) {
+  return M.placeOrder(s, { id, listing: l, quantity, unitPrice: l.price, payment, now: T });
 }
 
 describe("placing orders", () => {
@@ -70,6 +72,51 @@ describe("order lifecycle", () => {
     expect(M.orderProgress("paid")).toBe(1);
     expect(M.orderProgress("ready")).toBe(2);
     expect(M.orderProgress("collected")).toBe(4);
+  });
+});
+
+describe("payment types and auto-release", () => {
+  const HOUR = 3_600_000;
+
+  it("records how the order is paid", () => {
+    const s = buy(seed(), listing("iphone-x"));
+    expect(order(s, "ord-t1").payment).toEqual({ kind: "protected", paidInApp: 1651, dueAtPickup: 0 });
+    expect(s.notifications[0].title).toBe("Payment held safely");
+  });
+
+  it("completes pay-at-pickup orders on handover, with nothing held", () => {
+    const l = listing("iphone-x");
+    let s = buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 });
+    expect(s.notifications[0].title).toBe("Reserved for you");
+    expect(M.payoutState(order(s, "ord-t1"))).toBe("direct");
+    s = M.markHandedOver(s, "ord-t1", T + HOUR);
+    expect(order(s, "ord-t1").status).toBe("collected");
+  });
+
+  it("can't dispute an order paid at pickup", () => {
+    const l = listing("iphone-x");
+    const s = buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 });
+    expect(M.openDispute(s, "ord-t1", "damaged", "", T)).toBe(s);
+  });
+
+  it("releases held money automatically once the window passes", () => {
+    let s = M.markHandedOver(buy(seed(), listing("iphone-x")), "ord-t1", T);
+    expect(order(s, "ord-t1")).toMatchObject({ status: "ready", handedOverAt: T });
+    expect(M.autoRelease(s, T + 23 * HOUR, 24)).toBe(s);
+    s = M.autoRelease(s, T + 24 * HOUR, 24);
+    expect(order(s, "ord-t1")).toMatchObject({ status: "collected", autoReleased: true });
+    expect(s.notifications[0].title).toBe("Payment released automatically");
+  });
+
+  it("never auto-releases when the window is off or a problem is reported", () => {
+    const handed = M.markHandedOver(buy(seed(), listing("iphone-x")), "ord-t1", T);
+    expect(M.autoRelease(handed, T + 1000 * HOUR, 0)).toBe(handed);
+    const disputed = M.openDispute(handed, "ord-t1", "damaged", "", T + HOUR);
+    expect(order(M.autoRelease(disputed, T + 48 * HOUR, 24), "ord-t1").status).toBe("disputed");
+  });
+
+  it("treats orders from before payment options as protected", () => {
+    expect(M.paymentOf({ amount: 100, fee: 4 })).toEqual({ kind: "protected", paidInApp: 104, dueAtPickup: 0 });
   });
 });
 

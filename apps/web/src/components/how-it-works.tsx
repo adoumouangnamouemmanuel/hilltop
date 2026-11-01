@@ -13,7 +13,7 @@ const STEP_MS = 3600;
 
 const steps = [
   { title: "Find it", caption: "Search listings from verified students" },
-  { title: "Pay safely", caption: "Your money is held, not sent" },
+  { title: "Pay safely", caption: "Protected payments are held, not sent" },
   { title: "Meet on campus", caption: "Collect at a public spot" },
   { title: "Confirm, done", caption: "Seller is paid when you confirm" },
 ];

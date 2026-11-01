@@ -53,6 +53,7 @@ A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.gi
 - **Browse and search**: per-category filters generated from each category's schema, facet counts, price histogram slider, removable chips, sort, infinite scroll, saved searches with alerts. All filter state lives in the URL.
 - **Listings**: multi-photo gallery with a magnifying lens and full-screen zoom, spec tiles, offers (sellers answer in the demo), chat, buyer protection, sold and sold-out states. Server-rendered titles, Open Graph images and Product JSON-LD.
 - **Checkout**: Mobile Money or card, meet-up times; for food, quantity, pickup windows and same-day cut-offs, with stock going down after each order.
+- **Payment protection (hybrid)**: orders from a set price, or in chosen categories, are paid in the app and held; cheaper ones are reserved and paid to the seller at pickup, with optional protection. Pre-orders take a deposit. Held money is released when the buyer confirms collection, or automatically a set time after the seller marks it handed over unless a problem is reported. Every rule, including switching to "protect everything" or "pay at pickup only", is set in the admin under Settings → Payment protection.
 - **Orders**: buyer and seller views, Paid → Ready → Collected → Released timeline, payout status, disputes that freeze payment, reviews that feed seller ratings.
 - **Selling**: dynamic fields per category, custom details, drafts, edit, mark sold, renew, delete. Photos are compressed in the browser.
 - **Messaging and notifications**: inbox with conversations per listing (full-screen chat on phones, grouped messages, read state, keyboard-safe composer), notification centre, and system notifications when the app is in the background.
@@ -62,7 +63,7 @@ A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.gi
 
 ## Admin portal
 
-A separate Next.js app for running the marketplace. Nothing in the marketplace is hardcoded: fees, payment methods, promotion plans, pickup spots, conditions, listing limits, banned words, offer rules, dispute reasons and response time, popular searches, feature flags, events, the announcement banner, allowed email domains and the whole category catalog (including each category's fields and filters) come from a published config.
+A separate Next.js app for running the marketplace. Nothing in the marketplace is hardcoded: fees, payment protection rules (threshold, protected categories, deposits, auto-release), payment methods, promotion plans, pickup spots, conditions, listing limits, banned words, offer rules, dispute reasons and response time, popular searches, feature flags, events, the announcement banner, allowed email domains and the whole category catalog (including each category's fields and filters) come from a published config.
 
 - **Overview**: sales volume, platform revenue, orders and active students with period comparisons, a category ranking, and the queues that need attention.
 - **Operations**: users (verify, suspend, delete), listing moderation with reports, orders (refund or release payouts), and disputes with response-time tracking and decision notes. CSV export on every list.

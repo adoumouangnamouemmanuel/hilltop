@@ -107,6 +107,17 @@ describe("orders and disputes", () => {
     expect(() => refundOrder(once, open.id, NOW)).toThrow(Rejected);
   });
 
+  it("has nothing to refund or release on pay-at-pickup orders", () => {
+    const s = as(OWNER);
+    const pickup = s.orders.find((o) => o.payment === "pickup" && o.status === "paid")!;
+    expect(() => refundOrder(s, pickup.id, NOW)).toThrow(Rejected);
+  });
+
+  it("only opens disputes on orders with held money", () => {
+    const s = as(OWNER);
+    for (const d of s.disputes) expect(s.orders.find((o) => o.id === d.orderId)!.payment).not.toBe("pickup");
+  });
+
   it("settles the order when a dispute is resolved", () => {
     const s = as(SUPPORT);
     const d = s.disputes.find((x) => x.state === "open")!;

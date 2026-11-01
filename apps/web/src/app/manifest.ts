@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Hilltop · Ashesi student marketplace",
     short_name: "Hilltop",
-    description: "Buy and sell with verified Ashesi students. Payments held until you collect.",
+    description: "Buy and sell with verified Ashesi students, and meet on campus.",
     start_url: "/",
     scope: "/",
     display: "standalone",

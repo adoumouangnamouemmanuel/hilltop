@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Clock, MessageCircle, ShieldCheck } from "lucide-react";
+import { Banknote, ChevronDown, Clock, MessageCircle, ShieldCheck } from "lucide-react";
 import type { Listing } from "@/lib/data";
 import { useConfig } from "@/lib/config";
-import { beforeCutoff, formatCedi, formatClock, protectionFee } from "@/lib/format";
+import { beforeCutoff, formatCedi, formatClock } from "@/lib/format";
+import { percent } from "@hilltop/shared/config";
+import { paymentPlan, type PaymentPlan } from "@hilltop/shared/payments";
 import { useNow } from "@/lib/hooks";
 import { isActive, isSoldOut } from "@/lib/model";
 import { useStore } from "@/lib/store";
@@ -34,10 +36,11 @@ export function BuyBox({
   onBuy: () => void;
 }) {
   const { offers } = useStore();
-  const { fees, features } = useConfig();
+  const config = useConfig();
+  const { features, protection } = config;
   const now = useNow();
   const available = isActive(listing) && !isSoldOut(listing);
-  const fee = protectionFee(unitPrice, fees.buyerProtectionRate);
+  const plan = paymentPlan(config, { total: unitPrice, category: listing.category, preorder: !!listing.food && features.foodOrdering });
   // Offers don't apply to made-to-order food; both buttons follow the admin's feature switches.
   const canOffer = features.offers && !listing.food;
   const actions = [canOffer, features.messaging].filter(Boolean).length;
@@ -117,23 +120,60 @@ export function BuyBox({
             )}
           </AnimatePresence>
 
-          <FeeBreakdown price={unitPrice} fee={fee} rate={fees.buyerProtectionRate} />
+          <FeeBreakdown price={unitPrice} plan={plan} rate={config.fees.buyerProtectionRate} />
         </>
       )}
 
       <div className="mt-4 flex gap-3 border-t border-line pt-4">
-        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-maroon-700" aria-hidden />
+        {plan.kind === "pickup" && !plan.optional ? (
+          <Banknote className="mt-0.5 size-5 shrink-0 text-ink-700" aria-hidden />
+        ) : (
+          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-maroon-700" aria-hidden />
+        )}
         <p className="text-[13px] leading-5 text-ink-500">
-          <span className="font-medium text-ink-950">Hilltop Buyer Protection.</span> Your payment is held until you confirm collection.
-          Full refund if it isn&rsquo;t as described.
+          {plan.kind === "pickup" ? (
+            plan.optional ? (
+              <>
+                <span className="font-medium text-ink-950">Pay at pickup, or add protection.</span> Pay the seller directly when you meet,
+                or let Hilltop hold your payment until you confirm collection.
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-ink-950">Pay at pickup.</span> Reserve it here and pay the seller with MoMo or cash when
+                you meet.
+              </>
+            )
+          ) : (
+            <>
+              <span className="font-medium text-ink-950">Hilltop Buyer Protection.</span> Your{" "}
+              {plan.kind === "deposit" ? "deposit is" : "payment is"} held until you confirm collection
+              {protection.autoReleaseHours > 0 &&
+                `, or released ${protection.autoReleaseHours} hours after handover if you don't report a problem`}
+              . Full refund if it isn&rsquo;t as described.
+            </>
+          )}
         </p>
       </div>
     </div>
   );
 }
 
-function FeeBreakdown({ price, fee, rate }: { price: number; fee: number; rate: number }) {
+function FeeBreakdown({ price, plan, rate }: { price: number; plan: PaymentPlan; rate: number }) {
   const [open, setOpen] = useState(false);
+  if (plan.kind === "pickup")
+    return (
+      <p className="mt-4 text-[13px] text-ink-500">
+        <span className="font-medium text-ink-950 tabular">{formatCedi(price)}</span>, paid to the seller at pickup
+      </p>
+    );
+  if (plan.kind === "deposit")
+    return (
+      <p className="mt-4 text-[13px] text-ink-500">
+        <span className="font-medium text-ink-950 tabular">{formatCedi(plan.payNow)}</span> deposit now,{" "}
+        <span className="font-medium text-ink-950 tabular">{formatCedi(plan.atPickup)}</span> at pickup
+      </p>
+    );
+  const fee = plan.fee;
   return (
     <div className="mt-4">
       <button
@@ -160,7 +200,7 @@ function FeeBreakdown({ price, fee, rate }: { price: number; fee: number; rate: 
               <dd className="text-ink-950 tabular">{formatCedi(price)}</dd>
             </div>
             <div className="mt-1.5 flex justify-between text-ink-500">
-              <dt>Buyer protection ({Math.round(rate * 1000) / 10}%)</dt>
+              <dt>Buyer protection ({percent(rate)})</dt>
               <dd className="text-ink-950 tabular">{formatCedi(fee)}</dd>
             </div>
           </motion.dl>

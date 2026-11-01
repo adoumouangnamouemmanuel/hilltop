@@ -4,6 +4,7 @@ import campusGardens from "@/assets/campus/campus-gardens.jpg";
 import { getListings } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { dateRange, percent } from "@hilltop/shared/config";
+import { protectionSummary } from "@hilltop/shared/payments";
 import { getPlatformConfig } from "@/lib/config-server";
 import { formatCedi } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
@@ -74,8 +75,8 @@ export default async function MoveOutPage() {
       <section className="grid gap-8 sm:grid-cols-3">
         {[
           ["List before you pack", "Add your items now and they go live to everyone the moment the sale opens."],
-          ["Buyers come to your hostel", "Pick a pickup spot. Payment is held until the buyer confirms they have it."],
-          ["Leave with cash, not clutter", "Funds arrive on your MoMo as soon as each buyer confirms collection."],
+          ["Buyers come to your hostel", `Pick a pickup spot. ${protectionSummary(config)}`],
+          ["Leave with cash, not clutter", "Get paid at pickup, or as soon as the buyer confirms a protected order."],
         ].map(([title, body]) => (
           <div key={title} className="border-t border-ink-950 pt-5">
             <h2 className="font-semibold text-ink-950">{title}</h2>

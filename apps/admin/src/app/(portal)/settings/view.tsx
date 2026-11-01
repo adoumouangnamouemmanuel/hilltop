@@ -2,7 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, CalendarDays, CreditCard, Info, Megaphone, Package, Scale, Settings2, ToggleRight, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  CreditCard,
+  Info,
+  Megaphone,
+  Package,
+  Scale,
+  Settings2,
+  ShieldCheck,
+  ToggleRight,
+  Trash2,
+} from "lucide-react";
+import { formatCedi } from "@hilltop/shared/format";
+import { paymentPlan } from "@hilltop/shared/payments";
 import { deepEqual, platformConfigSchema, type PlatformConfig } from "@hilltop/shared/config";
 import { Switch } from "@hilltop/ui/controls";
 import { buttonClass, cn } from "@hilltop/ui/ui";
@@ -32,6 +46,13 @@ const sections = [
     description: "What buyers and sellers pay, and how.",
   },
   {
+    id: "protection",
+    label: "Payment protection",
+    icon: ShieldCheck,
+    keys: ["protection"],
+    description: "When Hilltop holds the buyer's money, pre-order deposits and automatic release.",
+  },
+  {
     id: "listings",
     label: "Listings",
     icon: Package,
@@ -55,6 +76,7 @@ type SectionId = (typeof sections)[number]["id"];
 const forms: Record<SectionId, (p: SectionProps) => React.ReactNode> = {
   general: General,
   payments: Payments,
+  protection: Protection,
   listings: Listings,
   rules: Rules,
   features: Features,
@@ -737,6 +759,179 @@ function Announcement({ value: c, set, err }: SectionProps) {
           <div className="h-12 bg-surface" />
         </div>
       </div>
+    </>
+  );
+}
+
+const modes = [
+  {
+    id: "hybrid",
+    title: "Protect bigger purchases",
+    body: "Held from a set price, or in chosen categories. Smaller items are paid at pickup.",
+  },
+  { id: "always", title: "Protect every purchase", body: "Every order is paid in the app and held until collection." },
+  { id: "never", title: "Pay at pickup", body: "Buyers pay sellers directly when they meet. Hilltop holds nothing." },
+] as const;
+
+function Protection({ value: c, set, err }: SectionProps) {
+  const p = c.protection;
+  const update = (patch: Partial<typeof p>) => set({ protection: { ...p, ...patch } });
+  const examples = [
+    { label: "Textbook", total: 80, category: "books", preorder: false },
+    { label: "Calculator", total: Math.max(1, p.threshold - 1), category: "calculators", preorder: false },
+    { label: "Phone", total: Math.max(p.threshold, 1500), category: "phones", preorder: false },
+    { label: "Food pre-order", total: 60, category: "food", preorder: true },
+  ];
+
+  return (
+    <>
+      <Group title="When to hold payments">
+        <div role="radiogroup" aria-label="Protection mode" className="grid gap-2 sm:grid-cols-3">
+          {modes.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={p.mode === m.id}
+              onClick={() => update({ mode: m.id })}
+              className={cn(
+                "rounded-xl border p-3.5 text-left transition-colors",
+                p.mode === m.id ? "border-ink-950 bg-surface" : "border-line hover:border-line-strong",
+              )}
+            >
+              <span className="flex items-center justify-between gap-2 text-[13.5px] font-semibold text-ink-950">
+                {m.title}
+                <span
+                  className={cn(
+                    "grid size-4 place-items-center rounded-full border-2",
+                    p.mode === m.id ? "border-ink-950" : "border-line-strong",
+                  )}
+                >
+                  {p.mode === m.id && <span className="size-2 rounded-full bg-ink-950" />}
+                </span>
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-ink-500">{m.body}</span>
+            </button>
+          ))}
+        </div>
+        {p.mode === "hybrid" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Protect orders from" error={err("protection.threshold")} hint="Orders at or above this total are always held.">
+              {(id) => <NumberInput id={id} value={p.threshold} onChange={(v) => update({ threshold: v })} prefix="GH₵" min={0} />}
+            </Field>
+          </div>
+        )}
+        {p.mode === "hybrid" && (
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-ink-900">Always protect these categories</p>
+            <div className="flex flex-wrap gap-1.5">
+              {c.categories.map((cat) => {
+                const on = p.categories.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => update({ categories: on ? p.categories.filter((x) => x !== cat.id) : [...p.categories, cat.id] })}
+                    className={cn(
+                      "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      on ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900",
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {p.mode !== "always" && (
+          <Row
+            title="Let buyers add protection"
+            description="When it isn't required, buyers can still choose to pay in the app, for the protection fee."
+          >
+            <Switch label="Let buyers add protection" checked={p.optional} onChange={(v) => update({ optional: v })} />
+          </Row>
+        )}
+      </Group>
+
+      <Group title="Releasing held money" description="Held money always goes to the seller when the buyer confirms collection.">
+        <Row
+          title="Release automatically"
+          description="After the seller marks the item handed over, pay them once this time passes, unless the buyer reports a problem."
+        >
+          <Switch
+            label="Release automatically"
+            checked={p.autoReleaseHours > 0}
+            onChange={(v) => update({ autoReleaseHours: v ? 24 : 0 })}
+          />
+        </Row>
+        {p.autoReleaseHours > 0 && (
+          <Field label="Release after" error={err("protection.autoReleaseHours")} className="sm:w-1/2">
+            {(id) => (
+              <NumberInput
+                id={id}
+                value={p.autoReleaseHours}
+                onChange={(v) => update({ autoReleaseHours: v })}
+                suffix="hours"
+                min={1}
+                max={336}
+                step={1}
+              />
+            )}
+          </Field>
+        )}
+      </Group>
+
+      <Group
+        title="Pre-order deposits"
+        description="For made-to-order items like food. The deposit is held; the rest is paid to the seller at pickup."
+      >
+        <Row title="Take a deposit on pre-orders" description="When off, pre-orders follow the rules above.">
+          <Switch
+            label="Take a deposit on pre-orders"
+            checked={p.deposit.enabled}
+            onChange={(v) => update({ deposit: { ...p.deposit, enabled: v } })}
+          />
+        </Row>
+        {p.deposit.enabled && (
+          <Field label="Deposit" error={err("protection.deposit.rate")} className="sm:w-1/2">
+            {(id) => (
+              <NumberInput
+                id={id}
+                value={pct(p.deposit.rate)}
+                onChange={(v) => update({ deposit: { ...p.deposit, rate: fromPct(v) } })}
+                suffix="% of the order"
+                min={5}
+                max={100}
+                step={5}
+              />
+            )}
+          </Field>
+        )}
+      </Group>
+
+      <Group title="How it plays out" description="With these settings, before the buyer makes any choice.">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line">
+          {examples.map((e) => {
+            const plan = paymentPlan(c, e);
+            const text =
+              plan.kind === "deposit"
+                ? `${formatCedi(plan.payNow)} deposit now, ${formatCedi(plan.atPickup)} at pickup`
+                : plan.kind === "protected"
+                  ? `${formatCedi(plan.payNow)} paid in the app and held`
+                  : `Paid at pickup${plan.optional ? ", protection optional" : ""}`;
+            return (
+              <li key={e.label} className="flex items-center justify-between gap-3 px-4 py-3 text-[13px]">
+                <span className="text-ink-900">
+                  {e.label} <span className="text-ink-500">· {formatCedi(e.total)}</span>
+                </span>
+                <span className="text-right text-ink-700">{text}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </Group>
     </>
   );
 }

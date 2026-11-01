@@ -107,6 +107,7 @@ const title = (s: AdminState, id: string) => s.listings.find((l) => l.id === id)
 
 export function refundOrder(s: AdminState, id: string, now: number) {
   const order = s.orders.find((o) => o.id === id);
+  if (order?.payment === "pickup") throw new Rejected("This order was paid at pickup, so Hilltop holds nothing to refund.");
   if (!order || order.status === "refunded" || order.status === "collected") throw new Rejected("This order can't be refunded.");
   return act(s, "orders.refund", { action: "Refunded order", target: id }, now, (s) => ({
     ...s,
@@ -116,6 +117,7 @@ export function refundOrder(s: AdminState, id: string, now: number) {
 
 export function releaseOrder(s: AdminState, id: string, now: number) {
   const order = s.orders.find((o) => o.id === id);
+  if (order?.payment === "pickup") throw new Rejected("This order was paid at pickup, so there's no payout to release.");
   if (!order || order.status === "refunded" || order.status === "collected") throw new Rejected("This payout was already settled.");
   return act(s, "orders.refund", { action: "Released payout", target: id }, now, (s) => ({
     ...s,

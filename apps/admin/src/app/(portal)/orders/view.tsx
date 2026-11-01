@@ -9,18 +9,25 @@ import { Badge, Card, Confirm, EmptyState, Gate, PageHeader, SearchField, Segmen
 import { RowMenu } from "@/components/row-menu";
 import { downloadCsv } from "@/lib/csv";
 import { refundOrder, releaseOrder } from "@/lib/model";
-import { perform, useAdmin, useCan } from "@/lib/store";
+import { perform, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
 import { useQueryState } from "@/lib/use-query";
 import type { AdminOrder, OrderStatus } from "@/lib/types";
+import { autoReleaseAt, type PaymentKind } from "@hilltop/shared/payments";
 
 type View = "all" | OrderStatus;
 
 const statusMeta: Record<OrderStatus, { label: string; tone: Tone }> = {
-  paid: { label: "Paid, held", tone: "neutral" },
+  paid: { label: "Awaiting pickup", tone: "neutral" },
   ready: { label: "Ready for pickup", tone: "warning" },
   collected: { label: "Collected", tone: "success" },
   disputed: { label: "Disputed", tone: "maroon" },
   refunded: { label: "Refunded", tone: "muted" },
+};
+
+const paymentMeta: Record<PaymentKind, { label: string; tone: Tone }> = {
+  protected: { label: "Protected", tone: "maroon" },
+  deposit: { label: "Deposit", tone: "warning" },
+  pickup: { label: "Pay at pickup", tone: "muted" },
 };
 
 const PAGE = 40;
@@ -41,6 +48,7 @@ function OrdersInner() {
   const [confirm, setConfirm] = useState<{ order: AdminOrder; kind: "refund" | "release" } | null>(null);
   const canRefund = useCan("orders.refund");
   const [now] = useState(() => Date.now());
+  const config = useWorkingConfig();
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -50,9 +58,15 @@ function OrdersInner() {
       .sort((a, b) => b.placedAt - a.placedAt);
   }, [s.orders, view, q]);
 
-  const held = s.orders.filter((o) => o.status === "paid" || o.status === "ready" || o.status === "disputed");
+  const held = s.orders.filter((o) => o.payment !== "pickup" && (o.status === "paid" || o.status === "ready" || o.status === "disputed"));
   const sum = (list: AdminOrder[]) => list.reduce((n, o) => n + o.amount, 0);
-  const open = (o: AdminOrder) => o.status !== "collected" && o.status !== "refunded";
+  const heldSum = held.reduce((n, o) => n + o.paidInApp - o.fee, 0);
+  // Pay-at-pickup orders have no money in the platform to refund or release.
+  const open = (o: AdminOrder) => o.payment !== "pickup" && o.status !== "collected" && o.status !== "refunded";
+  const releaseIn = (o: AdminOrder) => {
+    const at = autoReleaseAt(o.handedOverAt, config.protection.autoReleaseHours);
+    return at && o.status === "ready" ? Math.max(1, Math.ceil((at - now) / 3_600_000)) : null;
+  };
 
   const actions = (o: AdminOrder) => [
     {
@@ -74,7 +88,7 @@ function OrdersInner() {
     <>
       <PageHeader
         title="Orders"
-        description="Every protected payment. Money is held until the buyer collects, then released to the seller."
+        description="Every order. Protected payments and deposits are held until the buyer collects or the auto-release window passes; pay-at-pickup orders go straight to the seller."
       >
         <button
           type="button"
@@ -104,7 +118,7 @@ function OrdersInner() {
 
       <div className="mb-4 grid grid-cols-3 gap-3">
         {[
-          ["Held in protection", sum(held), `${held.length} orders`],
+          ["Held in protection", heldSum, `${held.length} orders`],
           [
             "Released this month",
             sum(s.orders.filter((o) => o.status === "collected" && now - o.placedAt < 30 * 86_400_000)),
@@ -175,9 +189,7 @@ function OrdersInner() {
                         {o.buyer} <span className="text-ink-400">→</span> {o.seller}
                       </Td>
                       <Td>
-                        <Badge tone={statusMeta[o.status].tone} dot>
-                          {statusMeta[o.status].label}
-                        </Badge>
+                        <OrderBadges order={o} releaseIn={releaseIn(o)} />
                       </Td>
                       <Td align="right" className="font-medium text-ink-950">
                         {formatCedi(o.amount)}
@@ -203,9 +215,7 @@ function OrdersInner() {
                       {o.id} · {o.buyer} → {o.seller}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      <Badge tone={statusMeta[o.status].tone} dot>
-                        {statusMeta[o.status].label}
-                      </Badge>
+                      <OrderBadges order={o} releaseIn={releaseIn(o)} />
                       <RelativeTime at={o.placedAt} className="text-xs text-ink-400" />
                     </div>
                   </div>
@@ -243,5 +253,17 @@ function OrdersInner() {
         }}
       />
     </>
+  );
+}
+
+function OrderBadges({ order, releaseIn }: { order: AdminOrder; releaseIn: number | null }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge tone={statusMeta[order.status].tone} dot>
+        {statusMeta[order.status].label}
+      </Badge>
+      <Badge tone={paymentMeta[order.payment].tone}>{paymentMeta[order.payment].label}</Badge>
+      {releaseIn !== null && <span className="text-[11px] whitespace-nowrap text-ink-500">Auto-releases in {releaseIn}h</span>}
+    </div>
   );
 }

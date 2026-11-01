@@ -7,6 +7,7 @@ import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/toaster";
 import { getPlatformConfig } from "@/lib/config-server";
+import { protectionSummary } from "@hilltop/shared/payments";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -17,10 +18,11 @@ const poppins = Poppins({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { brand } = await getPlatformConfig();
+  const config = await getPlatformConfig();
+  const { brand } = config;
   return {
     title: { default: `${brand.name} · ${brand.tagline}`, template: `%s · ${brand.name}` },
-    description: "Buy and sell with verified students. Payments are held until you collect your item.",
+    description: `Buy and sell with verified students. ${protectionSummary(config)}`,
   };
 }
 

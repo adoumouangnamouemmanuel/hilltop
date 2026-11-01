@@ -19,6 +19,8 @@ const order = (daysAgo: number, amount: number, extra: Partial<AdminOrder> = {})
   pickup: "Library",
   status: "collected",
   placedAt: NOW - daysAgo * DAY,
+  payment: "protected",
+  paidInApp: amount * 1.04,
   ...extra,
 });
 

@@ -67,6 +67,23 @@ export const platformConfigSchema = z.object({
       }),
     ),
   }),
+  /**
+   * When the platform holds the buyer's money. "hybrid" protects orders at or above
+   * the threshold (or in listed categories) and lets buyers pay the seller at pickup
+   * below it; "always" protects every order; "never" leaves payment to the meet-up.
+   */
+  protection: z.object({
+    mode: z.enum(["hybrid", "always", "never"]),
+    threshold: money,
+    /** Categories that are always protected in hybrid mode, whatever the price. */
+    categories: z.array(z.string()),
+    /** Whether buyers may choose protection when it isn't required. */
+    optional: z.boolean(),
+    /** Held money is released this long after the seller hands the item over, unless the buyer reports a problem. 0 turns it off. */
+    autoReleaseHours: z.number().int().min(0).max(336),
+    /** Pre-orders (made-to-order food) take a deposit in the app; the rest is paid at pickup. */
+    deposit: z.object({ enabled: z.boolean(), rate: z.number().min(0.05).max(1) }),
+  }),
   boostPlans: z.array(
     z.object({
       id: z.string().min(1),
@@ -155,6 +172,14 @@ export const defaultConfig: PlatformConfig = {
       { id: "telecel", label: "Telecel Cash", kind: "momo", enabled: true },
       { id: "card", label: "Debit or credit card", kind: "card", enabled: true },
     ],
+  },
+  protection: {
+    mode: "hybrid",
+    threshold: 300,
+    categories: [],
+    optional: true,
+    autoReleaseHours: 24,
+    deposit: { enabled: true, rate: 0.3 },
   },
   boostPlans: [
     { id: "day", label: "24 hours", price: 5, reach: "About 2x more views", enabled: true },

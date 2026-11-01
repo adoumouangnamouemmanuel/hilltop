@@ -1,3 +1,5 @@
+import { defaultConfig } from "@hilltop/shared/config";
+import { paymentPlan } from "@hilltop/shared/payments";
 import { defaultRoles, OWNER_ROLE } from "@hilltop/shared/permissions";
 import { listings as seedListings, sellers } from "@hilltop/shared/seed";
 import type { AdminDispute, AdminOrder, AdminState, AdminUser, AuditEntry, Member, ModListing, OrderStatus } from "./types";
@@ -119,7 +121,15 @@ export function seedState(now: number): AdminState {
       const qty = l.category === "food" ? 1 + Math.floor(rand() * 3) : 1;
       const amount = l.price * qty;
       const age = d * DAY + Math.floor(rand() * 20) * HOUR;
-      const status: OrderStatus = age < 2 * DAY ? (rand() < 0.5 ? "paid" : "ready") : rand() < 0.03 ? "refunded" : "collected";
+      const plan = paymentPlan(defaultConfig, {
+        total: amount,
+        category: l.category,
+        preorder: l.category === "food",
+        wantsProtection: rand() < 0.25,
+      });
+      const refundable = plan.kind !== "pickup";
+      const status: OrderStatus =
+        age < 2 * DAY ? (rand() < 0.5 ? "paid" : "ready") : refundable && rand() < 0.03 ? "refunded" : "collected";
       orders.push({
         id: `ord-${(4000 + orders.length).toString()}`,
         listingId: l.id,
@@ -128,7 +138,10 @@ export function seedState(now: number): AdminState {
         buyer: pick(buyers)[0],
         seller: l.sellerName,
         amount,
-        fee: Math.round(amount * 0.04 * 100) / 100,
+        fee: plan.fee,
+        payment: plan.kind,
+        paidInApp: plan.payNow,
+        handedOverAt: status === "ready" && refundable && rand() < 0.6 ? now - age + 2 * HOUR : undefined,
         method: pick(methods),
         pickup: pick(spots),
         status,
@@ -145,8 +158,10 @@ export function seedState(now: number): AdminState {
     { reason: "wrong-item", details: "Ordered the fx-991EX and got the ES Plus.", state: "refunded" },
     { reason: "not-as-described", details: "Said like new but the cover is torn.", state: "released" },
   ] as const;
+  // Only held money can be disputed.
+  const disputable = orders.filter((o) => o.payment !== "pickup");
   const disputes: AdminDispute[] = disputeSeeds.map((s, i) => {
-    const order = orders[2 + i * 3];
+    const order = disputable[1 + i * 3];
     const openedAt = now - (i * 9 + 3) * HOUR;
     if (s.state === "open") order.status = "disputed";
     else order.status = s.state === "refunded" ? "refunded" : "collected";

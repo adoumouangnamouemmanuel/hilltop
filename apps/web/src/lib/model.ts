@@ -1,5 +1,6 @@
 import { unsplash } from "./catalog";
 import { getSeller, type Listing, type ListingStatus } from "./data";
+import { autoReleaseAt, holdsMoney } from "@hilltop/shared/payments";
 import { formatCedi } from "./format";
 import { applyFilters, parseFilters } from "./search";
 import type {
@@ -8,6 +9,7 @@ import type {
   DisputeReason,
   NotificationKind,
   Order,
+  OrderPayment,
   OrderStatus,
   PayoutState,
   Review,
@@ -91,16 +93,27 @@ export const unreadCount = (s: Pick<State, "notifications">) => s.notifications.
 
 // ---------- Orders ----------
 
-export function payoutState(o: Pick<Order, "status" | "dispute">): PayoutState {
+/** The order's payment, defaulting older orders to fully protected. */
+export function paymentOf(o: Pick<Order, "payment" | "amount" | "fee">): OrderPayment {
+  return o.payment ?? { kind: "protected", paidInApp: o.amount + o.fee, dueAtPickup: 0 };
+}
+
+/** Whether the platform is holding money for this order. */
+export const isHeld = (o: Pick<Order, "payment" | "amount" | "fee">) => holdsMoney(paymentOf(o).kind);
+
+export function payoutState(o: Pick<Order, "status" | "dispute" | "payment" | "amount" | "fee">): PayoutState {
+  if (!isHeld(o)) return "direct";
   if (o.status === "collected") return "released";
   if (o.status === "refunded") return "refunded";
   if (o.status === "disputed") return "frozen";
   return "held";
 }
 
-/** Which step of Paid, Ready, Collected, Released the order has reached (0 to 4). */
-export function orderProgress(status: OrderStatus) {
-  return { paid: 1, ready: 2, disputed: 2, collected: 4, refunded: 4 }[status];
+/** Which step of the order's timeline has been reached. Held orders have four steps, pay-at-pickup ones three. */
+export function orderProgress(status: OrderStatus, held = true) {
+  return held
+    ? { paid: 1, ready: 2, disputed: 2, collected: 4, refunded: 4 }[status]
+    : { paid: 1, ready: 2, disputed: 2, collected: 3, refunded: 3 }[status];
 }
 
 function setStatus(o: Order, status: OrderStatus, at: number): Order {
@@ -116,9 +129,24 @@ export type PlaceOrderInput = {
   listing: Listing;
   quantity: number;
   unitPrice: number;
-  fee: number;
+  payment: OrderPayment & { fee: number };
   slot?: string;
   now: number;
+};
+
+const placedCopy: Record<OrderPayment["kind"], (o: Order, l: Listing, slot?: string) => { title: string; body: string }> = {
+  protected: (o, l, slot) => ({
+    title: "Payment held safely",
+    body: `${formatCedi(o.amount + o.fee)} for ${l.title}. Meet at ${l.pickup}${slot ? `, ${slot}` : ""}.`,
+  }),
+  deposit: (o, l, slot) => ({
+    title: "Deposit paid",
+    body: `${formatCedi(paymentOf(o).paidInApp)} deposit for ${l.title}. Pay ${formatCedi(paymentOf(o).dueAtPickup)} at ${l.pickup}${slot ? `, ${slot}` : ""}.`,
+  }),
+  pickup: (o, l, slot) => ({
+    title: "Reserved for you",
+    body: `${l.title} is yours. Pay ${formatCedi(o.amount)} at ${l.pickup}${slot ? `, ${slot}` : ""}.`,
+  }),
 };
 
 export function placeOrder(s: State, i: PlaceOrderInput): State {
@@ -130,11 +158,12 @@ export function placeOrder(s: State, i: PlaceOrderInput): State {
     counterpart: seller?.name ?? "Seller",
     quantity: i.quantity,
     amount: i.unitPrice * i.quantity,
-    fee: i.fee,
+    fee: i.payment.fee,
     slot: i.slot,
     status: "paid",
     placedAt: i.now,
     timeline: [{ status: "paid", at: i.now }],
+    payment: { kind: i.payment.kind, paidInApp: i.payment.paidInApp, dueAtPickup: i.payment.dueAtPickup },
   };
   let next: State = { ...s, orders: [order, ...s.orders] };
 
@@ -149,8 +178,7 @@ export function placeOrder(s: State, i: PlaceOrderInput): State {
   return notify(next, {
     id: `n-${i.id}`,
     kind: "order",
-    title: "Payment held safely",
-    body: `${formatCedi(order.amount + order.fee)} for ${i.listing.title}. Meet at ${i.listing.pickup}${i.slot ? `, ${i.slot}` : ""}.`,
+    ...placedCopy[order.payment!.kind](order, i.listing, i.slot),
     href: "/me",
     at: i.now,
   });
@@ -160,21 +188,45 @@ export function markReady(s: State, orderId: string, now: number): State {
   return updateOrder(s, orderId, (o) => (o.status === "paid" ? setStatus(o, "ready", now) : o));
 }
 
-export function confirmCollection(s: State, orderId: string, now: number): State {
+/** The seller says the item is with the buyer. For held money this starts the auto-release clock. */
+export function markHandedOver(s: State, orderId: string, now: number): State {
+  const order = s.orders.find((o) => o.id === orderId);
+  if (!order || !["paid", "ready"].includes(order.status) || order.handedOverAt) return s;
+  // Nothing is held for pay-at-pickup orders, so handing over completes them.
+  if (!isHeld(order)) return confirmCollection(s, orderId, now);
+  return updateOrder(s, orderId, (o) => ({ ...(o.status === "paid" ? setStatus(o, "ready", now) : o), handedOverAt: now }));
+}
+
+export function confirmCollection(s: State, orderId: string, now: number, auto = false): State {
   const order = s.orders.find((o) => o.id === orderId);
   if (!order || !["paid", "ready"].includes(order.status)) return s;
-  const next = updateOrder(s, orderId, (o) => setStatus(o, "collected", now));
-  return notify(next, {
-    id: `n-pay-${orderId}`,
-    kind: "payout",
-    title: order.role === "selling" ? "Payout released" : "Payment released",
-    body:
-      order.role === "selling"
-        ? `${formatCedi(order.amount)} is on its way to your MoMo.`
-        : `${order.counterpart} has been paid. How did the meet-up go?`,
-    href: order.role === "selling" ? "/me?tab=selling" : "/me",
-    at: now,
-  });
+  const next = updateOrder(s, orderId, (o) => ({ ...setStatus(o, "collected", now), autoReleased: auto || undefined }));
+  const pay = paymentOf(order);
+  const selling = order.role === "selling";
+  const copy = !isHeld(order)
+    ? {
+        title: "Order complete",
+        body: selling ? `${order.counterpart} has collected it.` : `Enjoy it. How did the meet-up with ${order.counterpart} go?`,
+      }
+    : {
+        title: selling ? "Payout released" : auto ? "Payment released automatically" : "Payment released",
+        body: selling
+          ? `${formatCedi(pay.kind === "deposit" ? pay.paidInApp - order.fee : order.amount)} is on its way to your MoMo.`
+          : auto
+            ? `No problem was reported, so ${order.counterpart} has been paid.`
+            : `${order.counterpart} has been paid. How did the meet-up go?`,
+      };
+  return notify(next, { id: `n-pay-${orderId}`, kind: "payout", ...copy, href: selling ? "/me?tab=selling" : "/me", at: now });
+}
+
+/** Releases held money whose auto-release time has passed. */
+export function autoRelease(s: State, now: number, hours: number): State {
+  let next = s;
+  for (const o of s.orders) {
+    const due = autoReleaseAt(o.handedOverAt, hours);
+    if (due !== null && due <= now && o.status === "ready" && isHeld(o)) next = confirmCollection(next, o.id, now, true);
+  }
+  return next;
 }
 
 /** The label for a dispute reason id, from the configured list. */
@@ -182,7 +234,8 @@ export const disputeLabel = (reasons: { id: string; label: string }[], id: strin
 
 export function openDispute(s: State, orderId: string, reason: DisputeReason, details: string, now: number): State {
   const order = s.orders.find((o) => o.id === orderId);
-  if (!order || !["paid", "ready"].includes(order.status)) return s;
+  // Only held money can be frozen; pay-at-pickup problems go to support directly.
+  if (!order || !["paid", "ready"].includes(order.status) || !isHeld(order)) return s;
   const next = updateOrder(s, orderId, (o) => ({
     ...setStatus(o, "disputed", now),
     dispute: { reason, details, openedAt: now, state: "open" },
@@ -222,7 +275,7 @@ export function resolveDispute(s: State, orderId: string, outcome: "refunded" | 
     id: `n-refund-${orderId}`,
     kind: "dispute",
     title: "Refund approved",
-    body: `${formatCedi(order.amount + order.fee)} is being returned to you.`,
+    body: `${formatCedi(paymentOf(order).paidInApp)} is being returned to you.`,
     href: "/me",
     at: now,
   });

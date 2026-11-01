@@ -6,6 +6,7 @@ import { runtimeConfig } from "./config";
 import * as M from "./model";
 import { showSystemNotification } from "./push";
 import { toast } from "./toast";
+import type { PaymentPlan } from "@hilltop/shared/payments";
 import type { DisputeReason, Review, SavedSearch, State } from "./types";
 
 /*
@@ -59,9 +60,28 @@ function commit(update: (s: State) => State) {
   for (const n of state.notifications) if (!before.has(n.id)) showSystemNotification(n);
 }
 
+let releaseTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Releases held payments whose time is up. On the backend this is a scheduled job. */
+function releaseDue() {
+  const hours = runtimeConfig().protection.autoReleaseHours;
+  const next = M.autoRelease(state, Date.now(), hours);
+  if (next !== state) commit(() => next);
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  if (!releaseTimer) {
+    releaseDue();
+    releaseTimer = setInterval(releaseDue, 60_000);
+  }
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size && releaseTimer) {
+      clearInterval(releaseTimer);
+      releaseTimer = null;
+    }
+  };
 }
 
 function getSnapshot() {
@@ -101,7 +121,7 @@ export const actions = {
   },
 
   // Orders
-  placeOrder(input: { listing: Listing; quantity?: number; unitPrice?: number; fee: number; slot?: string }) {
+  placeOrder(input: { listing: Listing; quantity?: number; unitPrice?: number; plan: PaymentPlan; slot?: string }) {
     const id = `ord-${Math.floor(1000 + Math.random() * 9000)}`;
     commit((s) =>
       M.placeOrder(s, {
@@ -109,7 +129,7 @@ export const actions = {
         listing: input.listing,
         quantity: input.quantity ?? 1,
         unitPrice: input.unitPrice ?? input.listing.price,
-        fee: input.fee,
+        payment: { kind: input.plan.kind, paidInApp: input.plan.payNow, dueAtPickup: input.plan.atPickup, fee: input.plan.fee },
         slot: input.slot,
         now: Date.now(),
       }),
@@ -118,6 +138,9 @@ export const actions = {
   },
   markReady(orderId: string) {
     commit((s) => M.markReady(s, orderId, Date.now()));
+  },
+  markHandedOver(orderId: string) {
+    commit((s) => M.markHandedOver(s, orderId, Date.now()));
   },
   confirmCollection(orderId: string) {
     commit((s) => M.confirmCollection(s, orderId, Date.now()));

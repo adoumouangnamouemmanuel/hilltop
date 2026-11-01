@@ -4,9 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Clock, Lock, MapPin, ShieldAlert, Star, Wallet } from "lucide-react";
+import { Banknote, Check, Clock, Handshake, Lock, MapPin, ShieldAlert, Star, Wallet } from "lucide-react";
+import { autoReleaseAt } from "@hilltop/shared/payments";
 import { formatCedi } from "@/lib/format";
-import { disputeLabel, orderProgress, payoutState } from "@/lib/model";
+import { disputeLabel, isHeld, orderProgress, paymentOf, payoutState } from "@/lib/model";
+import { useNow } from "@/lib/hooks";
 import { useConfig } from "@/lib/config";
 import { findListing, useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
@@ -23,7 +25,10 @@ const statusLabel: Record<Order["status"], { label: string; tone: string }> = {
   refunded: { label: "Refunded", tone: "bg-surface text-ink-700" },
 };
 
+const paidLabel = { protected: "Paid, awaiting pickup", deposit: "Deposit paid, awaiting pickup", pickup: "Reserved, pay at pickup" };
+
 const payoutCopy = {
+  direct: "The buyer pays you directly at pickup",
   held: "Held by Hilltop until the buyer confirms",
   released: "Paid out to your MoMo",
   frozen: "Frozen while a problem is reviewed",
@@ -31,15 +36,38 @@ const payoutCopy = {
 } as const;
 
 export function OrderCard({ order, onReport, onReview }: { order: Order; onReport: (o: Order) => void; onReview: (o: Order) => void }) {
-  const { allListings, confirmCollection, markReady, withdrawDispute, resolveDispute } = useStore();
-  const { disputes, features } = useConfig();
+  const { allListings, confirmCollection, markReady, markHandedOver, withdrawDispute, resolveDispute } = useStore();
+  const { brand, disputes, features, protection } = useConfig();
+  const now = useNow();
   const [confirming, setConfirming] = useState(false);
   const listing = findListing(allListings, order.listingId);
   if (!listing) return null;
   const selling = order.role === "selling";
-  const status = statusLabel[order.status];
+  const pay = paymentOf(order);
+  const held = isHeld(order);
+  const status = order.status === "paid" ? { ...statusLabel.paid, label: paidLabel[pay.kind] } : statusLabel[order.status];
   const open = order.status === "paid" || order.status === "ready";
   const payout = payoutState(order);
+  const releaseAt = autoReleaseAt(order.handedOverAt, protection.autoReleaseHours);
+  const hoursLeft = releaseAt && now ? Math.max(1, Math.ceil((releaseAt - now) / 3_600_000)) : null;
+  const first = order.counterpart.split(" ")[0];
+
+  // What happens to the money, from this person's side.
+  const moneyLine = selling
+    ? pay.kind === "pickup"
+      ? `${first} pays you ${formatCedi(pay.dueAtPickup)} at pickup`
+      : order.handedOverAt && hoursLeft
+        ? `Paid to you in ${hoursLeft}h unless ${first} reports a problem`
+        : pay.kind === "deposit"
+          ? `Collect ${formatCedi(pay.dueAtPickup)} at pickup. The deposit is paid out after collection`
+          : "You're paid when the buyer confirms collection"
+    : pay.kind === "pickup"
+      ? `Pay ${formatCedi(pay.dueAtPickup)} to the seller at pickup`
+      : order.handedOverAt && hoursLeft
+        ? `Released to ${first} automatically in ${hoursLeft}h unless you report a problem`
+        : pay.kind === "deposit"
+          ? `Deposit held. Pay ${formatCedi(pay.dueAtPickup)} to the seller at pickup`
+          : "Payment held until you confirm";
 
   return (
     <motion.li layout className="rounded-2xl border border-line p-4 sm:p-5">
@@ -67,7 +95,7 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
       </div>
 
       <div className="mt-5 sm:pl-24">
-        <OrderTimeline reached={orderProgress(order.status)} />
+        <OrderTimeline reached={orderProgress(order.status, held)} kind={pay.kind} />
       </div>
 
       {selling && (
@@ -113,8 +141,12 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                   {order.slot && <>, {order.slot}</>}
                 </p>
                 <p className="flex items-center gap-1.5">
-                  <Lock className="size-3.5 text-ink-500" aria-hidden />
-                  {selling ? "You're paid when the buyer confirms collection" : "Payment held until you confirm"}
+                  {held ? (
+                    <Lock className="size-3.5 text-ink-500" aria-hidden />
+                  ) : (
+                    <Banknote className="size-3.5 text-ink-500" aria-hidden />
+                  )}
+                  {moneyLine}
                 </p>
               </div>
               {selling ? (
@@ -129,9 +161,20 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                   >
                     <Check className="size-3.5" aria-hidden /> Mark ready for pickup
                   </button>
+                ) : !order.handedOverAt ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      markHandedOver(order.id);
+                      toast(held ? `Handover recorded. ${first} can confirm or report a problem.` : "Order complete", { tone: "success" });
+                    }}
+                    className={buttonClass("dark", "sm")}
+                  >
+                    <Handshake className="size-3.5" aria-hidden /> {held ? "I've handed it over" : "Collected and paid"}
+                  </button>
                 ) : (
                   <span className="flex items-center gap-1.5 text-xs font-medium text-ink-700">
-                    <Clock className="size-3.5" aria-hidden /> Waiting for the buyer to collect
+                    <Clock className="size-3.5" aria-hidden /> Waiting for {first} to confirm
                   </span>
                 )
               ) : confirming ? (
@@ -147,14 +190,23 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                     }}
                     className={buttonClass("dark", "sm")}
                   >
-                    <Check className="size-3.5" aria-hidden /> Yes, release payment
+                    <Check className="size-3.5" aria-hidden /> {held ? "Yes, release payment" : "Yes, collected and paid"}
                   </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => onReport(order)} className={buttonClass("ghost", "sm")}>
-                    Report a problem
-                  </button>
+                  {held ? (
+                    <button type="button" onClick={() => onReport(order)} className={buttonClass("ghost", "sm")}>
+                      Report a problem
+                    </button>
+                  ) : (
+                    <a
+                      href={`mailto:${brand.supportEmail}?subject=${encodeURIComponent(`Problem with order ${order.id}`)}`}
+                      className={buttonClass("ghost", "sm")}
+                    >
+                      Get help
+                    </a>
+                  )}
                   <button type="button" onClick={() => setConfirming(true)} className={buttonClass("dark", "sm")}>
                     I&rsquo;ve collected it
                   </button>

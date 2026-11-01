@@ -1,3 +1,4 @@
+import type { PaymentKind } from "@hilltop/shared/payments";
 import type { Listing, ListingStatus } from "./data";
 
 /*
@@ -26,6 +27,16 @@ export type Dispute = {
   state: "open" | "withdrawn" | "refunded";
 };
 
+export type { PaymentKind };
+
+export type OrderPayment = {
+  kind: PaymentKind;
+  /** Charged in the app, fee included. Held until collection (or auto-release). */
+  paidInApp: number;
+  /** Paid by the buyer straight to the seller at the meet-up. */
+  dueAtPickup: number;
+};
+
 export type Order = {
   id: string;
   listingId: string;
@@ -43,9 +54,16 @@ export type Order = {
   timeline: { status: OrderStatus; at: number }[];
   dispute?: Dispute;
   reviewed?: boolean;
+  /** How the buyer pays. Orders from before payment options existed were fully protected. */
+  payment?: OrderPayment;
+  /** When the seller handed the item over. Starts the auto-release clock for held money. */
+  handedOverAt?: number;
+  /** Released by the timer rather than the buyer. */
+  autoReleased?: boolean;
 };
 
-export type PayoutState = "held" | "released" | "refunded" | "frozen";
+/** "direct" means the buyer pays the seller at pickup, so nothing passes through Hilltop. */
+export type PayoutState = "held" | "released" | "refunded" | "frozen" | "direct";
 
 export type Offer = { amount: number; status: "pending" | "accepted" | "declined"; at: number };
 

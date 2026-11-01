@@ -1,13 +1,20 @@
 import { Check } from "lucide-react";
 import { cn } from "./ui";
 
-export const orderSteps = ["Paid", "Held", "Collected", "Released"] as const;
+import type { PaymentKind } from "@hilltop/shared/payments";
 
-/** Horizontal progress for a protected order. `reached` is how many steps are complete. */
-export function OrderTimeline({ reached }: { reached: number }) {
+export const orderSteps: Record<PaymentKind, string[]> = {
+  protected: ["Paid", "Held", "Collected", "Released"],
+  deposit: ["Deposit", "Held", "Collected", "Released"],
+  pickup: ["Reserved", "Ready", "Collected"],
+};
+
+/** Horizontal progress for an order. `reached` is how many steps are complete. */
+export function OrderTimeline({ reached, kind = "protected" }: { reached: number; kind?: PaymentKind }) {
+  const steps = orderSteps[kind];
   return (
     <ol className="flex items-start" aria-label="Order progress">
-      {orderSteps.map((step, i) => {
+      {steps.map((step, i) => {
         const done = i < reached;
         const current = i === reached;
         return (
@@ -25,7 +32,7 @@ export function OrderTimeline({ reached }: { reached: number }) {
               >
                 {done && <Check className="size-3" strokeWidth={3} aria-hidden />}
               </span>
-              {i < orderSteps.length - 1 && (
+              {i < steps.length - 1 && (
                 <span className="mx-1.5 h-0.5 flex-1 overflow-hidden rounded-full bg-line">
                   <span
                     className="block h-full bg-ink-950 transition-[width] duration-500"

@@ -1,4 +1,5 @@
 import type { PlatformConfig } from "@hilltop/shared/config";
+import type { PaymentKind } from "@hilltop/shared/payments";
 import type { Permission, Role } from "@hilltop/shared/permissions";
 
 /*
@@ -70,6 +71,12 @@ export type AdminOrder = {
   pickup: string;
   status: OrderStatus;
   placedAt: number;
+  /** protected: paid in the app and held; deposit: part held, rest at pickup; pickup: paid to the seller directly. */
+  payment: PaymentKind;
+  /** Paid in the app, fee included. Zero for pay-at-pickup orders. */
+  paidInApp: number;
+  /** When the seller handed the item over; held money auto-releases after the configured window. */
+  handedOverAt?: number;
 };
 
 export type DisputeState = "open" | "refunded" | "released";

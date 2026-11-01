@@ -25,12 +25,17 @@ function load(): AdminState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AdminState;
-      if (Array.isArray(parsed.team) && Array.isArray(parsed.roles) && Array.isArray(parsed.orders)) return parsed;
+      if (Array.isArray(parsed.team) && Array.isArray(parsed.roles) && Array.isArray(parsed.orders)) return migrate(parsed);
     }
   } catch {
     // Corrupt or blocked storage: start from the seed.
   }
   return seedState(Date.now());
+}
+
+/** Fills in fields added since the data was saved. Orders from before payment options were all protected. */
+function migrate(s: AdminState): AdminState {
+  return { ...s, orders: s.orders.map((o) => ({ ...o, payment: o.payment ?? "protected", paidInApp: o.paidInApp ?? o.amount + o.fee })) };
 }
 
 function getState() {
