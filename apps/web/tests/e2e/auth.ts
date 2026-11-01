@@ -41,9 +41,14 @@ export async function emailedCode(email: string, since: number): Promise<string>
       const code = (message.HTML || message.Text).match(/>\s*(\d{6})\s*</)?.[1] ?? message.Text.match(/\b(\d{6})\b/)?.[1];
       if (code) return code;
     }
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(`No sign-in code reached ${email}`);
+}
+
+/** Empties Mailpit, so searches stay fast and don't hold up incoming mail. */
+export async function clearMailbox() {
+  await fetch(`${mailpitUrl}/api/v1/messages`, { method: "DELETE" });
 }
 
 /** Makes sure the account exists, so the sign-in page (which never creates accounts) can send it a code. */

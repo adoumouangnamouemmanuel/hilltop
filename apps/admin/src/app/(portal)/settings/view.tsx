@@ -383,12 +383,17 @@ function Payments({ value: c, set, err }: SectionProps) {
       </Group>
       <Group
         title="Payment methods"
-        description="Shown at checkout in this order."
+        description={
+          c.payments.inApp
+            ? "Shown at checkout in this order."
+            : "Paying in the app isn't connected yet, so every order is reserved and paid to the seller at pickup. These methods and the protection rules apply once it is."
+        }
         action={
           <AddButton
             onClick={() =>
               set({
                 payments: {
+                  ...c.payments,
                   methods: [...methods, { id: `method-${methods.length + 1}`, label: "New method", kind: "momo", enabled: false }],
                 },
               })
@@ -404,13 +409,15 @@ function Payments({ value: c, set, err }: SectionProps) {
               <TextInput
                 aria-label="Method name"
                 value={m.label}
-                onChange={(e) => set({ payments: { methods: replaceAt(methods, i, { label: e.target.value }) } })}
+                onChange={(e) => set({ payments: { ...c.payments, methods: replaceAt(methods, i, { label: e.target.value }) } })}
                 className="min-w-0 flex-1"
               />
               <Select
                 aria-label="Type"
                 value={m.kind}
-                onChange={(e) => set({ payments: { methods: replaceAt(methods, i, { kind: e.target.value as "momo" | "card" }) } })}
+                onChange={(e) =>
+                  set({ payments: { ...c.payments, methods: replaceAt(methods, i, { kind: e.target.value as "momo" | "card" }) } })
+                }
                 className="w-44"
               >
                 <option value="momo">Mobile money</option>
@@ -419,9 +426,12 @@ function Payments({ value: c, set, err }: SectionProps) {
               <Switch
                 label={`${m.label} enabled`}
                 checked={m.enabled}
-                onChange={(v) => set({ payments: { methods: replaceAt(methods, i, { enabled: v }) } })}
+                onChange={(v) => set({ payments: { ...c.payments, methods: replaceAt(methods, i, { enabled: v }) } })}
               />
-              <RemoveButton label={`Remove ${m.label}`} onClick={() => set({ payments: { methods: methods.filter((_, j) => j !== i) } })} />
+              <RemoveButton
+                label={`Remove ${m.label}`}
+                onClick={() => set({ payments: { ...c.payments, methods: methods.filter((_, j) => j !== i) } })}
+              />
             </li>
           ))}
         </ul>

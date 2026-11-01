@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Check, Clock, MessageCircle, X } from "lucide-react";
 import type { Listing } from "@/lib/data";
 import { firstName, formatCedi } from "@/lib/format";
+import { useConfig } from "@/lib/config";
+import { percent } from "@hilltop/shared/config";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { buttonClass, cn } from "@/components/ui";
@@ -12,12 +14,15 @@ import { buttonClass, cn } from "@/components/ui";
 /** Offer form, then the offer's status once sent. The seller is notified and answers from their listing. */
 export function OfferPanel({ listing, sellerName }: { listing: Listing; sellerName: string }) {
   const { offers, makeOffer } = useStore();
+  const { offers: offerRules, payments } = useConfig();
+  const minRatio = offerRules.minRatio;
+  const inApp = payments.inApp;
   const offer = offers[listing.id];
   const price = listing.price;
   const suggestions = [0.95, 0.9, 0.85].map((r) => Math.round((price * r) / 5) * 5);
   const [value, setValue] = useState(String(suggestions[1]));
   const amount = Number(value) || 0;
-  const tooLow = amount > 0 && amount < price * 0.5;
+  const tooLow = amount > 0 && amount < price * minRatio;
 
   if (offer && offer.status !== "declined") {
     const accepted = offer.status === "accepted";
@@ -86,8 +91,10 @@ export function OfferPanel({ listing, sellerName }: { listing: Listing; sellerNa
       </div>
       <p className={cn("mt-2 text-xs", tooLow ? "text-maroon-700" : "text-ink-500")}>
         {tooLow
-          ? "Offers below half the asking price are hidden from sellers."
-          : "If accepted, you'll pay through Hilltop with buyer protection."}
+          ? `Offers below ${percent(minRatio)} of the asking price aren't sent.`
+          : inApp
+            ? "If accepted, you'll pay through Hilltop with buyer protection."
+            : "If accepted, reserve it at that price and pay the seller when you meet."}
       </p>
     </div>
   );

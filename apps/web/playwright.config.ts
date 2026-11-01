@@ -14,7 +14,8 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: true,
   // Every page pulls photos through the image optimiser; too many workers starve the server.
-  workers: process.env.CI ? 2 : 4,
+  // More workers starve the app and the local Supabase (and its mail server) on a laptop.
+  workers: 2,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {

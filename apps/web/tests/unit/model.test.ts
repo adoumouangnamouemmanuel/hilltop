@@ -4,7 +4,42 @@ import * as M from "@/lib/model";
 import type { State } from "@/lib/types";
 
 const T = M.SEED_TIME;
-const seed = () => M.seedState();
+// Two past orders to work with: one held and ready for pickup, one already collected.
+const seed = (): State => ({
+  ...M.seedState(),
+  orders: [
+    {
+      id: "ord-1042",
+      listingId: "study-table",
+      role: "buying",
+      counterpart: "Pelagie Johanna",
+      quantity: 1,
+      amount: 450,
+      fee: 18,
+      status: "ready",
+      placedAt: 1,
+      timeline: [
+        { status: "paid", at: 1 },
+        { status: "ready", at: 2 },
+      ],
+    },
+    {
+      id: "ord-0987",
+      listingId: "bedsheet-set",
+      role: "buying",
+      counterpart: "Rahinatou",
+      quantity: 1,
+      amount: 180,
+      fee: 7.2,
+      status: "collected",
+      placedAt: 1,
+      timeline: [
+        { status: "paid", at: 1 },
+        { status: "collected", at: 2 },
+      ],
+    },
+  ],
+});
 const listing = (id: string) => getListing(id)!;
 
 function order(s: State, id: string) {

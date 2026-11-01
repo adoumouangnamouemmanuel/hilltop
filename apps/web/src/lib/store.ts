@@ -8,13 +8,14 @@ import { withExpiry } from "@hilltop/shared/ranking";
 import * as M from "./model";
 import { showSystemNotification } from "./push";
 import { toast } from "./toast";
-import type { PaymentPlan } from "@hilltop/shared/payments";
 import { signOutEverywhere } from "./auth";
 import { supabase } from "./supabase";
 import * as Mine from "./mine";
 import * as Social from "./social";
+import * as Orders from "./orders";
+import { fetchMarket, setMarket } from "./market";
 import { getSeller } from "./data";
-import type { DisputeReason, Review, SavedSearch, State, User } from "./types";
+import type { DisputeReason, Order, OrderStatus, Review, SavedSearch, State, User } from "./types";
 
 /*
  * Client-side mock backend. State transitions live in model.ts; this file adds
@@ -127,22 +128,44 @@ export function resetDemo() {
 // The signed-in student's own data starts empty and is loaded from the database.
 const noMine: Pick<
   State,
-  "myListings" | "saved" | "savedSearches" | "reports" | "conversations" | "offers" | "incomingOffers" | "notifications"
-> = { myListings: [], saved: [], savedSearches: [], reports: [], conversations: [], offers: {}, incomingOffers: [], notifications: [] };
+  | "myListings"
+  | "saved"
+  | "savedSearches"
+  | "reports"
+  | "conversations"
+  | "offers"
+  | "incomingOffers"
+  | "notifications"
+  | "orders"
+  | "reviews"
+> = {
+  myListings: [],
+  saved: [],
+  savedSearches: [],
+  reports: [],
+  conversations: [],
+  offers: {},
+  incomingOffers: [],
+  notifications: [],
+  orders: [],
+  reviews: [],
+};
 let mineLoadedFor: string | null = null;
 let socialLoadedFor: string | null = null;
 let stopWatching: (() => void) | null = null;
 
-/** Reloads conversations, offers and notifications. The first load for an account doesn't pop up notifications. */
-async function refreshSocial() {
+/** Reloads conversations, offers, notifications and orders. The first load for an account doesn't pop up notifications. */
+const refreshSocial = once(async () => {
   const profileId = state.user?.profileId;
   if (!profileId) return;
-  const social = await Social.loadSocial(profileId);
-  if (!social || state.user?.profileId !== profileId) return;
+  const version = writes;
+  const [social, orders] = await Promise.all([Social.loadSocial(profileId), Orders.loadOrders(profileId)]);
+  if (version !== writes) return void setTimeout(refreshSocial, 0);
+  if (!social || !orders || state.user?.profileId !== profileId) return;
   const first = socialLoadedFor !== profileId;
   socialLoadedFor = profileId;
-  commit((s) => ({ ...s, ...social }), first);
-}
+  commit((s) => ({ ...s, ...social, orders }), first);
+});
 
 let pending: ReturnType<typeof setTimeout> | null = null;
 /** Coalesces bursts of live events into one reload. */
@@ -160,26 +183,55 @@ function watch(profileId: string | undefined) {
   if (profileId) stopWatching = Social.watchSocial(profileId, refreshSocialSoon);
 }
 
+// Bumped by every change the student makes, so a load that started before it isn't
+// allowed to overwrite it with older data.
+let writes = 0;
+
+/** Runs one load at a time per kind; calls while one is running share it. */
+function once(fn: () => Promise<void>) {
+  let running: Promise<void> | null = null;
+  return () => (running ??= fn().finally(() => (running = null)));
+}
+
 /** Reloads the student's listings, saved items, searches and reports from the database. */
-async function refreshMine() {
+const refreshMine = once(async () => {
   const profileId = state.user?.profileId;
   if (!profileId) return;
+  const version = writes;
   const mine = await Mine.loadMine(profileId);
+  if (version !== writes) return void setTimeout(refreshMine, 0);
   // Ignore an answer for someone who has since signed out.
   if (mine && state.user?.profileId === profileId) {
     mineLoadedFor = profileId;
     commit((s) => ({ ...s, ...mine }));
   }
-}
+});
 
 /** Shows a database error and reloads, undoing an optimistic change. */
 function failed(message: string | null) {
+  // The write is done, so loads that started before it are out of date.
+  writes++;
   if (!message) return;
   toast(message);
   refreshMine();
 }
 
 const me = () => state.user?.profileId;
+
+/** Moves an order: shown at once, then saved; the database decides if the move is allowed. */
+function moveOrder(orderId: string, status: OrderStatus, optimistic: (s: State) => State) {
+  writes++;
+  commit(optimistic);
+  Orders.setOrderStatusRemote(orderId, status).then((error) => {
+    writes++;
+    if (error) toast(error);
+    refreshSocial();
+    if (status === "cancelled")
+      fetchMarket()
+        .then(setMarket)
+        .catch(() => {});
+  });
+}
 
 export const actions = {
   /** Mirrors the Supabase session; called by <AuthSync /> whenever it changes. */
@@ -203,52 +255,67 @@ export const actions = {
     commit((s) => ({ ...s, user: null, ...noMine }), true);
   },
   toggleSaved(id: string) {
+    writes++;
     const saving = !state.saved.includes(id);
     commit((s) => ({ ...s, saved: saving ? [...s.saved, id] : s.saved.filter((x) => x !== id) }));
     const profileId = me();
     if (profileId) Mine.setSavedRemote(profileId, id, saving).then(failed);
   },
 
-  // Orders
-  placeOrder(input: { listing: Listing; quantity?: number; unitPrice?: number; plan: PaymentPlan; slot?: string }) {
-    const id = `ord-${Math.floor(1000 + Math.random() * 9000)}`;
-    commit((s) =>
-      M.placeOrder(s, {
-        id,
-        listing: input.listing,
-        quantity: input.quantity ?? 1,
-        unitPrice: input.unitPrice ?? input.listing.price,
-        payment: { kind: input.plan.kind, paidInApp: input.plan.payNow, dueAtPickup: input.plan.atPickup, fee: input.plan.fee },
-        slot: input.slot,
-        now: Date.now(),
-      }),
-    );
-    return state.orders.find((o) => o.id === id)!;
+  // Orders: reserved in the app, paid to the seller at pickup.
+  async placeOrder(input: { listing: Listing; quantity?: number; slot?: string }): Promise<{ order: Order } | { error: string }> {
+    if (!me()) return { error: "Sign in to buy." };
+    const placed = await Orders.placeOrderRemote({ listingId: input.listing.id, quantity: input.quantity ?? 1, slot: input.slot });
+    if ("error" in placed) return placed;
+    await refreshSocial();
+    // A load that was already running started before this order existed.
+    if (!state.orders.some((o) => o.id === placed.id)) await refreshSocial();
+    // The item is reserved now, so others see it as sold or with less stock.
+    fetchMarket()
+      .then(setMarket)
+      .catch(() => {});
+    const order = state.orders.find((o) => o.id === placed.id);
+    return order ? { order } : { error: "Your order was placed. Find it under Your orders." };
   },
   markReady(orderId: string) {
-    commit((s) => M.markReady(s, orderId, Date.now()));
+    moveOrder(orderId, "ready", (s) => M.markReady(s, orderId, Date.now()));
   },
+  /** For pay-at-pickup orders, handing over is the end: the buyer paid the seller. */
   markHandedOver(orderId: string) {
-    commit((s) => M.markHandedOver(s, orderId, Date.now()));
+    moveOrder(orderId, "collected", (s) => M.markHandedOver(s, orderId, Date.now()));
   },
   confirmCollection(orderId: string) {
-    commit((s) => M.confirmCollection(s, orderId, Date.now()));
+    moveOrder(orderId, "collected", (s) => M.confirmCollection(s, orderId, Date.now()));
   },
+  cancelOrder(orderId: string) {
+    moveOrder(orderId, "cancelled", (s) => ({
+      ...s,
+      orders: s.orders.map((o) =>
+        o.id === orderId ? { ...o, status: "cancelled", timeline: [...o.timeline, { status: "cancelled", at: Date.now() }] } : o,
+      ),
+    }));
+  },
+  // Disputes freeze held payments, which arrive with in-app payments.
   openDispute(orderId: string, reason: DisputeReason, details: string) {
     commit((s) => M.openDispute(s, orderId, reason, details, Date.now()));
   },
   withdrawDispute(orderId: string) {
     commit((s) => M.withdrawDispute(s, orderId, Date.now()));
   },
-  resolveDispute(orderId: string, outcome: "refunded" | "released") {
-    commit((s) => M.resolveDispute(s, orderId, outcome, Date.now()));
-  },
-  addReview(r: Omit<Review, "id" | "at" | "author">) {
+  async addReview(r: Omit<Review, "id" | "at" | "author">) {
+    writes++;
+    const profileId = me();
+    if (!profileId) return;
     commit((s) => M.addReview(s, { ...r, id: uid("rev"), at: Date.now(), author: s.user?.name ?? "You" }));
+    const sellerProfileId = getSeller(r.sellerId)?.profileId ?? (await Orders.sellerOf(r.orderId));
+    const error = sellerProfileId ? await Orders.addReviewRemote(profileId, sellerProfileId, r) : "Couldn't post your review.";
+    if (error) toast(error);
+    refreshSocial();
   },
 
   // Listings: photos are uploaded first, then the listing and its photos are saved.
   async saveListing(listing: Listing): Promise<{ listing: Listing } | { error: string }> {
+    writes++;
     const { profileId, handle } = state.user ?? {};
     if (!profileId || !handle) return { error: "Sign in to sell." };
     const isNew = !state.myListings.some((l) => l.id === listing.id);
@@ -265,20 +332,24 @@ export const actions = {
     return { listing: saved };
   },
   setListingStatus(id: string, status: ListingStatus) {
+    writes++;
     commit((s) => M.setListingStatus(s, id, status));
     Mine.setListingStatusRemote(id, status).then(failed);
   },
   renewListing(id: string) {
+    writes++;
     commit((s) => M.renewListing(s, id));
     Mine.renewListingRemote(id).then(failed);
   },
   deleteListing(id: string) {
+    writes++;
     commit((s) => M.deleteListing(s, id));
     Mine.deleteListingRemote(id).then(failed);
   },
 
   // Offers: the seller is notified and answers from the listing page.
   async makeOffer(listing: Listing, amount: number) {
+    writes++;
     const profileId = me();
     if (!profileId) return "Sign in to make an offer.";
     const error = await Social.makeOfferRemote(profileId, listing.id, amount);
@@ -286,6 +357,7 @@ export const actions = {
     return error;
   },
   async answerOffer(offerId: string, accepted: boolean) {
+    writes++;
     commit((s) => ({
       ...s,
       incomingOffers: s.incomingOffers?.map((o) => (o.id === offerId ? { ...o, status: accepted ? "accepted" : "declined" } : o)),
@@ -298,6 +370,7 @@ export const actions = {
 
   // Messages. `conversationId` is known when replying in the inbox.
   async sendMessage(listing: Listing, sellerName: string, text: string, conversationId?: string) {
+    writes++;
     const profileId = me();
     if (!profileId) return null;
     const existing =
@@ -333,20 +406,23 @@ export const actions = {
     return result.conversationId;
   },
   readConversation(id: string) {
+    writes++;
     if (!state.conversations.find((c) => c.id === id)?.unread) return;
     commit((s) => M.readConversation(s, id));
     const profileId = me();
-    if (profileId) Social.readConversationRemote(profileId, id);
+    if (profileId) Social.readConversationRemote(profileId, id).then(() => writes++);
   },
 
   // Notifications
   markAllRead() {
+    writes++;
     commit(M.markAllRead);
-    Social.markReadRemote();
+    Social.markReadRemote().then(() => writes++);
   },
   markRead(id: string) {
+    writes++;
     commit((s) => M.markRead(s, id));
-    Social.markReadRemote(id);
+    Social.markReadRemote(id).then(() => writes++);
   },
 
   // Search
@@ -359,6 +435,7 @@ export const actions = {
     commit((s) => ({ ...s, recentSearches: [] }));
   },
   async saveSearch(search: Omit<SavedSearch, "id" | "createdAt" | "alerts">) {
+    writes++;
     const profileId = me();
     if (!profileId || state.savedSearches.some((x) => x.query === search.query)) return;
     const created = await Mine.saveSearchRemote(profileId, search);
@@ -366,21 +443,25 @@ export const actions = {
     commit((s) => M.saveSearch(s, { ...search, ...created, alerts: true }));
   },
   removeSearch(id: string) {
+    writes++;
     commit((s) => M.removeSearch(s, id));
-    Mine.removeSearchRemote(id);
+    Mine.removeSearchRemote(id).then(() => writes++);
   },
   toggleAlerts(id: string) {
+    writes++;
     commit((s) => M.toggleAlerts(s, id));
     const search = state.savedSearches.find((x) => x.id === id);
-    if (search) Mine.updateSearchRemote(id, { alerts: search.alerts });
+    if (search) Mine.updateSearchRemote(id, { alerts: search.alerts }).then(() => writes++);
   },
   markSearchSeen(id: string, matchIds: string[]) {
+    writes++;
     const search = state.savedSearches.find((x) => x.id === id);
     if (!search || search.seenIds.join() === matchIds.join()) return;
     commit((s) => M.markSearchSeen(s, id, matchIds));
-    Mine.updateSearchRemote(id, { seen_ids: matchIds });
+    Mine.updateSearchRemote(id, { seen_ids: matchIds }).then(() => writes++);
   },
   reportListing(listingId: string, reason: string, details: string) {
+    writes++;
     commit((s) => M.reportListing(s, { listingId, reason, details, at: Date.now() }));
     const profileId = me();
     if (profileId) Mine.reportRemote(profileId, { listingId, reason, details }).then(failed);

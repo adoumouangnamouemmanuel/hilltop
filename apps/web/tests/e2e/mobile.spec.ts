@@ -14,7 +14,12 @@ test("mobile filter sheet opens, filters and closes", async ({ page }) => {
 
 test("message a seller from a listing, then continue in the inbox", async ({ page }) => {
   await signIn(page, "/listing/casio-fx991", "buyer");
-  await page.getByRole("button", { name: "Message" }).click();
+  const field = page.getByLabel(/Message to Wellington/);
+  // The layout settles as the buyer's data loads; click until the panel is open.
+  await expect(async () => {
+    if (!(await field.isVisible())) await page.getByRole("button", { name: "Message" }).click();
+    await expect(field).toBeVisible({ timeout: 2000 });
+  }).toPass();
   const note = `Is it still available? ${Date.now()}`;
   await page.getByLabel(/Message to Wellington/).fill(note);
   await page.getByRole("button", { name: "Send message" }).click();

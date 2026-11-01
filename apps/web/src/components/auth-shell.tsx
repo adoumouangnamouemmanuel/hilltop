@@ -162,7 +162,7 @@ function FloatingOrder() {
         </div>
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/15 px-3 py-2 text-xs">
-        <Lock className="size-3.5" aria-hidden /> Payment held until pickup
+        <Lock className="size-3.5" aria-hidden /> Reserved, pay at pickup
       </div>
     </motion.div>
   );

@@ -23,6 +23,7 @@ const statusLabel: Record<Order["status"], { label: string; tone: string }> = {
   collected: { label: "Completed", tone: "bg-success-bg text-success" },
   disputed: { label: "Under review", tone: "bg-maroon-50 text-maroon-700" },
   refunded: { label: "Refunded", tone: "bg-surface text-ink-700" },
+  cancelled: { label: "Cancelled", tone: "bg-surface text-ink-500" },
 };
 
 const paidLabel = { protected: "Paid, awaiting pickup", deposit: "Deposit paid, awaiting pickup", pickup: "Reserved, pay at pickup" };
@@ -36,12 +37,18 @@ const payoutCopy = {
 } as const;
 
 export function OrderCard({ order, onReport, onReview }: { order: Order; onReport: (o: Order) => void; onReview: (o: Order) => void }) {
-  const { allListings, confirmCollection, markReady, markHandedOver, withdrawDispute, resolveDispute } = useStore();
+  const { allListings, confirmCollection, markReady, markHandedOver, withdrawDispute, cancelOrder } = useStore();
   const { brand, disputes, features, protection } = useConfig();
   const now = useNow();
   const [confirming, setConfirming] = useState(false);
-  const listing = findListing(allListings, order.listingId);
-  if (!listing) return null;
+  // The listing may have changed or been deleted since; the order keeps its own title and spot.
+  const found = findListing(allListings, order.listingId);
+  const listing = {
+    id: order.listingId,
+    title: order.title ?? found?.title ?? "Item",
+    images: found?.images ?? [],
+    pickup: order.pickup ?? found?.pickup ?? "",
+  };
   const selling = order.role === "selling";
   const pay = paymentOf(order);
   const held = isHeld(order);
@@ -73,7 +80,7 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
     <motion.li layout className="rounded-2xl border border-line p-4 sm:p-5">
       <div className="flex gap-4">
         <Link href={`/listing/${listing.id}`} className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-surface">
-          <Image src={listing.images[0]} alt={listing.title} fill sizes="80px" className="object-cover" />
+          {listing.images[0] && <Image src={listing.images[0]} alt={listing.title} fill sizes="80px" className="object-cover" />}
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -120,13 +127,6 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                 Withdraw report
               </button>
             )}
-            {/* Stand-ins for the support team's decision in the demo. */}
-            <button type="button" onClick={() => resolveDispute(order.id, "refunded")} className={buttonClass("ghost", "sm")}>
-              Demo: approve refund
-            </button>
-            <button type="button" onClick={() => resolveDispute(order.id, "released")} className={buttonClass("ghost", "sm")}>
-              Demo: release payment
-            </button>
           </div>
         </div>
       )}
@@ -194,7 +194,8 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {!held && <CancelOrder order={order} onCancel={cancelOrder} />}
                   {held ? (
                     <button type="button" onClick={() => onReport(order)} className={buttonClass("ghost", "sm")}>
                       Report a problem
@@ -232,5 +233,26 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
         </button>
       )}
     </motion.li>
+  );
+}
+
+/** Calls off a reservation that won't happen. The item goes back on the market. */
+function CancelOrder({ order, onCancel }: { order: Order; onCancel: (id: string) => void }) {
+  const [sure, setSure] = useState(false);
+  return sure ? (
+    <button
+      type="button"
+      onClick={() => {
+        onCancel(order.id);
+        toast("Order cancelled. The item is back on the market.");
+      }}
+      className={buttonClass("outline", "sm", "border-maroon-600 text-maroon-700")}
+    >
+      Yes, cancel order
+    </button>
+  ) : (
+    <button type="button" onClick={() => setSure(true)} className={buttonClass("ghost", "sm")}>
+      Cancel order
+    </button>
   );
 }

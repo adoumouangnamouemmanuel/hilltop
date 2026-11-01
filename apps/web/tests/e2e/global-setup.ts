@@ -1,9 +1,10 @@
 import { chromium, type FullConfig } from "@playwright/test";
-import { assertLocal, enterEmailedCode, ensureAccount, stateFile, students, type Who } from "./auth";
+import { assertLocal, clearMailbox, enterEmailedCode, ensureAccount, stateFile, students, type Who } from "./auth";
 
 /** Signs each test student in once through the real sign-in page and saves their session for the tests. */
 export default async function globalSetup(config: FullConfig) {
   assertLocal();
+  await clearMailbox();
   const baseURL = config.projects[0].use.baseURL!;
   const browser = await chromium.launch();
   try {

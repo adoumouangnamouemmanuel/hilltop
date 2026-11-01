@@ -58,6 +58,11 @@ export const platformConfigSchema = z.object({
     sellerFeeRate: z.number().min(0).max(0.3),
   }),
   payments: z.object({
+    /**
+     * Whether buyers can pay in the app. Until a payment provider is connected this
+     * stays off, and every order is reserved and paid to the seller at pickup.
+     */
+    inApp: z.boolean(),
     methods: z.array(
       z.object({
         id: z.string().min(1),
@@ -193,6 +198,7 @@ export const defaultConfig: PlatformConfig = {
   access: { allowedEmailDomains: ["ashesi.edu.gh"], allowSingleSignOn: true },
   fees: { buyerProtectionRate: 0.04, sellerFeeRate: 0 },
   payments: {
+    inApp: false,
     methods: [
       { id: "mtn", label: "MTN Mobile Money", kind: "momo", enabled: true },
       { id: "telecel", label: "Telecel Cash", kind: "momo", enabled: true },

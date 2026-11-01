@@ -10,6 +10,7 @@ import { beforeCutoff, formatCedi, formatClock } from "@/lib/format";
 import { useNow } from "@/lib/hooks";
 import { useConfig } from "@/lib/config";
 import { useStore } from "@/lib/store";
+import { toast } from "@/lib/toast";
 import { enabledPaymentMethods, percent } from "@hilltop/shared/config";
 import { paymentPlan, type PaymentPlan } from "@hilltop/shared/payments";
 import type { Order } from "@/lib/types";
@@ -66,16 +67,16 @@ export function CheckoutDialog({
   });
   const chosenSlot = slot ?? slots[0];
 
-  function pay() {
+  async function pay() {
     setStep("paying");
-    // Simulated payment provider round-trip; reserving without paying is instant.
-    setTimeout(
-      () => {
-        setOrder(placeOrder({ listing, quantity: qty, unitPrice, plan, slot: chosenSlot }));
-        setStep("done");
-      },
-      plan.payNow > 0 ? 1400 : 300,
-    );
+    const result = await placeOrder({ listing, quantity: qty, slot: chosenSlot });
+    if ("error" in result) {
+      setStep("review");
+      toast(result.error);
+      return;
+    }
+    setOrder(result.order);
+    setStep("done");
   }
 
   function close() {

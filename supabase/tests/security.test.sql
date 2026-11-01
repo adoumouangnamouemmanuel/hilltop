@@ -238,5 +238,50 @@ select ok(exists (select 1 from public.notifications where title = 'Offer accept
 select is((select count(*)::int from public.offers where listing_id = 'casio-fx82' and status = 'withdrawn'), 1, 'the replaced offer was withdrawn');
 reset role;
 
+-- Orders, paid at pickup -------------------------------------------------------------------
+reset role;
+select set_config('test.wellington_sales', (select sales::text from public.profiles where id = md5('seller:wellington')::uuid), true);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select throws_ok($$insert into public.orders (listing_id, quantity, payment_kind) values ('casio-fx991ex', 1, 'protected')$$,
+  '23514', null, 'paying in the app is refused while it''s switched off');
+select throws_ok($$insert into public.orders (listing_id, quantity, payment_kind) values ('stu-one', 1, 'pickup')$$,
+  '23514', null, 'students can''t buy their own listing');
+select throws_ok($$insert into public.orders (listing_id, quantity, payment_kind) values ('casio-fx991ex', 50, 'pickup')$$,
+  '23514', null, 'orders can''t exceed the stock');
+select lives_ok($$insert into public.orders (listing_id, quantity, payment_kind, slot) values ('casio-fx82', 1, 'pickup', 'Today')$$,
+  'a student can reserve an item');
+select is((select amount from public.orders where listing_id = 'casio-fx82'), 65.00::numeric,
+  'an accepted offer sets the price');
+select is((select seller_id from public.orders where listing_id = 'casio-fx82'), current_setting('test.wellington')::uuid,
+  'the seller comes from the listing, not the buyer');
+select throws_ok($$update public.orders set status = 'ready' where listing_id = 'casio-fx82'$$,
+  '42501', null, 'only the seller marks an order ready');
+reset role;
+select is((select stock from public.listings where id = 'casio-fx82'), 7, 'reserving takes one off the stock');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
+select ok(exists (select 1 from public.notifications where title = 'New order: Casio fx-82MS'), 'the seller is told about the order');
+select lives_ok($$update public.orders set status = 'ready' where listing_id = 'casio-fx82'$$, 'the seller marks it ready');
+select lives_ok($$update public.orders set status = 'collected' where listing_id = 'casio-fx82'$$, 'the seller records the handover');
+select throws_ok($$update public.orders set status = 'cancelled' where listing_id = 'casio-fx82'$$,
+  '42501', null, 'a completed order can''t be cancelled');
+reset role;
+select is((select sales from public.profiles where id = current_setting('test.wellington')::uuid),
+  current_setting('test.wellington_sales')::int + 1, 'a completed order counts as a sale');
+select is((select count(*)::int from public.order_events where order_id = (select id from public.orders where listing_id = 'casio-fx82')), 3,
+  'every step is kept in the order history');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select lives_ok($$insert into public.reviews (order_id, seller_id, author_id, rating, body)
+  select id, seller_id, buyer_id, 5, 'Great' from public.orders where listing_id = 'casio-fx82'$$, 'the buyer reviews a collected order');
+select lives_ok($$insert into public.orders (listing_id, quantity, payment_kind) values ('casio-fx991ex', 2, 'pickup')$$,
+  'a student can order several of a batch item');
+select lives_ok($$update public.orders set status = 'cancelled' where listing_id = 'casio-fx991ex'$$, 'the buyer can cancel');
+reset role;
+select is((select stock from public.listings where id = 'casio-fx991ex'), 3, 'cancelling puts the stock back');
+
 select * from finish();
 rollback;

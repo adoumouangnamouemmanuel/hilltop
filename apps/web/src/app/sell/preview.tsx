@@ -61,7 +61,9 @@ export function Preview({ values, category }: { values: ListingFormValues; categ
           </div>
         )}
         <p className="text-xs leading-5 text-ink-500">
-          The {percent(config.fees.buyerProtectionRate)} buyer protection fee is paid by the buyer, not you.
+          {config.payments.inApp
+            ? `The ${percent(config.fees.buyerProtectionRate)} buyer protection fee is paid by the buyer, not you.`
+            : "Buyers reserve in the app and pay you directly when you meet."}
         </p>
       </dl>
     </>

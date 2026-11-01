@@ -31,7 +31,7 @@ test("a buyer offers and messages; the seller accepts and replies", async ({ bro
     .getByRole("button", { name: /Esi Mensah/ })
     .first()
     .click();
-  await expect(seller.getByText(note)).toBeVisible();
+  await expect(seller.getByText(note).last()).toBeVisible();
   await seller.getByLabel("Message Esi Mensah").fill("Yes, 4pm works.");
   await seller.getByRole("button", { name: "Send", exact: true }).click();
   await expect(seller.getByText("Yes, 4pm works.").last()).toBeVisible();

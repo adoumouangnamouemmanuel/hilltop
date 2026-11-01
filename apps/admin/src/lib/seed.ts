@@ -113,6 +113,8 @@ export function seedState(now: number): AdminState {
   const live = listings.filter((l) => l.state !== "hidden");
   const methods = ["MTN Mobile Money", "Telecel Cash", "Debit or credit card"];
   const spots = ["Library", "Cafeteria", "Main gate", "Hostel A", "Hostel C"];
+  // The demo shows held payments, which need paying in the app switched on.
+  const demoConfig = { ...defaultConfig, payments: { ...defaultConfig.payments, inApp: true } };
   const orders: AdminOrder[] = [];
   for (let d = 89; d >= 0; d--) {
     // Gentle growth with a weekend bump.
@@ -123,7 +125,7 @@ export function seedState(now: number): AdminState {
       const qty = l.category === "food" ? 1 + Math.floor(rand() * 3) : 1;
       const amount = l.price * qty;
       const age = d * DAY + Math.floor(rand() * 20) * HOUR;
-      const plan = paymentPlan(defaultConfig, {
+      const plan = paymentPlan(demoConfig, {
         total: amount,
         category: l.category,
         preorder: l.category === "food",

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { defaultConfig, type PlatformConfig } from "../src/config";
 import { autoReleaseAt, paymentPlan, protectionSummary } from "../src/payments";
 
+// The rules below apply once paying in the app is switched on.
+const live: PlatformConfig = { ...defaultConfig, payments: { ...defaultConfig.payments, inApp: true } };
 const withProtection = (p: Partial<PlatformConfig["protection"]>): PlatformConfig => ({
-  ...defaultConfig,
-  protection: { ...defaultConfig.protection, ...p },
+  ...live,
+  protection: { ...live.protection, ...p },
 });
 const order = (total: number, extra: Partial<{ category: string; preorder: boolean; wantsProtection: boolean }> = {}) => ({
   total,
@@ -14,9 +16,15 @@ const order = (total: number, extra: Partial<{ category: string; preorder: boole
 });
 
 describe("payment plan", () => {
+  it("is pay at pickup for everything until in-app payments are on", () => {
+    expect(paymentPlan(defaultConfig, order(5000))).toMatchObject({ kind: "pickup", optional: false, payNow: 0, atPickup: 5000 });
+    expect(paymentPlan(defaultConfig, order(100, { preorder: true })).kind).toBe("pickup");
+    expect(protectionSummary(defaultConfig)).toMatch(/pay the seller when you meet/);
+  });
+
   it("protects orders at or above the threshold in hybrid mode", () => {
-    expect(paymentPlan(defaultConfig, order(300))).toMatchObject({ kind: "protected", required: true, payNow: 312, atPickup: 0, fee: 12 });
-    expect(paymentPlan(defaultConfig, order(299))).toMatchObject({
+    expect(paymentPlan(live, order(300))).toMatchObject({ kind: "protected", required: true, payNow: 312, atPickup: 0, fee: 12 });
+    expect(paymentPlan(live, order(299))).toMatchObject({
       kind: "pickup",
       required: false,
       optional: true,
@@ -26,7 +34,7 @@ describe("payment plan", () => {
   });
 
   it("lets buyers opt in below the threshold, unless optional protection is off", () => {
-    expect(paymentPlan(defaultConfig, order(100, { wantsProtection: true }))).toMatchObject({ kind: "protected", payNow: 104 });
+    expect(paymentPlan(live, order(100, { wantsProtection: true }))).toMatchObject({ kind: "protected", payNow: 104 });
     expect(paymentPlan(withProtection({ optional: false }), order(100, { wantsProtection: true }))).toMatchObject({
       kind: "pickup",
       optional: false,
@@ -43,7 +51,7 @@ describe("payment plan", () => {
   });
 
   it("takes a deposit on pre-orders, or treats them normally when deposits are off", () => {
-    expect(paymentPlan(defaultConfig, order(100, { preorder: true }))).toMatchObject({
+    expect(paymentPlan(live, order(100, { preorder: true }))).toMatchObject({
       kind: "deposit",
       payNow: 31.2,
       atPickup: 70,
@@ -59,7 +67,7 @@ describe("payment plan", () => {
   });
 
   it("describes the rules in a sentence", () => {
-    expect(protectionSummary(defaultConfig)).toMatch(/from GH₵300/);
+    expect(protectionSummary(live)).toMatch(/from GH₵300/);
     expect(protectionSummary(withProtection({ mode: "always" }))).toBe("Payments are held until you collect your item.");
   });
 });

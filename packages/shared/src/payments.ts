@@ -27,11 +27,14 @@ export type PaymentPlan = {
 const cents = (n: number) => Math.round(n * 100) / 100;
 
 export function paymentPlan(
-  config: Pick<PlatformConfig, "protection" | "fees">,
+  config: Pick<PlatformConfig, "protection" | "fees" | "payments">,
   order: { total: number; category: string; preorder: boolean; wantsProtection?: boolean },
 ): PaymentPlan {
   const p = config.protection;
   const rate = config.fees.buyerProtectionRate;
+
+  // Without in-app payments nothing can be held: everything is paid at pickup.
+  if (!config.payments.inApp) return { kind: "pickup", required: false, optional: false, payNow: 0, atPickup: order.total, fee: 0 };
 
   if (order.preorder && p.deposit.enabled) {
     const deposit = cents(order.total * p.deposit.rate);
@@ -57,8 +60,9 @@ export function autoReleaseAt(handedOverAt: number | undefined, hours: number) {
 }
 
 /** One sentence describing the current payment rules, for marketing copy and metadata. */
-export function protectionSummary(config: Pick<PlatformConfig, "protection">) {
+export function protectionSummary(config: Pick<PlatformConfig, "protection" | "payments">) {
   const p = config.protection;
+  if (!config.payments.inApp) return "Reserve in the app and pay the seller when you meet.";
   if (p.mode === "always") return "Payments are held until you collect your item.";
   if (p.mode === "never")
     return p.optional ? "Pay the seller when you meet, or add buyer protection." : "Pay the seller directly when you meet.";

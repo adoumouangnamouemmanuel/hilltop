@@ -21,7 +21,7 @@ export type User = {
  * disputed  buyer reported a problem, payout frozen
  * refunded  dispute upheld, buyer refunded
  */
-export type OrderStatus = "paid" | "ready" | "collected" | "disputed" | "refunded";
+export type OrderStatus = "paid" | "ready" | "collected" | "disputed" | "refunded" | "cancelled";
 
 /** A dispute reason id; the list of reasons comes from the platform config. */
 export type DisputeReason = string;
@@ -46,6 +46,10 @@ export type OrderPayment = {
 export type Order = {
   id: string;
   listingId: string;
+  /** Snapshots from when it was ordered, for when the listing has changed or gone. */
+  title?: string;
+  pickup?: string;
+  sellerHandle?: string;
   /** Whether the signed-in user is the buyer or the seller. */
   role: "buying" | "selling";
   /** The other party's name. */

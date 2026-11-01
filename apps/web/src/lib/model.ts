@@ -23,10 +23,6 @@ import type {
  * test and will map one-to-one onto backend endpoints later.
  */
 
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
 /** Fixed reference time for seed data, so server and client render the same thing. */
 export const SEED_TIME = Date.UTC(2026, 9, 31, 10, 0);
 
@@ -114,8 +110,8 @@ export function payoutState(o: Pick<Order, "status" | "dispute" | "payment" | "a
 /** Which step of the order's timeline has been reached. Held orders have four steps, pay-at-pickup ones three. */
 export function orderProgress(status: OrderStatus, held = true) {
   return held
-    ? { paid: 1, ready: 2, disputed: 2, collected: 4, refunded: 4 }[status]
-    : { paid: 1, ready: 2, disputed: 2, collected: 3, refunded: 3 }[status];
+    ? { paid: 1, ready: 2, disputed: 2, collected: 4, refunded: 4, cancelled: 0 }[status]
+    : { paid: 1, ready: 2, disputed: 2, collected: 3, refunded: 3, cancelled: 0 }[status];
 }
 
 function setStatus(o: Order, status: OrderStatus, at: number): Order {
@@ -435,7 +431,6 @@ export function recordView(s: State, id: string): State {
 // ---------- Seed ----------
 
 export function seedState(): State {
-  const t = SEED_TIME;
   return {
     user: null,
     saved: [],
@@ -445,86 +440,7 @@ export function seedState(): State {
     // Loaded from the database for the signed-in student.
     myListings: [],
     overrides: {},
-    orders: [
-      {
-        id: "ord-1042",
-        listingId: "study-table",
-        role: "buying",
-        counterpart: "Pelagie Johanna",
-        quantity: 1,
-        amount: 450,
-        fee: 18,
-        status: "ready",
-        placedAt: t - DAY,
-        timeline: [
-          { status: "paid", at: t - DAY },
-          { status: "ready", at: t - 20 * HOUR },
-        ],
-      },
-      {
-        id: "ord-0987",
-        listingId: "bedsheet-set",
-        role: "buying",
-        counterpart: "Rahinatou",
-        quantity: 1,
-        amount: 180,
-        fee: 7.2,
-        status: "collected",
-        placedAt: t - 17 * DAY,
-        timeline: [
-          { status: "paid", at: t - 17 * DAY },
-          { status: "ready", at: t - 17 * DAY + 2 * HOUR },
-          { status: "collected", at: t - 16 * DAY },
-        ],
-      },
-      {
-        id: "ord-1101",
-        listingId: "my-smartwatch",
-        role: "selling",
-        counterpart: "Esi Boateng",
-        quantity: 1,
-        amount: 380,
-        fee: 15.2,
-        slot: "Today, 4 to 6pm",
-        status: "paid",
-        placedAt: t - 2 * HOUR,
-        timeline: [{ status: "paid", at: t - 2 * HOUR }],
-      },
-      {
-        id: "ord-0921",
-        listingId: "my-eyeliner",
-        role: "selling",
-        counterpart: "Akua Mensah",
-        quantity: 1,
-        amount: 40,
-        fee: 1.6,
-        status: "collected",
-        placedAt: t - 8 * DAY,
-        timeline: [
-          { status: "paid", at: t - 8 * DAY },
-          { status: "ready", at: t - 8 * DAY + HOUR },
-          { status: "collected", at: t - 7 * DAY },
-        ],
-        reviewed: true,
-      },
-      {
-        id: "ord-0874",
-        listingId: "my-calculator",
-        role: "selling",
-        counterpart: "Kojo Asamoah",
-        quantity: 1,
-        amount: 60,
-        fee: 2.4,
-        status: "collected",
-        placedAt: t - 13 * DAY,
-        timeline: [
-          { status: "paid", at: t - 13 * DAY },
-          { status: "ready", at: t - 13 * DAY + 3 * HOUR },
-          { status: "collected", at: t - 12 * DAY },
-        ],
-        reviewed: true,
-      },
-    ],
+    orders: [],
     // Loaded from the database for the signed-in student.
     conversations: [],
     notifications: [],

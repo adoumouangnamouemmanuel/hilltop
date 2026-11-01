@@ -99,6 +99,7 @@ insert into public.listings (id, seller_id, title, description, price, original_
   ('my-smartwatch', md5('seller:kofi-darko')::uuid, 'White smartwatch, 42mm', 'Tracks steps, sleep and notifications. Barely worn, charger included.', 380, null, 'jewellery', 'Like new', '{"type":"Watch","material":"Stainless steel","size":"42mm"}'::jsonb, '[]'::jsonb, 'Library', null, null, false, null, 'active', now() - interval '3 days', 341, 28),
   ('my-eyeliner', md5('seller:kofi-darko')::uuid, 'Liquid eyeliner pen, unused', 'Waterproof black liner. Wrong shade for me, never opened.', 40, null, 'beauty', 'New', '{"type":"Makeup","sealed":true}'::jsonb, '[]'::jsonb, 'Cafeteria', null, null, false, null, 'sold', now() - interval '9 days', 124, 9),
   ('my-calculator', md5('seller:kofi-darko')::uuid, 'Casio fx-82MS calculator', 'Reliable for Statistics and Accounting. Fresh battery.', 60, null, 'calculators', 'Good', '{"model":"Casio fx-82MS","exam":true,"power":"Solar and battery"}'::jsonb, '[]'::jsonb, 'Library', null, null, false, null, 'sold', now() - interval '16 days', 210, 14),
+  ('my-desk-fan', md5('seller:kofi-darko')::uuid, 'Rechargeable desk fan', 'Quiet USB fan with three speeds. Runs for hours on a charge. I have a few.', 120, null, 'hostel', 'Like new', '{"type":"Appliance"}'::jsonb, '[]'::jsonb, 'Hostel C', 3, null, false, null, 'active', now() - interval '1 days', 48, 6),
   ('my-desk-lamp', md5('seller:kofi-darko')::uuid, 'Adjustable desk lamp', 'Bright LED lamp with three brightness levels. Works perfectly.', 70, null, 'hostel', 'Good', '{"type":"Lighting"}'::jsonb, '[]'::jsonb, 'Hostel C', null, null, false, null, 'active', now() - interval '34 days', 61, 4)
 on conflict (id) do nothing;
 
@@ -212,5 +213,6 @@ insert into public.listing_photos (listing_id, url, position) values
   ('my-smartwatch', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600&q=80&auto=format', 0),
   ('my-eyeliner', 'https://images.unsplash.com/photo-1631214524020-7e18db9a8f92?w=1600&q=80&auto=format', 0),
   ('my-calculator', 'https://images.unsplash.com/photo-1587145820266-a5951ee6f620?w=1600&q=80&auto=format', 0),
+  ('my-desk-fan', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=1600&q=80&auto=format', 0),
   ('my-desk-lamp', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=1600&q=80&auto=format', 0)
 on conflict (listing_id, position) do nothing;

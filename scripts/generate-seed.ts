@@ -82,6 +82,22 @@ const demoListings: Listing[] = [
     views: 210,
   },
   {
+    id: "my-desk-fan",
+    title: "Rechargeable desk fan",
+    price: 120,
+    category: "hostel",
+    condition: "Like new",
+    images: [unsplash("1507473885765-e6ed057f782c")],
+    description: "Quiet USB fan with three speeds. Runs for hours on a charge. I have a few.",
+    attributes: { type: "Appliance" },
+    sellerId: DEMO_STUDENT.id,
+    pickup: "Hostel C",
+    postedDaysAgo: 1,
+    stock: 3,
+    saves: 6,
+    views: 48,
+  },
+  {
     // Past the default 30-day window, so it shows under Expired until renewed.
     id: "my-desk-lamp",
     title: "Adjustable desk lamp",
