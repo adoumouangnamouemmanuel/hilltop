@@ -15,7 +15,7 @@
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "node .husky/install.mjs"
   },
   "devDependencies": {
     "husky": "^9.1.7",
