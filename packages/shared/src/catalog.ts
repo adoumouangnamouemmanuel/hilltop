@@ -1,8 +1,8 @@
 /*
  * The default category catalog. The live catalog is part of the platform config
- * and is edited in the admin portal; these are its starting values. Each category declares its own attributes, and the rest of
- * the app (filters, listing specs, the sell form) is generated from this schema.
- * New categories can arrive from the API or be created by sellers at runtime.
+ * and is edited in the admin portal; these are its starting values. Each category
+ * declares its own attributes, and the rest of the app (filters, listing specs, the
+ * sell form) is generated from this schema. Only admins create categories.
  */
 
 export type AttributeDef = {
@@ -26,8 +26,6 @@ export type CategoryDef = {
   attributes: AttributeDef[];
   /** Food and similar items have no "used" condition. */
   noCondition?: boolean;
-  /** Created by a seller rather than the platform. */
-  custom?: boolean;
   /** Hidden from the marketplace when false. Managed in the admin portal. */
   enabled?: boolean;
 };
@@ -273,24 +271,9 @@ export function slugify(label: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-/** A seller-created category gets a generic schema; sellers add their own details per listing. */
-export function makeCustomCategory(label: string): CategoryDef {
-  return {
-    id: `c-${slugify(label)}`,
-    label: label.trim(),
-    icon: "Shapes",
-    blurb: "Added by students",
-    attributes: [{ key: "brand", label: "Brand", type: "text" }],
-    custom: true,
-  };
-}
-
 export const fallbackCategory = (id: string): CategoryDef => ({
   id,
-  label: id
-    .replace(/^c-/, "")
-    .replace(/-/g, " ")
-    .replace(/^\w/, (c) => c.toUpperCase()),
+  label: id.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()),
   icon: "Shapes",
   blurb: "",
   attributes: [],

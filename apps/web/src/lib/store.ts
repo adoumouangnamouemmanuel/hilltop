@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
-import type { CategoryDef } from "./catalog";
 import { currentUser, getListing, listings as seedListings, type Listing, type ListingStatus } from "./data";
 import { runtimeConfig } from "./config";
 import * as M from "./model";
@@ -152,11 +151,6 @@ export const actions = {
   },
   deleteListing(id: string) {
     commit((s) => M.deleteListing(s, id));
-  },
-  addCategory(category: CategoryDef) {
-    commit((s) =>
-      s.customCategories.some((c) => c.id === category.id) ? s : { ...s, customCategories: [...s.customCategories, category] },
-    );
   },
 
   // Offers: the seller answers a few seconds later.

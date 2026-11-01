@@ -32,7 +32,6 @@ export const categorySchema = z.object({
   cover: z.string().optional(),
   attributes: z.array(attributeSchema),
   noCondition: z.boolean().optional(),
-  custom: z.boolean().optional(),
   /** Hidden categories stay in the config but don't show in the marketplace. */
   enabled: z.boolean().optional(),
 });
@@ -95,7 +94,6 @@ export const platformConfigSchema = z.object({
     foodOrdering: z.boolean(),
     savedSearches: z.boolean(),
     sellerDashboard: z.boolean(),
-    sellerCategories: z.boolean(),
     installPrompt: z.boolean(),
   }),
   offers: z.object({
@@ -185,7 +183,6 @@ export const defaultConfig: PlatformConfig = {
     foodOrdering: true,
     savedSearches: true,
     sellerDashboard: true,
-    sellerCategories: true,
     installPrompt: true,
   },
   offers: { minRatio: 0.5, autoAcceptRatio: 0.85 },

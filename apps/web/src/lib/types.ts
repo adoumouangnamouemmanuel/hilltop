@@ -1,4 +1,3 @@
-import type { CategoryDef } from "./catalog";
 import type { Listing, ListingStatus } from "./data";
 
 /*
@@ -103,7 +102,6 @@ export type State = {
   recentSearches: string[];
   recentlyViewed: string[];
   offers: Record<string, Offer>;
-  customCategories: CategoryDef[];
   /** Listings the user created, in any status. */
   myListings: Listing[];
   /** Changes to platform listings caused by the user's actions, e.g. stock after an order. */

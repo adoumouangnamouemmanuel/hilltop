@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import campusGardens from "@/assets/campus/campus-gardens.jpg";
 import { getListings } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { dateRange, percent } from "@hilltop/shared/config";
@@ -21,7 +23,18 @@ export default async function MoveOutPage() {
 
   return (
     <div className="container-page space-y-16 pt-6 sm:pt-8">
-      <section className="overflow-hidden rounded-2xl bg-maroon-800 text-white">
+      <section className="relative isolate overflow-hidden rounded-2xl bg-maroon-800 text-white">
+        <Image
+          src={campusGardens}
+          alt=""
+          fill
+          priority
+          placeholder="blur"
+          sizes="(min-width: 82rem) 80rem, 100vw"
+          className="-z-10 animate-ken-burns object-cover"
+        />
+        {/* Keeps the text readable over the photo while letting the campus show through. */}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-maroon-900/95 via-maroon-800/80 to-maroon-800/40" aria-hidden />
         <div className="grid gap-10 p-6 sm:p-10 lg:grid-cols-[1.3fr_1fr] lg:items-end lg:p-14">
           <div>
             <p className="text-sm font-medium text-white/70">{dateRange(sale.startsAt, sale.endsAt, true)}</p>
@@ -44,7 +57,7 @@ export default async function MoveOutPage() {
             <Countdown to={sale.startsAt} />
           </div>
         </div>
-        <dl className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10">
+        <dl className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/25 backdrop-blur-sm">
           {[
             [String(items.length), "items listed so far"],
             [formatCedi(value), "worth of student gear"],

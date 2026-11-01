@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseCategories, findCategory, makeCustomCategory, slugify } from "@/lib/catalog";
+import { baseCategories, fallbackCategory, findCategory, slugify } from "@/lib/catalog";
 import { getListing, listings } from "@/lib/data";
 import { beforeCutoff, discountPercent, formatCedi, formatClock, protectionFee, relativeTime } from "@/lib/format";
 import { paginate, queryListings } from "@/lib/queries";
@@ -58,7 +58,7 @@ describe("specs", () => {
 
   it("keeps values the schema doesn't know about", () => {
     const l = { ...getListing("kettle")!, attributes: { colour: "Silver" } };
-    expect(specsFor(l, makeCustomCategory("Kitchen"))).toEqual([{ label: "Colour", value: "Silver", highlight: false }]);
+    expect(specsFor(l, fallbackCategory("kitchen"))).toEqual([{ label: "Colour", value: "Silver", highlight: false }]);
   });
 
   it("builds the details table with stock and pickup", () => {
@@ -75,13 +75,12 @@ describe("specs", () => {
 });
 
 describe("catalog", () => {
-  it("slugifies labels for custom category ids", () => {
+  it("slugifies labels", () => {
     expect(slugify("Music & Instruments!")).toBe("music-and-instruments");
-    expect(makeCustomCategory("  Plants ").id).toBe("c-plants");
   });
 
   it("falls back gracefully for unknown categories", () => {
-    expect(findCategory(baseCategories, "c-board-games").label).toBe("Board games");
+    expect(findCategory(baseCategories, "board-games").label).toBe("Board games");
   });
 });
 

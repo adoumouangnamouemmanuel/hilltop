@@ -615,7 +615,6 @@ const featureInfo: Record<keyof PlatformConfig["features"], [string, string]> = 
   foodOrdering: ["Food pre-orders", "Same-day cut-offs and pickup slots for food sellers."],
   savedSearches: ["Saved searches", "Students get alerts for new matching listings."],
   sellerDashboard: ["Seller dashboard", "Sellers see views, saves and earnings."],
-  sellerCategories: ["Seller-created categories", "Sellers can list under a category that doesn't exist yet."],
   installPrompt: ["Install prompt", "Suggest adding the app to the home screen."],
 };
 

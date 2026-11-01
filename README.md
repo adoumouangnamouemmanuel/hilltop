@@ -54,7 +54,7 @@ A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.gi
 - **Listings**: multi-photo gallery with a magnifying lens and full-screen zoom, spec tiles, offers (sellers answer in the demo), chat, buyer protection, sold and sold-out states. Server-rendered titles, Open Graph images and Product JSON-LD.
 - **Checkout**: Mobile Money or card, meet-up times; for food, quantity, pickup windows and same-day cut-offs, with stock going down after each order.
 - **Orders**: buyer and seller views, Paid → Ready → Collected → Released timeline, payout status, disputes that freeze payment, reviews that feed seller ratings.
-- **Selling**: dynamic fields per category, new categories created by sellers, custom details, drafts, edit, mark sold, renew, delete. Photos are compressed in the browser.
+- **Selling**: dynamic fields per category, custom details, drafts, edit, mark sold, renew, delete. Photos are compressed in the browser.
 - **Messaging and notifications**: inbox with conversations per listing (full-screen chat on phones, grouped messages, read state, keyboard-safe composer), notification centre, and system notifications when the app is in the background.
 - **Seller dashboard**: views, saves, orders, conversion and payouts over 7, 30 or 90 days with period comparisons, a funnel, per-listing stats and suggestions.
 - **PWA**: installable, offline page, service worker, push-ready (see below).
@@ -106,7 +106,7 @@ apps/web/src/lib/
   hooks.ts        Scroll lock, dismiss, focus trap, ticking clock, in-view
 ```
 
-Categories come from the published platform config (`packages/shared/src/config.ts`), plus ones sellers create when that feature is on; `useCatalog()` merges them. `lib/config-server.ts` and `lib/config.tsx` load the config on the server and keep it fresh in the browser.
+Categories come only from the published platform config (`packages/shared/src/config.ts`) and are managed by admins; sellers who need a new one ask the support team. `useCatalog()` returns the visible ones. `lib/config-server.ts` and `lib/config.tsx` load the config on the server and keep it fresh in the browser.
 
 ### Connecting a backend
 

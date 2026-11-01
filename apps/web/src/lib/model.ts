@@ -427,7 +427,6 @@ export function seedState(): State {
     recentSearches: [],
     recentlyViewed: [],
     offers: {},
-    customCategories: [],
     myListings: [myWatch, myEyeliner, myCalculator],
     overrides: {},
     orders: [

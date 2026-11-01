@@ -7,23 +7,22 @@ import { useConfig } from "./config";
 import { useStore } from "./store";
 
 /**
- * All categories shoppers can see: the catalog from the platform config (edited in
- * the admin portal), plus categories sellers created.
+ * All categories shoppers can see. They come only from the platform config, which
+ * is edited in the admin portal; sellers can't create categories.
  */
 export function useCatalog() {
   const config = useConfig();
-  const { customCategories, allListings } = useStore();
+  const { allListings } = useStore();
 
   return useMemo(() => {
-    const merged = [...visibleCategories(config)];
-    if (config.features.sellerCategories) for (const c of customCategories) if (!merged.some((m) => m.id === c.id)) merged.push(c);
+    const visible = visibleCategories(config);
     const counts: Record<string, number> = {};
     for (const l of allListings) counts[l.category] = (counts[l.category] ?? 0) + 1;
     return {
-      categories: merged,
+      categories: visible,
       counts,
       // Looks up hidden categories too, so existing listings still render.
-      get: (id: string) => findCategory([...merged, ...config.categories], id),
+      get: (id: string) => findCategory(config.categories, id),
     };
-  }, [config, customCategories, allListings]);
+  }, [config, allListings]);
 }

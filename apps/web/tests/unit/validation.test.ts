@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseCategories, findCategory, makeCustomCategory } from "@/lib/catalog";
+import { baseCategories, findCategory } from "@/lib/catalog";
 import { defaultConfig, type PlatformConfig } from "@hilltop/shared/config";
 import { getListing } from "@/lib/data";
 import { buildListingSchema, draftProblem, emptyListingForm, fromListing, toListing, type ListingFormValues } from "@/lib/validation";
@@ -84,9 +84,9 @@ describe("listing schema", () => {
     expect(issues("phones", { ...valid, title: "iPhone 12 replicable" }, config)).toEqual({});
   });
 
-  it("works for seller-created categories", () => {
-    const custom = makeCustomCategory("Musical instruments");
-    const result = buildListingSchema(custom, defaultConfig).safeParse({ ...valid, category: custom.id, attributes: { brand: "Yamaha" } });
+  it("works for the catch-all category", () => {
+    const other = findCategory(baseCategories, "other");
+    const result = buildListingSchema(other, defaultConfig).safeParse({ ...valid, category: other.id, attributes: {} });
     expect(result.success).toBe(true);
   });
 });
