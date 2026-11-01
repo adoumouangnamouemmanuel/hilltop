@@ -1,5 +1,5 @@
 import type { PlatformConfig } from "./config";
-import { getSeller, type Listing } from "./seed";
+import type { Listing } from "./seed";
 
 /*
  * Listing rules that come from the platform config: expiry and ranking. Pure, so
@@ -21,10 +21,13 @@ export function withExpiry<T extends Listing>(listings: T[], expiryDays: number)
 
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 
+/** A seller's average rating, or undefined when they have no reviews yet (scored as neutral). */
+export type RatingOf = (sellerId: string) => number | undefined;
+
 /** Each signal as a 0 to 1 score, before weights. */
-export function rankSignals(listing: Listing, config: Pick<PlatformConfig, "listings" | "featured">) {
+export function rankSignals(listing: Listing, config: Pick<PlatformConfig, "listings" | "featured">, ratingOf: RatingOf = () => undefined) {
   const window = config.listings.expiryDays || 30;
-  const rating = getSeller(listing.sellerId)?.rating;
+  const rating = ratingOf(listing.sellerId);
   return {
     freshness: clamp(1 - listing.postedDaysAgo / window),
     photos: clamp(listing.images.length / 4),
@@ -36,8 +39,8 @@ export function rankSignals(listing: Listing, config: Pick<PlatformConfig, "list
 }
 
 /** Weighted score used to order "Best match" results. Higher ranks first. */
-export function rankScore(listing: Listing, config: Pick<PlatformConfig, "listings" | "featured" | "ranking">) {
-  const s = rankSignals(listing, config);
+export function rankScore(listing: Listing, config: Pick<PlatformConfig, "listings" | "featured" | "ranking">, ratingOf?: RatingOf) {
+  const s = rankSignals(listing, config, ratingOf);
   const w = config.ranking;
   return (
     s.freshness * w.freshness +

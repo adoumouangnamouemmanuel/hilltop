@@ -22,6 +22,7 @@ const statusMeta: Record<OrderStatus, { label: string; tone: Tone }> = {
   collected: { label: "Collected", tone: "success" },
   disputed: { label: "Disputed", tone: "maroon" },
   refunded: { label: "Refunded", tone: "muted" },
+  cancelled: { label: "Cancelled", tone: "muted" },
 };
 
 const paymentMeta: Record<PaymentKind, { label: string; tone: Tone }> = {

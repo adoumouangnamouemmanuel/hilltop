@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, ChevronsUpDown, LogOut, Menu, RotateCcw, Search, X } from "lucide-react";
+import { ArrowUpRight, ChevronsUpDown, LogOut, Menu, Search, X } from "lucide-react";
 import { diffConfig } from "@hilltop/shared/config";
 import { can } from "@hilltop/shared/permissions";
 import { LogoMark } from "@hilltop/ui/logo";
 import { ThemeSegmented, ThemeToggle } from "@hilltop/ui/theme-toggle";
 import { Avatar, cn } from "@hilltop/ui/ui";
 import { useBodyScrollLock, useDismiss, useFocusTrap } from "@hilltop/ui/hooks";
-import { adoptDraft, adoptSession, resetDemo, useAdmin, useHydrated, usePublished, useSession } from "@/lib/store";
+import { adoptDraft, adoptSession, refreshOperations, useAdmin, useHydrated, usePublished, useSession } from "@/lib/store";
 import { useAdminSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import type { PlatformConfig } from "@hilltop/shared/config";
@@ -50,7 +50,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (session.status === "signed-out" || session.status === "not-admin") router.replace("/sign-in");
   }, [session.status, router]);
 
-  // The local demo model checks actions against the admin's real role.
+  // The portal's model checks actions against the admin's real role.
   useEffect(() => {
     if (member && role) adoptSession(member, role);
   }, [member, role]);
@@ -63,6 +63,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
       .select("config")
       .maybeSingle()
       .then(({ data }) => adoptDraft((data?.config as PlatformConfig | undefined) ?? null));
+  }, [ready]);
+
+  // Students, listings, reports and orders, refreshed when the admin comes back to the tab.
+  useEffect(() => {
+    if (!ready) return;
+    void refreshOperations();
+    window.addEventListener("focus", refreshOperations);
+    return () => window.removeEventListener("focus", refreshOperations);
   }, [ready]);
 
   useEffect(() => {
@@ -240,15 +248,6 @@ function AccountMenu({ onSearch }: { onSearch: () => void }) {
               }}
             >
               Search
-            </MenuButton>
-            <MenuButton
-              icon={RotateCcw}
-              onClick={() => {
-                setOpen(false);
-                resetDemo();
-              }}
-            >
-              Reset demo data
             </MenuButton>
             <MenuButton icon={LogOut} onClick={() => signOut()}>
               Sign out

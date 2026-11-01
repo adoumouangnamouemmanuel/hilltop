@@ -17,7 +17,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import { listings as catalogListings } from "@hilltop/shared/seed";
+import type { Listing } from "@hilltop/shared/seed";
 import { rankScore } from "@hilltop/shared/ranking";
 import { formatCedi } from "@hilltop/shared/format";
 import { paymentPlan } from "@hilltop/shared/payments";
@@ -26,7 +26,7 @@ import { Switch } from "@hilltop/ui/controls";
 import { buttonClass, cn } from "@hilltop/ui/ui";
 import { AddButton, Card, CardHeader, Field, Gate, NumberInput, PageHeader, Select, TagList, TextArea, TextInput } from "@/components/kit";
 import { editDraft } from "@/lib/model";
-import { perform, useCan, usePublished, useWorkingConfig } from "@/lib/store";
+import { perform, useAdmin, useCan, usePublished, useWorkingConfig } from "@/lib/store";
 import { useQueryState } from "@/lib/use-query";
 
 type Key = keyof PlatformConfig;
@@ -1024,11 +1024,32 @@ function Ranking({ value: c, set, err }: SectionProps) {
   const w = c.ranking;
   const f = c.featured;
   const [query, setQuery] = useState("");
-  const byId = (id: string) => catalogListings.find((l) => l.id === id);
-  const top = [...catalogListings]
-    .filter((l) => (l.status ?? "active") === "active")
-    .sort((a, b) => rankScore(b, c) - rankScore(a, c))
-    .slice(0, 6);
+  const { listings: live, users } = useAdmin();
+  const [now] = useState(() => Date.now());
+  // Live listings in the shape the marketplace ranks.
+  const catalogListings = useMemo(
+    () =>
+      live
+        .filter((l) => l.state === "live")
+        .map((l): Listing => ({
+          id: l.id,
+          title: l.title,
+          price: l.price,
+          category: l.category,
+          images: l.image ? [l.image] : [],
+          description: "",
+          sellerId: l.sellerId,
+          pickup: "",
+          postedDaysAgo: Math.floor((now - l.postedAt) / 86_400_000),
+          promoted: l.promoted,
+          saves: l.saves,
+          views: l.views,
+        })),
+    [live, now],
+  );
+  const ratingOf = (id: string) => users.find((u) => u.id === id)?.rating ?? undefined;
+  const byId = (id: string) => catalogListings.find((l) => l.id === id) ?? live.find((l) => l.id === id);
+  const top = [...catalogListings].sort((a, b) => rankScore(b, c, ratingOf) - rankScore(a, c, ratingOf)).slice(0, 6);
   const matches = query.trim()
     ? catalogListings.filter((l) => !f.listingIds.includes(l.id) && l.title.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6)
     : [];

@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BellPlus, BellRing, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { formatCedi } from "@/lib/format";
 import { rankScore } from "@hilltop/shared/ranking";
+import { getSeller } from "@/lib/data";
 import {
   applyFilters,
   countActive,
@@ -56,7 +57,11 @@ export function BrowseView() {
         allListings,
         filters,
         (id) => catalog.get(id).label,
-        (l) => rankScore(l, config),
+        (l) =>
+          rankScore(l, config, (id) => {
+            const seller = getSeller(id);
+            return seller?.reviews ? seller.rating : undefined;
+          }),
       ),
     [allListings, filters, catalog, config],
   );

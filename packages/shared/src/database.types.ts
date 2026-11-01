@@ -744,6 +744,30 @@ export type Database = {
           },
         ];
       };
+      profile_emails: {
+        Row: {
+          email: string;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          email: string;
+          profile_id: string;
+        };
+        Update: {
+          email?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_emails_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           claim_email: string | null;

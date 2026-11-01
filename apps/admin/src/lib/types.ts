@@ -3,8 +3,8 @@ import type { PaymentKind } from "@hilltop/shared/payments";
 import type { Permission, Role } from "@hilltop/shared/permissions";
 
 /*
- * Admin domain types. They mirror what the backend will return, so the screens
- * won't change when the mock store is swapped for API calls.
+ * Admin domain types. Operational records are loaded from Supabase (operations.ts)
+ * into this shape; the unit tests build them by hand.
  */
 
 export type Member = {
@@ -59,7 +59,7 @@ export type ModListing = {
   reports: Report[];
 };
 
-export type OrderStatus = "paid" | "ready" | "collected" | "disputed" | "refunded";
+export type OrderStatus = "paid" | "ready" | "collected" | "disputed" | "refunded" | "cancelled";
 
 export type AdminOrder = {
   id: string;

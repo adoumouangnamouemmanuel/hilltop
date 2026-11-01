@@ -6,20 +6,24 @@ import type { Json } from "@hilltop/shared/database.types";
 import type { Role } from "@hilltop/shared/permissions";
 import { toast } from "@hilltop/ui/toast";
 import { Forbidden, Rejected } from "./model";
+import { loadOperations, saveOperations, type Operations } from "./operations";
 import { seedState } from "./seed";
 import { usePublished, type SessionMember } from "./session";
 import { supabase } from "./supabase";
 import type { AdminState } from "./types";
 
 /*
- * Client store for the portal's demo data (users, listings, orders, disputes),
- * kept in localStorage and synced across tabs. The session, team, published
- * config and audit log come from Supabase (see session.tsx). Every write goes
- * through `perform`, which surfaces permission and validation errors as toasts.
+ * Client store for the portal. Students, listings, reports, orders and disputes are
+ * loaded from Supabase (operations.ts); the session, team, published config and
+ * audit log too (session.tsx). Every change goes through `perform`, which checks
+ * the admin's permission, records it in the audit log, writes it to the database
+ * and surfaces problems as toasts. Only the shared draft is cached in the browser.
  */
 
-// Cached operational records must be reseeded when the demo catalog changes.
-const KEY = "hilltop-admin-v2-ashesi";
+const KEY = "hilltop-admin-v3";
+
+// Operational records come from the database, never from the browser's cache.
+const noOperations: Operations = { users: [], listings: [], orders: [], disputes: [] };
 let state: AdminState | null = null;
 const listeners = new Set<() => void>();
 
@@ -28,22 +32,12 @@ function load(): AdminState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AdminState;
-      if (Array.isArray(parsed.team) && Array.isArray(parsed.roles) && Array.isArray(parsed.orders)) return migrate(parsed);
+      if (Array.isArray(parsed.team) && Array.isArray(parsed.roles)) return { ...parsed, ...noOperations };
     }
   } catch {
-    // Corrupt or blocked storage: start from the seed.
+    // Corrupt or blocked storage: start fresh.
   }
-  return seedState(Date.now());
-}
-
-/** Fills in fields added since the data was saved. Orders from before payment options were all protected. */
-function migrate(s: AdminState): AdminState {
-  return {
-    ...s,
-    orders: s.orders.map((o) => ({ ...o, payment: o.payment ?? "protected", paidInApp: o.paidInApp ?? o.amount + o.fee })),
-    // "featured" used to be a local flag; it now means the seller's paid promotion.
-    listings: s.listings.map((l) => ({ ...l, promoted: l.promoted ?? !!(l as { featured?: boolean }).featured })),
-  };
+  return { ...seedState(Date.now()), ...noOperations };
 }
 
 function getState() {
@@ -75,7 +69,7 @@ function subscribe(listener: () => void) {
 }
 
 let serverSnapshot: AdminState | null = null;
-const getServerState = () => (serverSnapshot ??= seedState(0));
+const getServerState = () => (serverSnapshot ??= { ...seedState(0), ...noOperations });
 
 const noop = () => () => {};
 
@@ -109,12 +103,11 @@ export function perform(change: (s: AdminState, now: number) => AdminState, succ
   }
 }
 
-/*
- * Until the rest of the portal moves to the database (users, listings, orders and
- * disputes are still demo data), the model's permission checks run against the
- * signed-in admin's real role, and two things are saved for real: the shared
- * config draft and the audit log.
- */
+/** Loads students, listings, reports, orders and disputes from the database. */
+export async function refreshOperations() {
+  const ops = await loadOperations();
+  if (ops) setState({ ...getState(), ...ops });
+}
 
 /** Puts the signed-in admin and their role into the local model, so its checks use real permissions. */
 export function adoptSession(member: SessionMember, role: Role) {
@@ -141,6 +134,15 @@ export function adoptDraft(draft: PlatformConfig | null) {
 async function syncToDatabase(before: AdminState, after: AdminState) {
   const client = supabase();
   if (!client) return;
+  if (before.users !== after.users || before.listings !== after.listings) {
+    const error = await saveOperations(before, after);
+    // Reload so the screen shows what's really stored.
+    if (error) {
+      toast(error.startsWith("Deleting") ? error : "Couldn't save that change. Try again.");
+      void refreshOperations();
+      return;
+    }
+  }
   if (after.draft !== before.draft) {
     const { error } = await (after.draft
       ? // The row's id is fixed by the table (a single draft), so only the config is sent.
@@ -156,12 +158,6 @@ async function syncToDatabase(before: AdminState, after: AdminState) {
       .insert({ permission: entry.permission, action: entry.action, target: entry.target ?? null, actor_name: entry.actor });
     if (error) console.error("Audit entry not saved", error);
   }
-}
-
-/** Restores the demo data. Keeps the current session so the admin isn't kicked out. */
-export function resetDemo() {
-  const { sessionId, roles, team, draft } = getState();
-  setState({ ...seedState(Date.now()), sessionId, roles, team, draft });
 }
 
 export { useCan, usePublished, useSession } from "./session";
