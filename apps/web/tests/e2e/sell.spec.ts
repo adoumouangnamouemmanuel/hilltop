@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { quickSignIn, signIn } from "./helpers";
+import { quickSignIn } from "./helpers";
 
 const photo = path.join(__dirname, "..", "..", "public", "icons", "icon-512.png");
 
@@ -23,19 +23,19 @@ test("publish a listing with category-specific details", async ({ page }) => {
   await page.getByRole("button", { name: "Casio fx-991EX", exact: true }).click();
   await page.getByRole("switch", { name: "Allowed in exams" }).click();
 
-  await page.getByLabel("Title").fill("Casio fx-991EX ClassWiz");
+  await page.getByLabel("Title").fill("Casio fx-991EX, barely used");
   await page.getByRole("radio", { name: /^Like new/ }).click();
   await page.getByLabel("Your price").fill("220");
 
   await page.getByRole("button", { name: "Publish listing" }).click();
   await page.waitForURL(/\/listing\/my-/);
-  await expect(page.getByRole("heading", { level: 1, name: "Casio fx-991EX ClassWiz" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Casio fx-991EX, barely used" })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "Yes" }).first()).toBeVisible();
   await expect(page.getByText("Allowed in exams").first()).toBeVisible();
 
   // It's searchable straight away.
   await page.goto("/browse?category=calculators&f.exam=true");
-  await expect(page.locator("main article").filter({ hasText: "Casio fx-991EX ClassWiz" })).toHaveCount(1);
+  await expect(page.locator("main article").filter({ hasText: "Casio fx-991EX, barely used" })).toHaveCount(1);
 });
 
 test("save a draft, then find it under your listings", async ({ page }) => {
@@ -51,7 +51,7 @@ test("save a draft, then find it under your listings", async ({ page }) => {
 });
 
 test("expired listings can be renewed", async ({ page }) => {
-  await signIn(page, "/me");
+  await quickSignIn(page, "/me");
   await page.getByRole("tab", { name: /Selling/ }).click();
   await page.getByRole("tab", { name: /Expired/ }).click();
   const row = page.locator("li").filter({ hasText: "Adjustable desk lamp" });

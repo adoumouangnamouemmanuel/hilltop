@@ -13,6 +13,10 @@ packages/shared Platform config schema, permissions, catalog, seed data, formatt
 packages/ui     Design system: tokens, primitives, charts, sheets, hooks
 ```
 
+## Demo data
+
+The demo sellers are Ashesi students and what they actually sell (calculators, braids, chapati, Eyecon glasses and so on), in `packages/shared/src/seed.ts`. Prices, ratings, review counts and sales figures are placeholders until real data comes from the backend; programme and class year are optional and only shown when a student adds them.
+
 ## Getting started
 
 ```bash
@@ -55,7 +59,8 @@ A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.gi
 - **Checkout**: Mobile Money or card, meet-up times; for food, quantity, pickup windows and same-day cut-offs, with stock going down after each order.
 - **Payment protection (hybrid)**: orders from a set price, or in chosen categories, are paid in the app and held; cheaper ones are reserved and paid to the seller at pickup, with optional protection. Pre-orders take a deposit. Held money is released when the buyer confirms collection, or automatically a set time after the seller marks it handed over unless a problem is reported. Every rule, including switching to "protect everything" or "pay at pickup only", is set in the admin under Settings → Payment protection.
 - **Orders**: buyer and seller views, Paid → Ready → Collected → Released timeline, payout status, disputes that freeze payment, reviews that feed seller ratings.
-- **Selling**: dynamic fields per category, custom details, drafts, edit, mark sold, renew, delete. Photos are compressed in the browser.
+- **Selling**: dynamic fields per category, custom details, drafts, edit, mark sold, renew, delete. Photos are compressed in the browser. Listings expire after a set number of days unless renewed, and each student has a cap on active listings.
+- **Reporting and ranking**: students can report a listing with a reason; Best match orders listings by weighted freshness, photos, popularity, seller rating, paid promotion and the team's featured picks, which also get their own row on the home page.
 - **Messaging and notifications**: inbox with conversations per listing (full-screen chat on phones, grouped messages, read state, keyboard-safe composer), notification centre, and system notifications when the app is in the background.
 - **Seller dashboard**: views, saves, orders, conversion and payouts over 7, 30 or 90 days with period comparisons, a funnel, per-listing stats and suggestions.
 - **PWA**: installable, offline page, service worker, push-ready (see below).
@@ -63,7 +68,7 @@ A pre-commit hook (husky + lint-staged) formats and lints staged files. CI (`.gi
 
 ## Admin portal
 
-A separate Next.js app for running the marketplace. Nothing in the marketplace is hardcoded: fees, payment protection rules (threshold, protected categories, deposits, auto-release), payment methods, promotion plans, pickup spots, conditions, listing limits, banned words, offer rules, dispute reasons and response time, popular searches, feature flags, events, the announcement banner, allowed email domains and the whole category catalog (including each category's fields and filters) come from a published config.
+A separate Next.js app for running the marketplace. Nothing in the marketplace is hardcoded: fees, payment protection rules (threshold, protected categories, deposits, auto-release), listing expiry and caps, report reasons, ranking weights, featured listings, payment methods, promotion plans, pickup spots, conditions, listing limits, banned words, offer rules, dispute reasons and response time, popular searches, feature flags, events, the announcement banner, allowed email domains and the whole category catalog (including each category's fields and filters) come from a published config.
 
 - **Overview**: sales volume, platform revenue, orders and active students with period comparisons, a category ranking, and the queues that need attention.
 - **Operations**: users (verify, suspend, delete), listing moderation with reports, orders (refund or release payouts), and disputes with response-time tracking and decision notes. CSV export on every list.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { X } from "lucide-react";
 import { useBodyScrollLock, useFocusTrap } from "./hooks";
@@ -23,7 +24,9 @@ type SheetProps = {
  * Locks page scroll, traps keyboard focus and closes on Escape.
  */
 export function Sheet(props: SheetProps) {
-  return <AnimatePresence>{props.open && <SheetPanel {...props} />}</AnimatePresence>;
+  // Rendered into <body> so a transformed or animated ancestor can't trap the fixed overlay.
+  if (typeof document === "undefined") return null;
+  return createPortal(<AnimatePresence>{props.open && <SheetPanel {...props} />}</AnimatePresence>, document.body);
 }
 
 function SheetPanel({ onClose, title, headerAction, footer, children, dismissable = true, className }: SheetProps) {
