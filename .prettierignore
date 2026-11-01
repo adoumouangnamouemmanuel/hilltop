@@ -6,3 +6,5 @@ test-results
 package-lock.json
 **/public/sw.js
 **/.data
+**/.open-next
+**/.wrangler

@@ -1,4 +1,3 @@
-import { cacheLife } from "next/cache";
 import { defaultConfig, parseConfig, type PlatformConfig } from "@hilltop/shared/config";
 
 /**
@@ -7,13 +6,22 @@ import { defaultConfig, parseConfig, type PlatformConfig } from "@hilltop/shared
  */
 export const CONFIG_URL = process.env.NEXT_PUBLIC_CONFIG_URL;
 
-/** The live platform config, cached for a few minutes on the server. */
+/** How often the server refetches the published config, in seconds. */
+const REFRESH_SECONDS = 120;
+
+/**
+ * The live platform config, cached on the server and refetched every couple of
+ * minutes. Pages that read it are regenerated on the same schedule.
+ */
 export async function getPlatformConfig(): Promise<PlatformConfig> {
-  "use cache";
-  cacheLife("minutes");
   if (!CONFIG_URL) return defaultConfig;
   try {
-    const res = await fetch(CONFIG_URL, { headers: { accept: "application/json" } });
+    const res = await fetch(CONFIG_URL, {
+      headers: { accept: "application/json" },
+      next: { revalidate: REFRESH_SECONDS },
+      // A slow admin portal must never hold a page up.
+      signal: AbortSignal.timeout(3000),
+    });
     if (!res.ok) return defaultConfig;
     const { config, issues } = parseConfig(await res.json());
     if (issues.length) console.warn("Published config has problems, using defaults:", issues);

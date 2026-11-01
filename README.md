@@ -86,14 +86,22 @@ Admin identities and operational data are mock data in the browser for now. Publ
 
 ## Deploying
 
-Create two Vercel projects from this repository:
+Both apps run on Cloudflare Workers through the OpenNext adapter (`@opennextjs/cloudflare`):
 
-| Project     | Root directory | Environment variables                                      |
-| ----------- | -------------- | ---------------------------------------------------------- |
-| Marketplace | `apps/web`     | `NEXT_PUBLIC_CONFIG_URL=https://<admin-domain>/api/config` |
-| Admin       | `apps/admin`   | `ADMIN_ACCESS_KEY`, `NEXT_PUBLIC_MARKETPLACE_URL`          |
+| App         | Worker          | Domain                      |
+| ----------- | --------------- | --------------------------- |
+| Marketplace | `hilltop-web`   | `hilltop.lumavok.com`       |
+| Admin       | `hilltop-admin` | `admin.hilltop.lumavok.com` |
 
-On Vercel the admin's file storage is per instance, so connect a database or KV store before relying on published releases in production.
+- **Automatic:** every push to `main` that passes CI is deployed by the `deploy` job in `.github/workflows/ci.yml`. It needs the `CLOUDFLARE_API_TOKEN` repository secret.
+- **Manual:** `npm run deploy -w @hilltop/web` (or `@hilltop/admin`) after `npx wrangler login`. OpenNext isn't fully supported on Windows, so prefer CI.
+- **Local Workers preview:** `npm run preview -w @hilltop/web` builds and serves the production Worker locally.
+- **Config:** `apps/*/wrangler.jsonc` (bindings, domains, Sentry DSN), `apps/*/open-next.config.ts` (caching) and `apps/*/.env.production` (public build-time values). Secrets such as `ADMIN_ACCESS_KEY` are set in the Cloudflare dashboard.
+- **Images:** `packages/ui/src/image-loader.ts` resizes Unsplash photos on Unsplash's CDN and serves other files as they are, since Workers have no built-in Next.js image optimiser.
+- **Caching:** cached pages live in the `hilltop-web-opennext-cache` R2 bucket. Next's Cache Components are off because the adapter can hang requests with `"use cache"` on Next 16.4 (opennextjs-cloudflare#1464); the platform config uses fetch caching instead.
+- **Errors:** Sentry wraps each Worker (`apps/*/worker.ts`) and the browser (`instrumentation-client.ts`).
+
+The admin still stores published releases on the local filesystem, which Workers don't keep between requests. They move to Supabase in the next phase.
 
 ## Architecture
 

@@ -18,7 +18,8 @@
     "./theme": "./src/theme.ts",
     "./toast": "./src/toast.ts",
     "./toaster": "./src/toaster.tsx",
-    "./ui": "./src/ui.tsx"
+    "./ui": "./src/ui.tsx",
+    "./image-loader": "./src/image-loader.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

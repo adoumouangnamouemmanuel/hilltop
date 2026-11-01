@@ -10,10 +10,17 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "start:cf": "wrangler dev --port 8787"
   },
   "dependencies": {
+    "@hilltop/shared": "*",
+    "@hilltop/ui": "*",
     "@hookform/resolvers": "^7.0.0",
+    "@sentry/nextjs": "^11.10.0",
     "clsx": "^2.1.1",
     "framer-motion": "^14.9.0",
     "lucide-react": "^1.66.0",
@@ -21,11 +28,10 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.91.0",
-    "zod": "^4.6.7",
-    "@hilltop/shared": "*",
-    "@hilltop/ui": "*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.15",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.2",
@@ -35,6 +41,7 @@
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.156.0"
   }
 }

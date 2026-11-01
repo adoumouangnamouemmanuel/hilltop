@@ -33,6 +33,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!.env.production
 
 # vercel
 .vercel
@@ -49,3 +50,8 @@ blob-report/
 # admin portal local config store (dev only)
 .data/
 
+
+# cloudflare
+.open-next/
+.wrangler/
+.dev.vars*
