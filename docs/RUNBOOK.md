@@ -6,6 +6,11 @@ The repository is this `web/` folder. The `api/` folder beside it is empty and u
 
 ## Deploying a change
 
+For the notification outbox, atomic listing saves and HEIC rollout, follow
+[`RELIABILITY-REMEDIATION.md`](RELIABILITY-REMEDIATION.md). The new migration must be
+applied before deploying clients that call `save_listing`, `answer_offer` and
+`message_unread_counts`. Push delivery also requires the minute Worker cron trigger.
+
 1. Migrations first: `npx supabase db push --linked`. Code that calls a new database function fails until its migration is live.
 2. Push to `main`. CI runs checks, database tests, end-to-end tests and a secret scan, then deploys both Workers from the `production` environment.
 3. In GitHub → Settings → Environments → `production`, require a reviewer and keep `CLOUDFLARE_API_TOKEN` there (not as a repository secret). Scope the token to the two Workers (`hilltop-web`, `hilltop-admin`) and their routes only. Set the repository variable `CLOUDFLARE_ACCOUNT_ID` (SEC-042, SEC-044).

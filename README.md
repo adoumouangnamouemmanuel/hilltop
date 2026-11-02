@@ -1,6 +1,6 @@
 # Hilltop
 
-A student marketplace for Ashesi: accounts verified to `@ashesi.edu.gh` emails, and payments held until the buyer confirms collection.
+A student marketplace for Ashesi: accounts verified to `@ashesi.edu.gh` emails, with reservations in the app and payment to the seller at pickup.
 
 Built with Next.js 16 (App Router), Tailwind CSS v4, Framer Motion, react-hook-form + zod, Poppins and Supabase, running on Cloudflare Workers. Everything is real: sign-in, listings and photos, messages, offers, notifications, orders, reviews, the admin portal and the platform config. Paying in the app (Paystack) is the one piece still to come; until then every order is reserved in the app and paid to the seller at pickup.
 
@@ -36,6 +36,11 @@ Copy `apps/web/.env.example` and `apps/admin/.env.example` to `.env.local` in ea
 `npm run db:reset` puts the local database back to the seed.
 
 ## Scripts
+
+Reliability remediation, rollout requirements and test results are documented in
+[`docs/RELIABILITY-REMEDIATION.md`](docs/RELIABILITY-REMEDIATION.md).
+Run `npm run test:browser -w @hilltop/web` for real HEIC/CSP and offline-cache regressions;
+these tests need Playwright Chromium but no application credentials or Next build.
 
 | Command             | What it does                                                     |
 | ------------------- | ---------------------------------------------------------------- |
