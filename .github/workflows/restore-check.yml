@@ -6,8 +6,9 @@ name: Backup restore check
 # in docs/RUNBOOK.md (the manual drill also signs in and places an order).
 #
 # Needs, besides backup.yml's R2 secrets and CLOUDFLARE_ACCOUNT_ID variable:
-#   BACKUP_AGE_IDENTITY   the private age key (AGE-SECRET-KEY-...). Keep a second copy
-#                         offline; this one only lets the check decrypt.
+#   BACKUP_AGE_IDENTITY   the private age key (AGE-SECRET-KEY-...), once backups are
+#                         encrypted. Keep a second copy offline; this one only lets the
+#                         check decrypt.
 on:
   schedule:
     - cron: "0 4 * * 1" # Mondays 04:00 UTC, after Sunday night's backup
@@ -28,8 +29,8 @@ jobs:
     steps:
       - name: Check the secrets are set
         run: |
-          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AGE_IDENTITY" ]; then
-            echo "::error::Restore check can't run: R2 or age secrets are missing"; exit 1
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::error::Restore check can't run: the R2 secrets are missing"; exit 1
           fi
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
@@ -38,17 +39,24 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq age postgresql-client
           key=$(aws s3api list-objects-v2 --bucket hilltop-backups --prefix db/ --endpoint-url "$R2_ENDPOINT" \
-            --query 'sort_by(Contents[?ends_with(Key, `.age`)], &LastModified)[-1].Key' --output text)
+            --query 'sort_by(Contents[?ends_with(Key, `.age`) || ends_with(Key, `.tar.gz`)], &LastModified)[-1].Key' --output text)
           echo "Restoring $key"
-          aws s3 cp "s3://hilltop-backups/$key" backup.tar.gz.age --endpoint-url "$R2_ENDPOINT"
-          aws s3 cp "s3://hilltop-backups/$key.sha256" backup.sha256 --endpoint-url "$R2_ENDPOINT"
-          test "$(sha256sum backup.tar.gz.age | cut -d' ' -f1)" = "$(cat backup.sha256)"
+          aws s3 cp "s3://hilltop-backups/$key" archive.bin --endpoint-url "$R2_ENDPOINT"
+          # Older backups have no checksum beside them.
+          if aws s3 cp "s3://hilltop-backups/$key.sha256" backup.sha256 --endpoint-url "$R2_ENDPOINT" 2>/dev/null; then
+            test "$(sha256sum archive.bin | cut -d' ' -f1)" = "$(cat backup.sha256)"
+          fi
           # Backups older than 8 days mean the nightly job has stopped.
           stamp=$(basename "$key" | cut -c1-10)
           test $(( ($(date -u +%s) - $(date -u -d "$stamp" +%s)) / 86400 )) -le 8
-          printf '%s\n' "$AGE_IDENTITY" > identity.txt
-          age -d -i identity.txt -o backup.tar.gz backup.tar.gz.age
-          rm identity.txt
+          if [ "${key##*.}" = "age" ]; then
+            if [ -z "$AGE_IDENTITY" ]; then echo "::error::The backup is encrypted but BACKUP_AGE_IDENTITY isn't set"; exit 1; fi
+            printf '%s\n' "$AGE_IDENTITY" > identity.txt
+            age -d -i identity.txt -o backup.tar.gz archive.bin
+            rm identity.txt
+          else
+            mv archive.bin backup.tar.gz
+          fi
           tar xzf backup.tar.gz
       - name: Restore into a fresh Supabase
         run: |

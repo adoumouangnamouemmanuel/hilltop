@@ -11,7 +11,9 @@ name: Database backup
 #   SUPABASE_DB_URL        Supabase → Connect → Session pooler connection string (with the password)
 #   R2_ACCESS_KEY_ID       R2 API token with read/write access to hilltop-backups only
 #   R2_SECRET_ACCESS_KEY
-#   BACKUP_AGE_RECIPIENT   public age key (age1...) whose private half is kept offline
+#   BACKUP_AGE_RECIPIENT   public age key (age1...) whose private half is kept offline.
+#                          Until it's set, backups are uploaded unencrypted with a warning
+#                          (R2 still encrypts them at rest), so backups never stop.
 # Repository variable:
 #   CLOUDFLARE_ACCOUNT_ID
 #
@@ -46,13 +48,14 @@ jobs:
           [ -n "$SUPABASE_DB_URL" ] || missing="$missing SUPABASE_DB_URL"
           [ -n "$AWS_ACCESS_KEY_ID" ] || missing="$missing R2_ACCESS_KEY_ID"
           [ -n "$AWS_SECRET_ACCESS_KEY" ] || missing="$missing R2_SECRET_ACCESS_KEY"
-          [ -n "$AGE_RECIPIENT" ] || missing="$missing BACKUP_AGE_RECIPIENT"
           [ "$R2_ENDPOINT" != "https://.r2.cloudflarestorage.com" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID(variable)"
           if [ -n "$missing" ]; then echo "::error::No backup was taken. Missing:$missing"; exit 1; fi
+          [ -n "$AGE_RECIPIENT" ] || echo "::warning::BACKUP_AGE_RECIPIENT isn't set, so this backup isn't encrypted. See docs/RUNBOOK.md."
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.122.0
       - name: Install age
+        if: env.AGE_RECIPIENT != ''
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
       - name: Dump the database
         run: |
@@ -63,23 +66,28 @@ jobs:
           test "$(wc -c < data.sql)" -gt 1000
           grep -q 'CREATE TABLE' schema.sql
           tar czf backup.tar.gz schema.sql data.sql roles.sql
-          age -r "$AGE_RECIPIENT" -o backup.tar.gz.age backup.tar.gz
-          sha256sum backup.tar.gz.age | cut -d' ' -f1 > backup.tar.gz.age.sha256
-          rm -f schema.sql data.sql roles.sql backup.tar.gz
+          rm -f schema.sql data.sql roles.sql
+          if [ -n "$AGE_RECIPIENT" ]; then
+            age -r "$AGE_RECIPIENT" -o backup.tar.gz.age backup.tar.gz && rm backup.tar.gz
+            echo "ARCHIVE=backup.tar.gz.age" >> "$GITHUB_ENV"
+          else
+            echo "ARCHIVE=backup.tar.gz" >> "$GITHUB_ENV"
+          fi
       - name: Upload and verify
         run: |
-          key="db/$(date -u +%Y/%m/%Y-%m-%dT%H%MZ).tar.gz.age"
-          aws s3 cp backup.tar.gz.age "s3://hilltop-backups/$key" --endpoint-url "$R2_ENDPOINT"
-          aws s3 cp backup.tar.gz.age.sha256 "s3://hilltop-backups/$key.sha256" --endpoint-url "$R2_ENDPOINT"
-          aws s3 cp "s3://hilltop-backups/$key" check.age --endpoint-url "$R2_ENDPOINT"
-          test "$(sha256sum check.age | cut -d' ' -f1)" = "$(cat backup.tar.gz.age.sha256)"
+          key="db/$(date -u +%Y/%m/%Y-%m-%dT%H%MZ).${ARCHIVE#backup.}"
+          sha256sum "$ARCHIVE" | cut -d' ' -f1 > "$ARCHIVE.sha256"
+          aws s3 cp "$ARCHIVE" "s3://hilltop-backups/$key" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "$ARCHIVE.sha256" "s3://hilltop-backups/$key.sha256" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "s3://hilltop-backups/$key" check.bin --endpoint-url "$R2_ENDPOINT"
+          test "$(sha256sum check.bin | cut -d' ' -f1)" = "$(cat "$ARCHIVE.sha256")"
           echo "Saved and verified $key"
       - name: Prune old backups
         run: |
           # Keep every backup for 35 days, then only the first of each month for a year.
           now=$(date -u +%s)
           aws s3api list-objects-v2 --bucket hilltop-backups --prefix db/ --endpoint-url "$R2_ENDPOINT" \
-            --query 'Contents[].Key' --output text | tr '\t' '\n' | grep -E '\.age(\.sha256)?$' | while read -r key; do
+            --query 'Contents[].Key' --output text | tr '\t' '\n' | grep -E '\.tar\.gz(\.age)?(\.sha256)?$' | while read -r key; do
             stamp=$(basename "$key" | sed -E 's/^([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
             age_days=$(( (now - $(date -u -d "$stamp" +%s)) / 86400 ))
             day=${stamp:8:2}
