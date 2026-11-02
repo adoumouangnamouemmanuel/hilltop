@@ -47,8 +47,12 @@ export function ListingCard({
   const meta = [listing.condition, ...spec].filter(Boolean).slice(0, 2).join(" · ");
 
   function save() {
-    toggleSaved(listing.id);
-    if (!isSaved) toast("Saved to your list", { tone: "saved", action: { label: "View", href: "/saved" } });
+    const result = toggleSaved(listing.id);
+    if (result === "sign-in")
+      toast("Log in to save items", {
+        action: { label: "Log in", href: `/sign-in?next=${encodeURIComponent(location.pathname + location.search)}` },
+      });
+    else if (result === "saved") toast("Saved to your list", { tone: "saved", action: { label: "View", href: "/saved" } });
   }
 
   return (

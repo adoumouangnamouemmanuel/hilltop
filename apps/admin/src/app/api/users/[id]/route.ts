@@ -2,12 +2,15 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@hilltop/shared/database.types";
 
 /*
- * Deletes a student's account. Needs the Supabase secret key (the SUPABASE_SECRET_KEY
- * Worker secret), so it runs here on the server, and only for admins whose role has
- * users.delete. What's removed: the sign-in account, the student's email, saved items,
- * searches and notifications, their photos, and their listings (taken down). Their
- * profile stays as "Deleted student" so other people's orders, messages and reviews
- * still make sense.
+ * Deletes a student and everything that's theirs. Needs the Supabase secret key (the
+ * SUPABASE_SECRET_KEY Worker secret), so it runs here on the server, and only for
+ * admins whose role has users.delete.
+ *
+ * Deleting the profile cascades in the database to their listings and photos,
+ * conversations and messages, offers, reviews, reports, saved items and searches,
+ * notifications and email. Their photos are removed from R2, their sign-in from
+ * Supabase Auth, and their name from the audit log. Orders stay for the other
+ * student, shown as with a deleted student.
  */
 
 type PhotoBucket = {
@@ -49,36 +52,8 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/us
   const { data: member } = await server.from("admin_members").select("id").eq("profile_id", id).maybeSingle();
   if (member) return fail(409, "Remove them from the admin team first.");
 
-  const steps = await Promise.all([
-    server.from("listings").update({ status: "removed" }).eq("seller_id", id).neq("status", "removed"),
-    // Offers still waiting for an answer go; answered ones stay with the seller's history.
-    server.from("offers").delete().eq("buyer_id", id).eq("status", "pending"),
-    server.from("saved_listings").delete().eq("profile_id", id),
-    server.from("saved_searches").delete().eq("profile_id", id),
-    server.from("notifications").delete().eq("profile_id", id),
-    server.from("profile_emails").delete().eq("profile_id", id),
-  ]);
-  const stepError = steps.find((s) => s.error)?.error;
-  if (stepError) return fail(500, `Couldn't remove their data: ${stepError.message}`);
-
-  const anonymised = await server
-    .from("profiles")
-    .update({
-      name: "Deleted student",
-      shop_name: null,
-      specialty: null,
-      class_of: null,
-      major: null,
-      response_time: null,
-      verified: false,
-      status: "suspended",
-      claim_email: null,
-    })
-    .eq("id", id);
-  if (anonymised.error) return fail(500, `Couldn't anonymise the profile: ${anonymised.error.message}`);
-
+  // Photos are stored under the account id (see the marketplace's /api/photos).
   if (profile.user_id) {
-    // Photos are stored under the account id (see the marketplace's /api/photos).
     const bucket = await photoBucket();
     if (bucket) {
       let cursor: string | undefined;
@@ -88,8 +63,29 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/us
         cursor = page.truncated ? page.cursor : undefined;
       } while (cursor);
     }
-    const { error } = await server.auth.admin.deleteUser(profile.user_id);
-    if (error) return fail(500, `Couldn't delete the sign-in account: ${error.message}`);
   }
+
+  // Other people's notifications about chats with them quote their messages.
+  const { data: chats } = await server.from("conversations").select("id").or(`buyer_id.eq.${id},seller_id.eq.${id}`);
+  if (chats?.length)
+    await server
+      .from("notifications")
+      .delete()
+      .in(
+        "href",
+        chats.map((c) => `/inbox?c=${c.id}`),
+      );
+
+  const removed = await server.from("profiles").delete().eq("id", id);
+  if (removed.error) return fail(500, `Couldn't delete their data: ${removed.error.message}`);
+
+  if (profile.user_id) {
+    const { error } = await server.auth.admin.deleteUser(profile.user_id);
+    if (error) return fail(500, `Their data is gone, but the sign-in couldn't be deleted: ${error.message}`);
+  }
+
+  // Earlier entries that named them keep what happened, without who it was about.
+  await server.from("audit_log").update({ target: "Deleted student" }).eq("target", profile.name);
+
   return Response.json({ deleted: profile.name });
 }

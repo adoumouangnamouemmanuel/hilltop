@@ -159,17 +159,21 @@ export async function setSavedRemote(profileId: string, listingId: string, saved
     ? await client.from("saved_listings").insert({ profile_id: profileId, listing_id: listingId })
     : await client.from("saved_listings").delete().eq("listing_id", listingId);
   // Saving twice (another tab) is fine.
-  return error && error.code !== "23505" ? "Couldn't update your saved items." : null;
+  return error && error.code !== "23505" ? problem(error, "Couldn't update your saved items.") : null;
 }
 
-export async function saveSearchRemote(profileId: string, search: Pick<SavedSearch, "label" | "query" | "seenIds">) {
+export async function saveSearchRemote(
+  profileId: string,
+  search: Pick<SavedSearch, "label" | "query" | "seenIds">,
+): Promise<{ id: string; createdAt: number } | { error: string }> {
   const { data, error } =
     (await supabase()
       ?.from("saved_searches")
       .insert({ profile_id: profileId, label: search.label, query: search.query, seen_ids: search.seenIds })
       .select("id, created_at")
       .single()) ?? {};
-  return error || !data ? null : { id: data.id, createdAt: Date.parse(data.created_at) };
+  if (error || !data) return { error: problem(error, "Couldn't save this search. Try again.") ?? "Couldn't save this search. Try again." };
+  return { id: data.id, createdAt: Date.parse(data.created_at) };
 }
 
 export async function updateSearchRemote(id: string, patch: { alerts?: boolean; seen_ids?: string[] }) {

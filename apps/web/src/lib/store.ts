@@ -83,6 +83,17 @@ function releaseDue() {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 const POLL_MS = 20_000;
+// With Realtime connected, polling is only a safety net.
+const LIVE_POLL_MS = 180_000;
+let live = false;
+let lastSocial = 0;
+
+/** Polls unless Realtime is delivering changes and the last load is recent. */
+function pollSocial() {
+  if (document.visibilityState !== "visible") return;
+  if (live && Date.now() - lastSocial < LIVE_POLL_MS) return;
+  refreshSocial();
+}
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -92,7 +103,7 @@ function subscribe(listener: () => void) {
   }
   if (!pollTimer) {
     // Realtime brings changes at once; this catches anything it misses.
-    pollTimer = setInterval(() => document.visibilityState === "visible" && refreshSocial(), POLL_MS);
+    pollTimer = setInterval(pollSocial, POLL_MS);
   }
   return () => {
     listeners.delete(listener);
@@ -146,6 +157,8 @@ const noMine: Pick<
   reviews: [],
 };
 let mineLoadedFor: string | null = null;
+// What's kept only in this browser, cleared on sign-out.
+const noHistory: Pick<State, "recentlyViewed" | "recentSearches"> = { recentlyViewed: [], recentSearches: [] };
 let socialLoadedFor: string | null = null;
 let stopWatching: (() => void) | null = null;
 
@@ -154,6 +167,7 @@ const refreshSocial = once(async () => {
   const profileId = state.user?.profileId;
   if (!profileId) return;
   const version = writes;
+  lastSocial = Date.now();
   const [social, orders] = await Promise.all([Social.loadSocial(profileId), Orders.loadOrders(profileId)]);
   if (version !== writes) return void setTimeout(refreshSocial, 0);
   if (!social || !orders || state.user?.profileId !== profileId) return;
@@ -175,7 +189,13 @@ function refreshSocialSoon() {
 function watch(profileId: string | undefined) {
   stopWatching?.();
   stopWatching = null;
-  if (profileId) stopWatching = Social.watchSocial(profileId, refreshSocialSoon);
+  live = false;
+  if (profileId)
+    stopWatching = Social.watchSocial(profileId, refreshSocialSoon, (connected) => {
+      // Catch up on anything missed while the connection was down.
+      if (connected && !live) refreshSocialSoon();
+      live = connected;
+    });
 }
 
 // Bumped by every change the student makes, so a load that started before it isn't
@@ -233,7 +253,10 @@ export const actions = {
   setUser(user: User | null) {
     const switched = state.user?.profileId !== user?.profileId;
     const same = !switched && state.user?.email === user?.email && state.user?.name === user?.name;
-    if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}) }), true);
+    // Browsing history lives in this browser. It carries over when a visitor signs in,
+    // but not to someone else using the same browser afterwards.
+    const otherPerson = switched && !!state.user?.profileId;
+    if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}), ...(otherPerson ? noHistory : {}) }), true);
     if (switched) {
       mineLoadedFor = null;
       socialLoadedFor = null;
@@ -247,14 +270,17 @@ export const actions = {
   async signOut() {
     await signOutEverywhere();
     watch(undefined);
-    commit((s) => ({ ...s, user: null, ...noMine }), true);
+    commit((s) => ({ ...s, user: null, ...noMine, ...noHistory }), true);
   },
-  toggleSaved(id: string) {
+  /** Saves or unsaves a listing. Signed-out visitors are asked to sign in instead. */
+  toggleSaved(id: string): "saved" | "removed" | "sign-in" {
+    const profileId = me();
+    if (!profileId) return "sign-in";
     writes++;
     const saving = !state.saved.includes(id);
     commit((s) => ({ ...s, saved: saving ? [...s.saved, id] : s.saved.filter((x) => x !== id) }));
-    const profileId = me();
-    if (profileId) Mine.setSavedRemote(profileId, id, saving).then(failed);
+    Mine.setSavedRemote(profileId, id, saving).then(failed);
+    return saving ? "saved" : "removed";
   },
 
   // Orders: reserved in the app, paid to the seller at pickup.
@@ -429,12 +455,18 @@ export const actions = {
   clearRecentSearches() {
     commit((s) => ({ ...s, recentSearches: [] }));
   },
+  clearRecentlyViewed() {
+    commit((s) => ({ ...s, recentlyViewed: [] }));
+  },
+  removeRecentlyViewed(id: string) {
+    commit((s) => ({ ...s, recentlyViewed: s.recentlyViewed.filter((x) => x !== id) }));
+  },
   async saveSearch(search: Omit<SavedSearch, "id" | "createdAt" | "alerts">) {
     writes++;
     const profileId = me();
     if (!profileId || state.savedSearches.some((x) => x.query === search.query)) return;
     const created = await Mine.saveSearchRemote(profileId, search);
-    if (!created) return toast("Couldn't save this search. Try again.");
+    if ("error" in created) return toast(created.error);
     commit((s) => M.saveSearch(s, { ...search, ...created, alerts: true }));
   },
   removeSearch(id: string) {

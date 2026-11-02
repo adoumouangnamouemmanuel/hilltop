@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Clock, Heart, Search, Trash2 } from "lucide-react";
+import { Clock, Heart, Search, Trash2, X } from "lucide-react";
 import { formatCedi } from "@/lib/format";
 import { searchMatches } from "@/lib/model";
 import { useConfig } from "@/lib/config";
@@ -24,7 +24,7 @@ export function SavedView() {
   const pathname = usePathname();
   const param = useSearchParams().get("tab");
   const tab: Tab = param === "searches" || param === "recent" ? param : "items";
-  const { saved, savedSearches, recentlyViewed } = useStore();
+  const { saved, savedSearches, recentlyViewed, clearRecentlyViewed, removeRecentlyViewed, user } = useStore();
   const items = useListings({ ids: saved, includeSold: true });
   const recent = useListings({ ids: recentlyViewed, includeSold: true });
   const total = items.reduce((sum, l) => sum + l.price, 0);
@@ -95,13 +95,40 @@ export function SavedView() {
               />
             ))}
 
+          {tab === "items" && !user && (
+            <p className="mb-6 text-sm text-ink-500">
+              <Link href="/sign-in?next=/saved" className="font-medium text-ink-950 underline underline-offset-4">
+                Log in
+              </Link>{" "}
+              to save items and searches to your account.
+            </p>
+          )}
+
           {tab === "recent" &&
             (recent.length ? (
-              <Grid>
-                {recent.map((l) => (
-                  <ListingCard key={l.id} listing={l} />
-                ))}
-              </Grid>
+              <>
+                <div className="mb-6 flex items-center justify-between gap-4">
+                  <p className="text-sm text-ink-500">Kept on this device only, and cleared when you log out.</p>
+                  <button type="button" onClick={clearRecentlyViewed} className={buttonClass("outline", "sm")}>
+                    Clear all
+                  </button>
+                </div>
+                <Grid>
+                  {recent.map((l) => (
+                    <div key={l.id}>
+                      <ListingCard listing={l} />
+                      <button
+                        type="button"
+                        onClick={() => removeRecentlyViewed(l.id)}
+                        aria-label={`Remove ${l.title} from recently viewed`}
+                        className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-ink-500 hover:text-ink-950"
+                      >
+                        <X className="size-3.5" aria-hidden /> Remove
+                      </button>
+                    </div>
+                  ))}
+                </Grid>
+              </>
             ) : (
               <Empty icon={Clock} title="Nothing viewed yet" body="Listings you open show up here so you can find them again." />
             ))}

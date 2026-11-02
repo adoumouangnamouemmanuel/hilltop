@@ -19,8 +19,8 @@ type Row = {
   listing_id: string | null;
   listing_title: string;
   pickup: string | null;
-  buyer_id: string;
-  seller_id: string;
+  buyer_id: string | null;
+  seller_id: string | null;
   quantity: number;
   amount: number;
   fee: number;
@@ -54,7 +54,7 @@ function toOrder(r: Row, profileId: string): Order {
     pickup: r.pickup ?? undefined,
     sellerHandle: r.seller?.handle,
     role: selling ? "selling" : "buying",
-    counterpart: (selling ? r.buyer?.name : r.seller?.name) ?? "A student",
+    counterpart: (selling ? r.buyer?.name : r.seller?.name) ?? "Deleted student",
     quantity: r.quantity,
     amount: Number(r.amount),
     fee: Number(r.fee),

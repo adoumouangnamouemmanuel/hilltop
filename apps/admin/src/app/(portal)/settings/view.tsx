@@ -60,7 +60,7 @@ const sections = [
     id: "listings",
     label: "Listings",
     icon: Package,
-    keys: ["listings", "reports", "conditions", "pickupSpots", "search"],
+    keys: ["listings", "saved", "reports", "conditions", "pickupSpots", "search"],
     description: "Limits, expiry, reporting, conditions, pickup spots and search.",
   },
   {
@@ -509,6 +509,36 @@ function Listings({ value: c, set, err }: SectionProps) {
           </Field>
           <Field label="Active listings per student" error={err("listings.maxActive")} hint="Drafts don't count. 0 means no limit.">
             {(id) => <NumberInput id={id} value={l.maxActive} onChange={num("maxActive")} min={0} max={500} />}
+          </Field>
+        </div>
+      </Group>
+      <Group title="Saved" description="How much each student can keep. 0 means no limit.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Saved items per student" error={err("saved.maxItems")}>
+            {(id) => (
+              <NumberInput
+                id={id}
+                value={c.saved.maxItems}
+                onChange={(v) => set({ saved: { ...c.saved, maxItems: v } })}
+                min={0}
+                max={5000}
+              />
+            )}
+          </Field>
+          <Field
+            label="Saved searches per student"
+            error={err("saved.maxSearches")}
+            hint="Each search with alerts is checked whenever anyone lists something, so keep this modest."
+          >
+            {(id) => (
+              <NumberInput
+                id={id}
+                value={c.saved.maxSearches}
+                onChange={(v) => set({ saved: { ...c.saved, maxSearches: v } })}
+                min={0}
+                max={200}
+              />
+            )}
           </Field>
         </div>
       </Group>

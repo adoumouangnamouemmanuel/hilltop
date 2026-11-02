@@ -263,7 +263,7 @@ function UserDetail({ user: u }: { user: AdminUser }) {
         title={confirm === "delete" ? `Delete ${u.name}?` : `Suspend ${u.name}?`}
         body={
           confirm === "delete"
-            ? "Their sign-in, email, photos, saved items and notifications are deleted and their listings taken down. Orders, messages and reviews stay, shown as from a deleted student. This can't be undone."
+            ? "Everything that's theirs is deleted: sign-in, email, listings and photos, chats, offers, reviews, reports, saved items and notifications, and their name in the audit log. Orders stay for the other student, without their name. This can't be undone."
             : "They won't be able to message, make offers, order or list, and their live listings are hidden. You can reinstate them later."
         }
         confirmLabel={confirm === "delete" ? "Delete account" : "Suspend"}

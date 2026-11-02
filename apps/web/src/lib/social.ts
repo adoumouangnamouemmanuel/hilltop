@@ -164,8 +164,11 @@ export async function markReadRemote(id?: string) {
   await (id ? query?.eq("id", id) : query);
 }
 
-/** Calls `onChange` when something arrives for this student, live where Realtime runs. */
-export function watchSocial(profileId: string, onChange: () => void) {
+/**
+ * Calls `onChange` when something arrives for this student, live where Realtime runs.
+ * `onLive` says whether the live connection is up, so polling can back off.
+ */
+export function watchSocial(profileId: string, onChange: () => void, onLive: (live: boolean) => void) {
   const client = supabase();
   if (!client) return () => {};
   const channel = client
@@ -173,7 +176,7 @@ export function watchSocial(profileId: string, onChange: () => void) {
     .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `profile_id=eq.${profileId}` }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "offers" }, onChange)
-    .subscribe();
+    .subscribe((status) => onLive(status === "SUBSCRIBED"));
   return () => {
     client.removeChannel(channel);
   };

@@ -123,8 +123,10 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
                 label={isSaved ? "Remove from saved" : "Save"}
                 pressed={isSaved}
                 onClick={() => {
-                  toggleSaved(listing.id);
-                  if (!isSaved) toast("Saved to your list", { tone: "saved", action: { label: "View", href: "/saved" } });
+                  const result = toggleSaved(listing.id);
+                  if (result === "sign-in")
+                    toast("Log in to save items", { action: { label: "Log in", href: `/sign-in?next=/listing/${listing.id}` } });
+                  else if (result === "saved") toast("Saved to your list", { tone: "saved", action: { label: "View", href: "/saved" } });
                 }}
               >
                 <Heart className={cn("size-[18px]", isSaved && "fill-maroon-700 text-maroon-700")} />

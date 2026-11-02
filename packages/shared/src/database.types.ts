@@ -659,7 +659,7 @@ export type Database = {
         Row: {
           amount: number;
           auto_released: boolean;
-          buyer_id: string;
+          buyer_id: string | null;
           due_at_pickup: number;
           fee: number;
           handed_over_at: string | null;
@@ -671,7 +671,7 @@ export type Database = {
           pickup: string | null;
           placed_at: string;
           quantity: number;
-          seller_id: string;
+          seller_id: string | null;
           slot: string | null;
           status: Database["public"]["Enums"]["order_status"];
           unit_price: number;
@@ -681,7 +681,7 @@ export type Database = {
         Insert: {
           amount: number;
           auto_released?: boolean;
-          buyer_id: string;
+          buyer_id?: string | null;
           due_at_pickup?: number;
           fee?: number;
           handed_over_at?: string | null;
@@ -693,7 +693,7 @@ export type Database = {
           pickup?: string | null;
           placed_at?: string;
           quantity?: number;
-          seller_id: string;
+          seller_id?: string | null;
           slot?: string | null;
           status?: Database["public"]["Enums"]["order_status"];
           unit_price: number;
@@ -702,7 +702,7 @@ export type Database = {
         Update: {
           amount?: number;
           auto_released?: boolean;
-          buyer_id?: string;
+          buyer_id?: string | null;
           due_at_pickup?: number;
           fee?: number;
           handed_over_at?: string | null;
@@ -714,7 +714,7 @@ export type Database = {
           pickup?: string | null;
           placed_at?: string;
           quantity?: number;
-          seller_id?: string;
+          seller_id?: string | null;
           slot?: string | null;
           status?: Database["public"]["Enums"]["order_status"];
           unit_price?: number;

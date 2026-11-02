@@ -103,10 +103,18 @@ export function perform(change: (s: AdminState, now: number) => AdminState, succ
   }
 }
 
+let operationsLoadedAt = 0;
+
 /** Loads students, listings, reports, orders and disputes from the database. */
 export async function refreshOperations() {
+  operationsLoadedAt = Date.now();
   const ops = await loadOperations();
   if (ops) setState({ ...getState(), ...ops });
+}
+
+/** Refreshes when the admin comes back to the tab, at most once a minute (it's seven queries). */
+export function refreshOperationsIfStale() {
+  if (Date.now() - operationsLoadedAt > 60_000) void refreshOperations();
 }
 
 /** Puts the signed-in admin and their role into the local model, so its checks use real permissions. */

@@ -7,7 +7,20 @@ import { ListingCard } from "./listing-card";
 import { SectionHeader, cn } from "./ui";
 
 /** A horizontally scrolling row of listings with arrow controls on desktop. */
-export function ListingRail({ title, subtitle, href, listings }: { title: string; subtitle?: string; href?: string; listings: Listing[] }) {
+export function ListingRail({
+  title,
+  subtitle,
+  href,
+  listings,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  href?: string;
+  listings: Listing[];
+  /** An extra control in the header, e.g. "Clear". */
+  action?: React.ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
 
@@ -32,6 +45,7 @@ export function ListingRail({ title, subtitle, href, listings }: { title: string
   return (
     <section>
       <SectionHeader title={title} subtitle={subtitle} href={href}>
+        {action}
         <div className="hidden gap-1.5 md:flex">
           <ArrowButton disabled={edges.start} onClick={() => scroll(-1)} label="Scroll left">
             <ChevronLeft className="size-4" />

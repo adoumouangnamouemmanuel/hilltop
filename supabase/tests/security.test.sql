@@ -308,5 +308,30 @@ select lives_ok($$update public.profiles set name = 'Deleted student', status = 
 select lives_ok($$update public.listings set status = 'removed' where id = 'stu-one'$$, 'the server can take listings down');
 reset role;
 
+-- Saved caps --------------------------------------------------------------------------------
+insert into public.config_releases (config, note)
+select jsonb_set(config, '{saved}', '{"maxItems": 1, "maxSearches": 1}'), 'test caps' from public.current_config;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
+select lives_ok($$insert into public.saved_searches (profile_id, label, query) values (current_setting('test.wellington')::uuid, 'Casio', 'q=casio')$$,
+  'a student can save a search');
+select throws_ok($$insert into public.saved_searches (profile_id, label, query) values (current_setting('test.wellington')::uuid, 'Fan', 'q=fan')$$,
+  '23514', 'You can save up to 1 searches. Remove one to save this.', 'saved searches are capped');
+select lives_ok($$insert into public.saved_listings (profile_id, listing_id) values (current_setting('test.wellington')::uuid, 'bucket')$$,
+  'a student can save an item');
+select throws_ok($$insert into public.saved_listings (profile_id, listing_id) values (current_setting('test.wellington')::uuid, 'pizza')$$,
+  '23514', null, 'saved items are capped');
+reset role;
+
+-- Deleting a student removes everything that's theirs -----------------------------------------
+select set_config('test.stu_orders', (select count(*)::text from public.orders where buyer_id = current_setting('test.stu')::uuid), true);
+delete from public.profiles where id = current_setting('test.stu')::uuid;
+select is((select count(*)::int from public.listings where id in ('stu-one', 'stu-three', 'stu-draft')), 0, 'their listings are gone');
+select is((select count(*)::int from public.messages where body = 'Still available?'), 0, 'their messages are gone');
+select is((select count(*)::int from public.conversations where listing_id = 'casio-fx82'), 0, 'their conversations are gone');
+select is((select count(*)::int from public.reviews where body = 'Great'), 0, 'their reviews are gone');
+select is((select count(*)::int from public.orders where buyer_id is null), current_setting('test.stu_orders')::int,
+  'their orders stay for the other student, without them');
+
 select * from finish();
 rollback;

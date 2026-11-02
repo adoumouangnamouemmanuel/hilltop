@@ -8,7 +8,8 @@ export function useMarket() {
   return useSyncExternalStore(subscribeMarket, readMarket, readMarket);
 }
 
-const REFRESH_MS = 60_000;
+// Listings change slowly, and each refresh downloads the whole catalogue.
+const REFRESH_MS = 5 * 60_000;
 
 /** Refetches listings when the tab comes back after a while, so new items and sold ones show up. */
 export function useMarketRefresh() {

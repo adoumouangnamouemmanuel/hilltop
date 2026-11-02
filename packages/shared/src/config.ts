@@ -135,6 +135,11 @@ export const platformConfigSchema = z.object({
     /** Most active listings one student can have at once. 0 means no limit. */
     maxActive: z.number().int().min(0).max(500),
   }),
+  /** How much each student can save. Saved searches with alerts are checked on every new listing. 0 means no limit. */
+  saved: z.object({
+    maxItems: z.number().int().min(0).max(5000),
+    maxSearches: z.number().int().min(0).max(200),
+  }),
   /** Students can report listings that break the rules; reports go to the moderation queue. */
   reports: z.object({
     enabled: z.boolean(),
@@ -244,6 +249,7 @@ export const defaultConfig: PlatformConfig = {
   },
   offers: { minRatio: 0.5, autoAcceptRatio: 0.85 },
   listings: { maxPhotos: 8, titleMax: 70, descriptionMax: 800, maxPrice: 100_000, bannedWords: [], expiryDays: 30, maxActive: 20 },
+  saved: { maxItems: 200, maxSearches: 20 },
   reports: {
     enabled: true,
     reasons: [

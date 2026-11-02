@@ -65,7 +65,8 @@ export const setSuspended = (s: AdminState, id: string, suspended: boolean, now:
   }));
 
 export const deleteUser = (s: AdminState, id: string, now: number) =>
-  act(s, "users.delete", { action: "Deleted user", target: name(s, id) }, now, (s) => ({
+  // The entry doesn't name them: deleting removes their name from the log too.
+  act(s, "users.delete", { action: "Deleted a student's account and data" }, now, (s) => ({
     ...s,
     users: s.users.filter((u) => u.id !== id),
     listings: s.listings.map((l) => (l.sellerId === id ? { ...l, state: "removed" } : l)),

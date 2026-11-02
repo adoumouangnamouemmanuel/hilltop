@@ -215,7 +215,7 @@ function UsersInner() {
         title={confirm?.kind === "delete" ? `Delete ${confirm.user.name}?` : `Suspend ${confirm?.user.name}?`}
         body={
           confirm?.kind === "delete"
-            ? "Their account and listings are removed. Orders in progress stay so payments can be settled. This can't be undone."
+            ? "Everything that's theirs is deleted: sign-in, email, listings and photos, chats, offers, reviews, reports, saved items and notifications, and their name in the audit log. Orders stay for the other student, without their name. This can't be undone."
             : "They won't be able to buy, sell or message, and their live listings are hidden. You can reinstate them later."
         }
         confirmLabel={confirm?.kind === "delete" ? "Delete account" : "Suspend"}

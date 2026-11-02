@@ -11,7 +11,16 @@ import { LogoMark } from "@hilltop/ui/logo";
 import { ThemeSegmented, ThemeToggle } from "@hilltop/ui/theme-toggle";
 import { Avatar, cn } from "@hilltop/ui/ui";
 import { useBodyScrollLock, useDismiss, useFocusTrap } from "@hilltop/ui/hooks";
-import { adoptDraft, adoptSession, refreshOperations, useAdmin, useHydrated, usePublished, useSession } from "@/lib/store";
+import {
+  adoptDraft,
+  adoptSession,
+  refreshOperations,
+  refreshOperationsIfStale,
+  useAdmin,
+  useHydrated,
+  usePublished,
+  useSession,
+} from "@/lib/store";
 import { useAdminSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import type { PlatformConfig } from "@hilltop/shared/config";
@@ -70,8 +79,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     void refreshOperations();
-    window.addEventListener("focus", refreshOperations);
-    return () => window.removeEventListener("focus", refreshOperations);
+    window.addEventListener("focus", refreshOperationsIfStale);
+    return () => window.removeEventListener("focus", refreshOperationsIfStale);
   }, [ready]);
 
   useEffect(() => {
