@@ -600,5 +600,23 @@ select is((select count(*)::int from public.feedback where created_at = now()), 
 select lives_ok($$update public.feedback set status = 'closed' where kind = 'bug'$$, 'owners close feedback');
 reset role;
 
+-- Turning on notifications saves the subscription with an upsert, twice is fine --------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select lives_ok($$insert into public.push_subscriptions (endpoint, profile_id, p256dh, auth)
+  values ('https://fcm.googleapis.com/fcm/send/upsert-test', current_setting('test.bea')::uuid, 'k', 'a')
+  on conflict (endpoint) do update set endpoint = excluded.endpoint, profile_id = excluded.profile_id, p256dh = excluded.p256dh, auth = excluded.auth$$,
+  'a student turns on notifications');
+select lives_ok($$insert into public.push_subscriptions (endpoint, profile_id, p256dh, auth)
+  values ('https://fcm.googleapis.com/fcm/send/upsert-test', current_setting('test.bea')::uuid, 'k2', 'a2')
+  on conflict (endpoint) do update set endpoint = excluded.endpoint, profile_id = excluded.profile_id, p256dh = excluded.p256dh, auth = excluded.auth$$,
+  'and can turn them on again from the same browser');
+select set_config('request.jwt.claims', '{"sub": "77777777-7777-7777-7777-777777777777", "role": "authenticated"}', true);
+select throws_ok($$insert into public.push_subscriptions (endpoint, profile_id, p256dh, auth)
+  values ('https://fcm.googleapis.com/fcm/send/upsert-test', current_setting('test.tina')::uuid, 'k', 'a')
+  on conflict (endpoint) do update set endpoint = excluded.endpoint, profile_id = excluded.profile_id, p256dh = excluded.p256dh, auth = excluded.auth$$,
+  '42501', null, 'nobody takes over another student''s browser');
+reset role;
+
 select * from finish();
 rollback;
