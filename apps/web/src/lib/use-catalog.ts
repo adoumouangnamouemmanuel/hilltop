@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { CategoryDef as Category } from "@hilltop/shared/catalog";
 import { visibleCategories } from "@hilltop/shared/config";
 import { findCategory } from "./catalog";
@@ -66,19 +66,20 @@ export function personalOrder(categories: Category[], signals: Signals, category
 }
 
 // Decided once per visit, so the bar doesn't reshuffle while someone browses.
-let frozen: { who: string; ids: string[] } | null = null;
+const frozen = new Map<string, string[]>();
 
 /** The visible categories, ordered for the current visitor (after hydration; the server renders the default order). */
 export function usePersonalCategories() {
   const { categories } = useCatalog();
   const { user, recentlyViewed, saved, orders, recentSearches, allListings } = useStore();
   const who = user?.profileId ?? "visitor";
-  const [ids, setIds] = useState<string[] | null>(() => (frozen?.who === who ? frozen.ids : null));
-
   const hasSignals = recentlyViewed.length + saved.length + orders.length + recentSearches.length > 0;
-  useEffect(() => {
-    if (frozen?.who === who) return setIds(frozen.ids);
-    if (!hasSignals || !allListings.length) return;
+
+  // The server and the first render in the browser have no history, so they agree.
+  const ids = useMemo(() => {
+    const decided = frozen.get(who);
+    if (decided) return decided;
+    if (!hasSignals || !allListings.length) return null;
     const category = new Map(allListings.map((l) => [l.id, l.category]));
     const ordered = personalOrder(
       categories,
@@ -90,8 +91,8 @@ export function usePersonalCategories() {
       },
       (id) => category.get(id),
     ).map((c) => c.id);
-    frozen = { who, ids: ordered };
-    setIds(ordered);
+    frozen.set(who, ordered);
+    return ordered;
   }, [who, hasSignals, allListings, categories, recentlyViewed, saved, orders, recentSearches]);
 
   return useMemo(() => {

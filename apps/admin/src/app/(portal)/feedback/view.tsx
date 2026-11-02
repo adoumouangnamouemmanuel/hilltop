@@ -48,11 +48,10 @@ function FeedbackInner() {
   const [more, setMore] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(
+  const fetchPage = useCallback(
     async (from: number) => {
       const client = supabase();
-      if (!client) return;
-      setLoading(true);
+      if (!client) return null;
       let query = client
         .from("feedback")
         .select("id, kind, message, page, device, status, created_at, sender:profiles!feedback_profile_id_fkey(name, handle)")
@@ -60,18 +59,34 @@ function FeedbackInner() {
         .range(from, from + PAGE - 1);
       query = filter === "closed" ? query.eq("status", "closed") : query.neq("status", "closed");
       const { data, error } = await query;
-      setLoading(false);
-      if (error) return toast("Couldn't load feedback. Try again.");
-      const rows = (data ?? []) as unknown as Entry[];
-      setEntries((prev) => (from === 0 ? rows : [...prev, ...rows]));
-      setMore(rows.length === PAGE);
+      if (error) {
+        toast("Couldn't load feedback. Try again.");
+        return null;
+      }
+      return (data ?? []) as unknown as Entry[];
     },
     [filter],
   );
 
+  const show = useCallback((rows: Entry[] | null, from: number) => {
+    setLoading(false);
+    if (!rows) return;
+    setEntries((prev) => (from === 0 ? rows : [...prev, ...rows]));
+    setMore(rows.length === PAGE);
+  }, []);
+
   useEffect(() => {
-    void load(0);
-  }, [load]);
+    let live = true;
+    fetchPage(0).then((rows) => live && show(rows, 0));
+    return () => {
+      live = false;
+    };
+  }, [fetchPage, show]);
+
+  async function loadMore() {
+    setLoading(true);
+    show(await fetchPage(entries.length), entries.length);
+  }
 
   async function setStatus(entry: Entry, status: Status) {
     const { error } = (await supabase()?.from("feedback").update({ status }).eq("id", entry.id)) ?? {};
@@ -132,7 +147,7 @@ function FeedbackInner() {
         )}
         {more && (
           <div className="border-t border-line p-4 text-center">
-            <button type="button" disabled={loading} className={buttonClass("ghost", "sm")} onClick={() => load(entries.length)}>
+            <button type="button" disabled={loading} className={buttonClass("ghost", "sm")} onClick={loadMore}>
               Load more
             </button>
           </div>
