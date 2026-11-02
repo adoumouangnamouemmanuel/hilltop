@@ -40,6 +40,8 @@ export type FoodOrdering = {
 };
 
 export type Listing = {
+  sellerProfileId?: string;
+  revision?: number;
   id: string;
   title: string;
   price: number;

@@ -79,7 +79,7 @@ select throws_ok($$insert into public.reports (listing_id, reporter_id, reason) 
 
 select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx991', private.my_profile_id(), 120)$$,
   'students make offers');
-select throws_ok($$update public.offers set status = 'accepted' where listing_id = 'casio-fx991'$$,
+select throws_ok($$select public.answer_offer(id, 'accepted') from public.offers where listing_id = 'casio-fx991'$$,
   '42501', null, 'buyers can''t accept their own offer');
 
 select lives_ok($$insert into public.conversations (listing_id, buyer_id, seller_id)
@@ -106,8 +106,8 @@ select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444
 
 select is((select count(*)::int from public.messages), 1, 'sellers read messages sent to them');
 select is((select count(*)::int from public.reports), 0, 'sellers can''t see who reported them');
-select lives_ok($$update public.offers set status = 'accepted' where listing_id = 'casio-fx991'$$, 'sellers accept offers');
-select throws_ok($$update public.offers set status = 'declined' where listing_id = 'casio-fx991'$$,
+select lives_ok($$select public.answer_offer(id, 'accepted') from public.offers where listing_id = 'casio-fx991'$$, 'sellers accept offers');
+select throws_ok($$select public.answer_offer(id, 'declined') from public.offers where listing_id = 'casio-fx991'$$,
   '42501', null, 'an answered offer can''t be changed');
 select lives_ok($$update public.listings set posted_at = '2000-01-01' where id = 'casio-fx991'$$, 'sellers renew listings');
 reset role;
@@ -233,7 +233,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
 select is((select count(*)::int from public.notifications where href = '/listing/casio-fx82'), 2, 'the seller is told about each offer');
 select is((select count(*)::int from public.notifications where kind = 'message' and body = 'Still available?'), 1, 'the seller is told about the message');
-select lives_ok($$update public.offers set status = 'accepted' where listing_id = 'casio-fx82' and status = 'pending'$$,
+select lives_ok($$select public.answer_offer(id, 'accepted') from public.offers where listing_id = 'casio-fx82' and status = 'pending'$$,
   'the seller can accept an offer');
 
 set local role authenticated;
@@ -434,9 +434,9 @@ select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) value
 select set_config('request.jwt.claims', '{"sub": "77777777-7777-7777-7777-777777777777", "role": "authenticated"}', true);
 select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('sam-chair', current_setting('test.tina')::uuid, 160)$$, 'Tina offers');
 select set_config('request.jwt.claims', '{"sub": "55555555-5555-5555-5555-555555555555", "role": "authenticated"}', true);
-select lives_ok($$update public.offers set status = 'accepted' where listing_id = 'sam-chair' and buyer_id = current_setting('test.bea')::uuid$$,
+select lives_ok($$select public.answer_offer(id, 'accepted') from public.offers where listing_id = 'sam-chair' and buyer_id = current_setting('test.bea')::uuid$$,
   'the seller accepts one offer');
-select throws_ok($$update public.offers set status = 'accepted' where listing_id = 'sam-chair' and buyer_id = current_setting('test.tina')::uuid$$,
+select throws_ok($$select public.answer_offer(id, 'accepted') from public.offers where listing_id = 'sam-chair' and buyer_id = current_setting('test.tina')::uuid$$,
   '42501', null, 'a second offer can''t be accepted on a one-off item');
 reset role;
 select is((select count(*)::int from public.offers where listing_id = 'sam-chair' and status = 'accepted'), 1, 'one agreed price per item');

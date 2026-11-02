@@ -640,6 +640,7 @@ export type Database = {
           posted_at: string;
           price: number;
           promoted_until: string | null;
+          revision: number;
           saves: number;
           search: unknown;
           seller_id: string;
@@ -665,6 +666,7 @@ export type Database = {
           posted_at?: string;
           price: number;
           promoted_until?: string | null;
+          revision?: number;
           saves?: number;
           search?: never;
           seller_id: string;
@@ -689,6 +691,7 @@ export type Database = {
           posted_at?: string;
           price?: number;
           promoted_until?: string | null;
+          revision?: number;
           saves?: number;
           search?: never;
           seller_id?: string;
@@ -1218,6 +1221,58 @@ export type Database = {
         };
         Relationships: [];
       };
+      push_deliveries: {
+        Row: {
+          attempts: number;
+          completed_at: string | null;
+          due_at: string;
+          endpoint: string;
+          id: string;
+          last_status: number | null;
+          lease: string | null;
+          leased_until: string | null;
+          notification_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          attempts?: number;
+          completed_at?: string | null;
+          due_at?: string;
+          endpoint: string;
+          id?: string;
+          last_status?: number | null;
+          lease?: string | null;
+          leased_until?: string | null;
+          notification_id: string;
+        };
+        Update: {
+          attempts?: number;
+          completed_at?: string | null;
+          due_at?: string;
+          endpoint?: string;
+          id?: string;
+          last_status?: number | null;
+          lease?: string | null;
+          leased_until?: string | null;
+          notification_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_deliveries_endpoint_fkey";
+            columns: ["endpoint"];
+            isOneToOne: false;
+            referencedRelation: "push_subscriptions";
+            referencedColumns: ["endpoint"];
+          },
+          {
+            foreignKeyName: "push_deliveries_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: false;
+            referencedRelation: "notifications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       push_subscriptions: {
         Row: {
           auth: string;
@@ -1701,11 +1756,20 @@ export type Database = {
       };
     };
     Functions: {
+      account_page: { Args: { p_kind: string; p_cursor?: Json; p_limit?: number; p_parent?: string }; Returns: Json };
+      market_page: { Args: { p_filters?: Json; p_cursor?: Json; p_limit?: number }; Returns: Json };
+      latest_offers: { Args: { p_listings: string[] }; Returns: Json };
+
       add_dispute_message: { Args: { p_body: string; p_dispute: string }; Returns: undefined };
+      answer_offer: { Args: { p_offer: string; p_status: string }; Returns: undefined };
+      claim_push_deliveries: { Args: { p_notification?: string }; Returns: Json };
+      finish_push_delivery: { Args: { p_id: string; p_lease: string; p_retry_seconds?: number; p_status: number }; Returns: undefined };
       mark_handed_over: { Args: { p_order: string }; Returns: undefined };
+      message_unread_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       my_permissions: { Args: Record<PropertyKey, never>; Returns: string[] };
       open_dispute: { Args: { p_details?: string; p_order: string; p_reason: string }; Returns: string };
       resolve_dispute: { Args: { p_dispute: string; p_note?: string; p_outcome: string }; Returns: undefined };
+      save_listing: { Args: { p_expected_revision?: number; p_fields: Json; p_id: string; p_photos: string[] }; Returns: number };
       settle_order: { Args: { p_action: string; p_order: string }; Returns: undefined };
       verify_audit_chain: {
         Args: Record<PropertyKey, never>;
