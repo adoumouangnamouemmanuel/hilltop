@@ -46,7 +46,8 @@ export function Footer() {
     <>
       {/* Phones: the essentials, above the tab bar. */}
       <footer className="mt-16 border-t border-line bg-surface md:hidden">
-        <div className="container-page py-8">
+        {/* Bottom padding clears the floating tab bar (62px + 12px gap + the phone's safe area). */}
+        <div className="container-page pt-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
           <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-ink-700">
             <Link href="/help">Help</Link>
             <Link href="/#how">How it works</Link>
