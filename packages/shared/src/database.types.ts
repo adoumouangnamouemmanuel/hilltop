@@ -396,6 +396,61 @@ export type Database = {
           },
         ];
       };
+      feedback: {
+        Row: {
+          created_at: string;
+          device: string | null;
+          handled_by: string | null;
+          id: string;
+          kind: string;
+          message: string;
+          page: string | null;
+          profile_id: string | null;
+          sender: string | null;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          device?: string | null;
+          handled_by?: string | null;
+          id?: string;
+          kind: string;
+          message: string;
+          page?: string | null;
+          profile_id?: string | null;
+          sender?: string | null;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          device?: string | null;
+          handled_by?: string | null;
+          id?: string;
+          kind?: string;
+          message?: string;
+          page?: string | null;
+          profile_id?: string | null;
+          sender?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "feedback_handled_by_fkey";
+            columns: ["handled_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feedback_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       listing_photos: {
         Row: {
           created_at: string;

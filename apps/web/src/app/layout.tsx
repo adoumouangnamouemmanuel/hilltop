@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { Announcement } from "@/components/announcement";
 import { Header } from "@/components/header";
+import { FeedbackButton } from "@/components/feedback";
 import { Footer } from "@/components/footer";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { Providers } from "@/components/providers";
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           </main>
           <Footer />
           <MobileTabBar />
+          <FeedbackButton />
           <Toaster />
         </Providers>
       </body>

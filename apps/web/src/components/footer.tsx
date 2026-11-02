@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useConfig } from "@/lib/config";
 import { useCatalog } from "@/lib/use-catalog";
+import { openFeedback } from "./feedback";
 import { Logo } from "./logo";
 import { ThemeSegmented } from "./theme-toggle";
 
@@ -53,6 +54,9 @@ export function Footer() {
             <Link href="/#how">How it works</Link>
             <Link href="/privacy">Privacy</Link>
             <a href={`mailto:${brand.supportEmail}`}>Contact us</a>
+            <button type="button" onClick={openFeedback}>
+              Report a problem
+            </button>
           </div>
           <p className="mt-4 text-xs text-ink-500">&copy; 2026 Hilltop. A student project, not an official Ashesi service.</p>
         </div>
@@ -87,7 +91,12 @@ export function Footer() {
         </div>
         <div className="border-t border-line">
           <div className="container-page flex flex-col gap-2 py-6 text-xs text-ink-500 sm:flex-row sm:justify-between">
-            <p>&copy; 2026 Hilltop. A student project, not an official Ashesi service.</p>
+            <p>
+              &copy; 2026 Hilltop. A student project, not an official Ashesi service.{" "}
+              <button type="button" onClick={openFeedback} className="underline underline-offset-2 hover:text-ink-950">
+                Report a problem
+              </button>
+            </p>
             <p>Berekuso, Ghana</p>
           </div>
         </div>

@@ -4,6 +4,7 @@ import {
   Gavel,
   LayoutDashboard,
   type LucideIcon,
+  MessageSquareWarning,
   Rocket,
   ScrollText,
   Settings2,
@@ -29,6 +30,13 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
       { href: "/listings", label: "Listings", icon: Store, permission: "listings.view", keywords: "moderation reports feature" },
       { href: "/orders", label: "Orders", icon: ClipboardList, permission: "orders.view", keywords: "payments refund payout" },
       { href: "/disputes", label: "Disputes", icon: Gavel, permission: "disputes.view", keywords: "claims resolve" },
+      {
+        href: "/feedback",
+        label: "Feedback",
+        icon: MessageSquareWarning,
+        permission: "feedback.view",
+        keywords: "bugs ideas reports support",
+      },
     ],
   },
   {

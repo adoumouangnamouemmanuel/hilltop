@@ -25,6 +25,7 @@ export const permissionGroups = {
     "disputes.view": "View disputes",
     "disputes.resolve": "Resolve disputes",
   },
+  Support: { "feedback.view": "Read and close feedback and bug reports" },
   Catalog: {
     "catalog.view": "View categories",
     "catalog.edit": "Create and edit categories and their fields",
@@ -81,6 +82,7 @@ export const defaultRoles: Role[] = [
       "orders.refund",
       "disputes.view",
       "disputes.resolve",
+      "feedback.view",
       "catalog.view",
       "settings.view",
       "audit.view",
@@ -96,7 +98,7 @@ export const defaultRoles: Role[] = [
     id: "support",
     name: "Support",
     description: "Helps students with orders and disputes.",
-    permissions: ["dashboard.view", "users.view", "orders.view", "disputes.view", "disputes.resolve"],
+    permissions: ["dashboard.view", "users.view", "orders.view", "disputes.view", "disputes.resolve", "feedback.view"],
   },
   { id: "viewer", name: "Viewer", description: "Read-only access to analytics.", permissions: ["dashboard.view"] },
 ];

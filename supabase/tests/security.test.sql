@@ -571,5 +571,34 @@ select set_config('request.jwt.claims', '{"sub": "22222222-2222-2222-2222-222222
 select is((select count(*)::int from public.verify_audit_chain()), 1, 'a tampered entry is found');
 reset role;
 
+-- History saves with an upsert; feedback from anyone -----------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select lives_ok($$insert into public.browsing_history (profile_id, listing_id, viewed_at) values (current_setting('test.bea')::uuid, 'pizza', now())
+  on conflict (profile_id, listing_id) do update set profile_id = excluded.profile_id, listing_id = excluded.listing_id, viewed_at = excluded.viewed_at$$,
+  'viewing a listing again updates history');
+select lives_ok($$insert into public.browsing_history (profile_id, listing_id, viewed_at) values (current_setting('test.bea')::uuid, 'pizza', now())
+  on conflict (profile_id, listing_id) do update set profile_id = excluded.profile_id, listing_id = excluded.listing_id, viewed_at = excluded.viewed_at$$,
+  'and again');
+select lives_ok($$insert into public.feedback (kind, message, page) values ('bug', 'The checkout button does nothing', '/listing/pizza')$$,
+  'students send feedback');
+select is((select count(*)::int from public.feedback), 0, 'students can''t read feedback');
+reset role;
+select is((select profile_id from public.feedback order by created_at desc limit 1), current_setting('test.bea')::uuid,
+  'feedback is attributed by the database');
+set local role anon;
+select set_config('request.jwt.claims', '{"role": "anon"}', true);
+select set_config('request.headers', '{"x-forwarded-for": "198.51.100.4"}', true);
+select lives_ok($$insert into public.feedback (kind, message) select 'idea', 'Dark mode toggle please' from generate_series(1, 5)$$,
+  'visitors send feedback');
+select throws_ok($$insert into public.feedback (kind, message) values ('idea', 'One more')$$, '23514', null, 'feedback is rate limited');
+reset role;
+select set_config('request.headers', '', true);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}', true);
+select is((select count(*)::int from public.feedback), 6, 'owners read feedback');
+select lives_ok($$update public.feedback set status = 'closed' where kind = 'bug'$$, 'owners close feedback');
+reset role;
+
 select * from finish();
 rollback;
