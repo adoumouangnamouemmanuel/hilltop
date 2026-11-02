@@ -12,6 +12,8 @@ export type Seller = {
   id: string;
   /** Database id, when the seller comes from the database. */
   profileId?: string;
+  /** Checked by the Hilltop team in the admin portal; shown as a badge. */
+  verified?: boolean;
   name: string;
   /** Business name, e.g. "Eyecon", shown alongside the seller's name. */
   shop?: string;

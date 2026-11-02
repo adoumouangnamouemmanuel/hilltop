@@ -46,7 +46,7 @@ export default async function SellerPage({ params }: PageProps<"/seller/[id]">) 
         <div className="flex-1">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-[-0.025em] text-ink-950 sm:text-3xl">
             {seller.name}
-            <Verified className="[&_svg]:size-5" />
+            {seller.verified && <Verified className="[&_svg]:size-5" />}
           </h1>
           <p className="mt-1 text-[15px] text-ink-700">
             {seller.shop && <span className="font-semibold text-ink-950">{seller.shop} · </span>}

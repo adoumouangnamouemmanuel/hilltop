@@ -17,7 +17,7 @@ const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 
 const DAY = 86_400_000;
 
-const SELLER_COLUMNS = "id, handle, name, shop_name, specialty, class_of, major, response_time, sales, created_at";
+const SELLER_COLUMNS = "id, handle, name, shop_name, specialty, class_of, major, response_time, sales, verified, created_at";
 const LISTING_COLUMNS =
   "id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
   `promoted_until, status, posted_at, views, saves, seller:profiles!listings_seller_id_fkey(${SELLER_COLUMNS}), listing_photos(url, position)`;
@@ -32,6 +32,7 @@ type SellerRow = {
   major: string | null;
   response_time: string | null;
   sales: number;
+  verified: boolean;
   created_at: string;
 };
 
@@ -90,6 +91,7 @@ function toSeller(row: SellerRow, rating?: RatingRow): Seller {
     id: row.handle,
     profileId: row.id,
     name: row.name,
+    verified: row.verified,
     shop: row.shop_name ?? undefined,
     specialty: row.specialty ?? "Ashesi student",
     classOf: row.class_of ?? undefined,

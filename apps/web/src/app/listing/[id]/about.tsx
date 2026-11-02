@@ -62,7 +62,7 @@ export function SellerCard({ seller, isMe, extraReviews }: { seller: Seller; isM
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 font-semibold text-ink-950">
             {seller.name}
-            <Verified />
+            {seller.verified && <Verified />}
           </p>
           <p className="truncate text-[13px] text-ink-500">
             {seller.shop && <span className="font-medium text-ink-700">{seller.shop} · </span>}

@@ -13,7 +13,7 @@ import type { ListingReport, SavedSearch } from "./types";
 
 const LISTING_COLUMNS =
   "id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
-  "promoted_until, status, posted_at, views, saves, seller:profiles!listings_seller_id_fkey(id, handle, name, shop_name, specialty, class_of, major, response_time, sales, created_at), listing_photos(url, position)";
+  "promoted_until, status, posted_at, views, saves, seller:profiles!listings_seller_id_fkey(id, handle, name, shop_name, specialty, class_of, major, response_time, sales, verified, created_at), listing_photos(url, position)";
 
 export type Mine = {
   myListings: Listing[];

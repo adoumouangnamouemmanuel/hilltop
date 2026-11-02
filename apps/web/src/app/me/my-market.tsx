@@ -8,6 +8,7 @@ import { ArrowRight, ChartNoAxesColumn } from "lucide-react";
 import { formatCedi } from "@/lib/format";
 import { payoutState } from "@/lib/model";
 import { useConfig } from "@/lib/config";
+import { getSeller } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import type { Order } from "@/lib/types";
 import { PushPrompt } from "@/components/notifications";
@@ -90,7 +91,7 @@ export function MyMarket() {
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-[-0.025em] text-ink-950">
             {user.name}
-            <Verified />
+            {!!user.handle && getSeller(user.handle)?.verified && <Verified />}
           </h1>
           <p className="truncate text-sm text-ink-500">{user.email}</p>
         </div>
