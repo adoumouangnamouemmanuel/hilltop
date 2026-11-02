@@ -43,7 +43,21 @@ export type Database = {
             foreignKeyName: "admin_members_invited_by_fkey";
             columns: ["invited_by"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_members_invited_by_fkey";
+            columns: ["invited_by"];
+            isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_members_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -130,6 +144,13 @@ export type Database = {
             foreignKeyName: "audit_log_actor_id_fkey";
             columns: ["actor_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "audit_log_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -158,6 +179,20 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "browsing_history_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "browsing_history_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -190,6 +225,13 @@ export type Database = {
           updated_by?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "config_draft_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "config_draft_updated_by_fkey";
             columns: ["updated_by"];
@@ -233,6 +275,13 @@ export type Database = {
             foreignKeyName: "config_releases_published_by_fkey";
             columns: ["published_by"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "config_releases_published_by_fkey";
+            columns: ["published_by"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -269,6 +318,13 @@ export type Database = {
             foreignKeyName: "conversations_buyer_id_fkey";
             columns: ["buyer_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -277,6 +333,20 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -315,6 +385,13 @@ export type Database = {
           role?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "dispute_messages_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "dispute_messages_author_id_fkey";
             columns: ["author_id"];
@@ -377,6 +454,13 @@ export type Database = {
             foreignKeyName: "disputes_opened_by_fkey";
             columns: ["opened_by"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "disputes_opened_by_fkey";
+            columns: ["opened_by"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -385,6 +469,13 @@ export type Database = {
             columns: ["order_id"];
             isOneToOne: true;
             referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "disputes_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -439,7 +530,21 @@ export type Database = {
             foreignKeyName: "feedback_handled_by_fkey";
             columns: ["handled_by"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feedback_handled_by_fkey";
+            columns: ["handled_by"];
+            isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feedback_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -482,6 +587,13 @@ export type Database = {
             referencedRelation: "listings";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "listing_photos_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
+            referencedColumns: ["id"];
+          },
         ];
       };
       listing_views: {
@@ -501,6 +613,13 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "listing_views_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
             referencedColumns: ["id"];
           },
         ];
@@ -580,6 +699,13 @@ export type Database = {
           views?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: "listings_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "listings_seller_id_fkey";
             columns: ["seller_id"];
@@ -666,6 +792,13 @@ export type Database = {
             foreignKeyName: "messages_sender_id_fkey";
             columns: ["sender_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -721,6 +854,13 @@ export type Database = {
             foreignKeyName: "notifications_profile_id_fkey";
             columns: ["profile_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -760,6 +900,13 @@ export type Database = {
             foreignKeyName: "offers_buyer_id_fkey";
             columns: ["buyer_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "offers_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -768,6 +915,13 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "offers_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
             referencedColumns: ["id"];
           },
         ];
@@ -799,6 +953,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"];
         };
         Relationships: [
+          {
+            foreignKeyName: "order_events_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "order_events_actor_id_fkey";
             columns: ["actor_id"];
@@ -891,6 +1052,13 @@ export type Database = {
             foreignKeyName: "orders_buyer_id_fkey";
             columns: ["buyer_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "orders_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -899,6 +1067,20 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "orders_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "orders_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -938,6 +1120,13 @@ export type Database = {
             foreignKeyName: "photo_uploads_profile_id_fkey";
             columns: ["profile_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "photo_uploads_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -958,6 +1147,13 @@ export type Database = {
           profile_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "profile_emails_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "profile_emails_profile_id_fkey";
             columns: ["profile_id"];
@@ -1050,6 +1246,13 @@ export type Database = {
             foreignKeyName: "push_subscriptions_profile_id_fkey";
             columns: ["profile_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1095,6 +1298,13 @@ export type Database = {
             foreignKeyName: "reports_handled_by_fkey";
             columns: ["handled_by"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_handled_by_fkey";
+            columns: ["handled_by"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1103,6 +1313,20 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey";
+            columns: ["reporter_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -1151,6 +1375,13 @@ export type Database = {
             foreignKeyName: "reviews_author_id_fkey";
             columns: ["author_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1159,6 +1390,13 @@ export type Database = {
             columns: ["order_id"];
             isOneToOne: true;
             referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -1193,6 +1431,20 @@ export type Database = {
             columns: ["listing_id"];
             isOneToOne: false;
             referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_listings_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_listings_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
             referencedColumns: ["id"];
           },
           {
@@ -1238,6 +1490,13 @@ export type Database = {
             foreignKeyName: "saved_searches_profile_id_fkey";
             columns: ["profile_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_searches_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1265,6 +1524,13 @@ export type Database = {
             foreignKeyName: "search_history_profile_id_fkey";
             columns: ["profile_id"];
             isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "search_history_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1281,6 +1547,134 @@ export type Database = {
         ComputedFields: never;
         Relationships: [];
       };
+      market_listings: {
+        Row: {
+          attributes: NonNullable<Json>;
+          category: string;
+          condition: string | null;
+          description: string | null;
+          food: Json | null;
+          id: string;
+          move_out: boolean;
+          original_price: number | null;
+          photos: string[] | null;
+          pickup: string;
+          posted_at: string;
+          price: number;
+          promoted_until: string | null;
+          saves: number;
+          seller_id: string;
+          status: Database["public"]["Enums"]["listing_status"];
+          stock: number | null;
+          title: string;
+          updated_at: string;
+          views: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          attributes?: Json | null;
+          category?: string | null;
+          condition?: string | null;
+          description?: never;
+          food?: Json | null;
+          id?: string | null;
+          move_out?: boolean | null;
+          original_price?: number | null;
+          photos?: never;
+          pickup?: string | null;
+          posted_at?: string | null;
+          price?: number | null;
+          promoted_until?: string | null;
+          saves?: number | null;
+          seller_id?: string | null;
+          status?: Database["public"]["Enums"]["listing_status"] | null;
+          stock?: number | null;
+          title?: string | null;
+          updated_at?: string | null;
+          views?: number | null;
+        };
+        Update: {
+          attributes?: Json | null;
+          category?: string | null;
+          condition?: string | null;
+          description?: never;
+          food?: Json | null;
+          id?: string | null;
+          move_out?: boolean | null;
+          original_price?: number | null;
+          photos?: never;
+          pickup?: string | null;
+          posted_at?: string | null;
+          price?: number | null;
+          promoted_until?: string | null;
+          saves?: number | null;
+          seller_id?: string | null;
+          status?: Database["public"]["Enums"]["listing_status"] | null;
+          stock?: number | null;
+          title?: string | null;
+          updated_at?: string | null;
+          views?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "listings_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "listings_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      market_sellers: {
+        Row: {
+          class_of: number | null;
+          created_at: string;
+          handle: string;
+          id: string;
+          major: string | null;
+          name: string;
+          response_time: string | null;
+          sales: number;
+          shop_name: string | null;
+          specialty: string | null;
+          verified: boolean;
+        };
+        ComputedFields: never;
+        Insert: {
+          class_of?: number | null;
+          created_at?: string | null;
+          handle?: string | null;
+          id?: string | null;
+          major?: string | null;
+          name?: string | null;
+          response_time?: string | null;
+          sales?: number | null;
+          shop_name?: string | null;
+          specialty?: string | null;
+          verified?: boolean | null;
+        };
+        Update: {
+          class_of?: number | null;
+          created_at?: string | null;
+          handle?: string | null;
+          id?: string | null;
+          major?: string | null;
+          name?: string | null;
+          response_time?: string | null;
+          sales?: number | null;
+          shop_name?: string | null;
+          specialty?: string | null;
+          verified?: boolean | null;
+        };
+        Relationships: [];
+      };
       seller_ratings: {
         Row: {
           rating: number | null;
@@ -1289,6 +1683,13 @@ export type Database = {
         };
         ComputedFields: never;
         Relationships: [
+          {
+            foreignKeyName: "reviews_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "market_sellers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "reviews_seller_id_fkey";
             columns: ["seller_id"];
