@@ -1,5 +1,6 @@
 "use client";
 
+import { GuideTip } from "@/components/buy-guide";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -307,6 +308,10 @@ export function BrowseView() {
               </AnimatePresence>
             </div>
           )}
+
+          <div className="mt-4 empty:hidden">
+            <GuideTip where="results" />
+          </div>
 
           {results.length > 0 ? (
             <motion.div layout className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4">

@@ -13,29 +13,9 @@ import { MicrosoftButton, OrDivider } from "@/components/auth-shell";
 import { Confetti } from "@/components/confetti";
 import { buttonClass, cn } from "@/components/ui";
 import { CodeStep, safeNext } from "../sign-in/sign-in-flow";
+import { majors } from "@/lib/majors";
 
 const years = [2026, 2027, 2028, 2029, 2030];
-const majors = [
-  {
-    level: "Undergraduate",
-    options: [
-      "Business Administration",
-      "Management Information Systems",
-      "Computer Science",
-      "Economics",
-      "Computer Engineering",
-      "Electrical and Electronic Engineering",
-      "Mechanical Engineering",
-      "Mechatronic Engineering",
-      "Biological Engineering",
-      "Law with Public Policy",
-    ],
-  },
-  {
-    level: "Graduate",
-    options: ["Master's in Intelligent Computing Systems", "Master's in Mechatronic Engineering", "MBA"],
-  },
-];
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };

@@ -1,5 +1,6 @@
 "use client";
 
+import { GuideTip } from "@/components/buy-guide";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -182,6 +183,11 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
             </dl>
           )}
 
+          {!seller.isMe && (
+            <div className="mt-6 empty:hidden">
+              <GuideTip where="listing" />
+            </div>
+          )}
           <BuyBox
             listing={listing}
             sellerName={seller.name}

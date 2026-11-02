@@ -60,7 +60,7 @@ const sections = [
     id: "listings",
     label: "Listings",
     icon: Package,
-    keys: ["listings", "saved", "reports", "conditions", "pickupSpots", "search"],
+    keys: ["listings", "saved", "reports", "conditions", "pickupSpots", "meetups", "search"],
     description: "Limits, expiry, reporting, conditions, pickup spots and search.",
   },
   {
@@ -635,6 +635,32 @@ function Listings({ value: c, set, err }: SectionProps) {
       <Group title="Pickup spots" description="Safe places on campus where buyers and sellers meet.">
         <TagList label="Pickup spots" values={c.pickupSpots} onChange={(v) => set({ pickupSpots: v })} placeholder="Add a spot" />
         {err("pickupSpots") && <p className="text-xs text-maroon-700">Add at least one pickup spot.</p>}
+      </Group>
+      <Group
+        title="Meet-up times"
+        description="The days and times buyers can choose at checkout. They can also agree a time in chat. Food uses each seller's own pickup windows."
+      >
+        <Field label="Days ahead buyers can book" error={err("meetups.daysAhead")} hint="Today counts as one.">
+          {(id) => (
+            <NumberInput
+              id={id}
+              value={c.meetups.daysAhead}
+              onChange={(v) => set({ meetups: { ...c.meetups, daysAhead: v } })}
+              min={1}
+              max={14}
+              suffix="days"
+            />
+          )}
+        </Field>
+        <TagList
+          label="Time windows"
+          values={c.meetups.windows}
+          onChange={(v) => set({ meetups: { ...c.meetups, windows: v } })}
+          placeholder="16:00-18:00"
+        />
+        {c.meetups.windows.some((_, i) => err(`meetups.windows.${i}`)) || err("meetups.windows") ? (
+          <p className="text-xs text-maroon-700">Use 24-hour windows like 16:00-18:00, up to 8.</p>
+        ) : null}
       </Group>
       <Group title="Popular searches" description="Suggested in the search box. Up to 12.">
         <TagList

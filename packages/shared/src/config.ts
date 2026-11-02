@@ -99,6 +99,14 @@ export const platformConfigSchema = z.object({
     }),
   ),
   pickupSpots: z.array(z.string().min(1).max(40)).min(1),
+  /** When buyers can meet sellers: this many days ahead, in these windows ("HH:MM-HH:MM"). Food uses each seller's own slots. */
+  meetups: z.object({
+    daysAhead: z.number().int().min(1).max(14),
+    windows: z
+      .array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM-HH:MM, like 16:00-18:00"))
+      .min(1)
+      .max(8),
+  }),
   conditions: z.array(z.object({ value: z.string().min(1).max(20), help: z.string().max(80) })).min(1),
   events: z.object({
     moveOut: z.object({
@@ -223,6 +231,7 @@ export const defaultConfig: PlatformConfig = {
     { id: "week", label: "7 days", price: 15, reach: "About 5x more views", enabled: true },
   ],
   pickupSpots: ["Library", "Cafeteria", "Main gate", "Hostel A", "Hostel C", "Engineering block"],
+  meetups: { daysAhead: 3, windows: ["10:00-12:00", "12:00-14:00", "16:00-18:00", "18:00-20:00"] },
   conditions: [
     { value: "New", help: "Unused, still in the packaging" },
     { value: "Like new", help: "Used once or twice, no marks" },

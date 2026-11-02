@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,6 +13,7 @@ import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { enabledPaymentMethods, percent } from "@hilltop/shared/config";
 import { paymentPlan, type PaymentPlan } from "@hilltop/shared/payments";
+import { ARRANGE_IN_CHAT, meetupDays, type MeetupDay } from "@hilltop/shared/meetups";
 import type { Order } from "@/lib/types";
 import { Confetti } from "@/components/confetti";
 import { Switch } from "@/components/controls";
@@ -21,13 +22,12 @@ import { buttonClass, cn } from "@/components/ui";
 
 const methodIcons = { momo: Smartphone, card: CreditCard };
 
-const meetSlots = ["Today, 4 to 6pm", "Tomorrow, 12 to 2pm", "Tomorrow, 5 to 7pm"];
-
 type Step = "review" | "paying" | "done";
 
 /** Pickup windows: food uses the seller's slots and cut-off, everything else offers meet-up times. */
 export function pickupOptions(listing: Listing, now: number | null, foodOrdering = true) {
-  if (!listing.food || !foodOrdering) return { slots: meetSlots, sameDay: true };
+  // Other items use the meet-up times set in the admin (see MeetupPicker).
+  if (!listing.food || !foodOrdering) return { slots: [] as string[], sameDay: true };
   const sameDay = now === null || beforeCutoff(listing.food.cutoff, now);
   const day = sameDay ? "Today" : "Tomorrow";
   return { slots: listing.food.slots.map((s) => `${day}, ${s}`), sameDay };
@@ -65,7 +65,8 @@ export function CheckoutDialog({
     preorder: !!listing.food && config.features.foodOrdering,
     wantsProtection,
   });
-  const chosenSlot = slot ?? slots[0];
+  const days = useMemo(() => (now ? meetupDays(config, new Date(now)) : []), [config, now]);
+  const chosenSlot = slot ?? (listing.food ? slots[0] : (days[0]?.windows[0]?.value ?? ARRANGE_IN_CHAT));
 
   async function pay() {
     setStep("paying");
@@ -173,7 +174,10 @@ export function CheckoutDialog({
 
             <fieldset className="mt-6" disabled={step === "paying"}>
               <legend className="text-sm font-semibold text-ink-950">{listing.food ? "Pickup time" : "Meet-up time"}</legend>
-              {listing.food && (
+              {!listing.food || !config.features.foodOrdering ? (
+                <MeetupPicker days={days} value={chosenSlot} onChange={setSlot} pickup={listing.pickup} />
+              ) : null}
+              {listing.food && config.features.foodOrdering && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500">
                   <Clock className="size-3.5" aria-hidden />
                   {sameDay
@@ -181,7 +185,7 @@ export function CheckoutDialog({
                     : `Today's orders closed at ${formatClock(listing.food.cutoff)}. This is a pre-order for tomorrow.`}
                 </p>
               )}
-              <div className="-mx-5 mt-2.5 no-scrollbar flex gap-2 overflow-x-auto px-5">
+              <div className={cn("-mx-5 mt-2.5 no-scrollbar flex gap-2 overflow-x-auto px-5", !slots.length && "hidden")}>
                 {slots.map((s) => (
                   <button
                     key={s}
@@ -397,5 +401,72 @@ function DoneCopy({ order, pickup }: { order: Order; pickup: string }) {
         {when}. {detail}
       </p>
     </>
+  );
+}
+
+/** Pick a day, then a time window; or leave it to agree in chat. */
+function MeetupPicker({
+  days,
+  value,
+  onChange,
+  pickup,
+}: {
+  days: MeetupDay[];
+  value: string;
+  onChange: (slot: string) => void;
+  pickup: string;
+}) {
+  const current = days.find((d) => d.windows.some((w) => w.value === value));
+  const [dayKey, setDayKey] = useState<string | null>(null);
+  const day = days.find((d) => d.key === dayKey) ?? current ?? days[0];
+  const chip = (active: boolean) =>
+    cn(
+      "shrink-0 rounded-lg border px-3 py-2 text-xs transition-colors",
+      active ? "border-ink-950 bg-ink-950 text-canvas" : "border-line-strong text-ink-700 hover:border-ink-900",
+    );
+  return (
+    <div className="mt-1.5">
+      <p className="text-xs text-ink-500">At {pickup}. The seller confirms or suggests another time in chat.</p>
+      {days.length > 0 && (
+        <div className="-mx-5 mt-2.5 no-scrollbar flex gap-2 overflow-x-auto px-5" role="group" aria-label="Day">
+          {days.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              aria-pressed={day?.key === d.key && value !== ARRANGE_IN_CHAT}
+              onClick={() => {
+                setDayKey(d.key);
+                onChange(d.windows[0].value);
+              }}
+              className={chip(day?.key === d.key && value !== ARRANGE_IN_CHAT)}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="-mx-5 mt-2 no-scrollbar flex gap-2 overflow-x-auto px-5" role="group" aria-label="Time">
+        {value !== ARRANGE_IN_CHAT &&
+          day?.windows.map((w) => (
+            <button
+              key={w.value}
+              type="button"
+              aria-pressed={value === w.value}
+              onClick={() => onChange(w.value)}
+              className={chip(value === w.value)}
+            >
+              {w.label}
+            </button>
+          ))}
+        <button
+          type="button"
+          aria-pressed={value === ARRANGE_IN_CHAT}
+          onClick={() => onChange(value === ARRANGE_IN_CHAT ? (day?.windows[0]?.value ?? ARRANGE_IN_CHAT) : ARRANGE_IN_CHAT)}
+          className={chip(value === ARRANGE_IN_CHAT)}
+        >
+          Arrange in chat
+        </button>
+      </div>
+    </div>
   );
 }

@@ -12,6 +12,7 @@ import { getSeller } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import type { Order } from "@/lib/types";
 import { PushPrompt } from "@/components/notifications";
+import { ProfileForm } from "./profile-form";
 import { ThemeSegmented } from "@/components/theme-toggle";
 import { Avatar, buttonClass, cn, Verified } from "@/components/ui";
 import { ListingsManager } from "./listings-manager";
@@ -94,6 +95,9 @@ export function MyMarket() {
             {!!user.handle && getSeller(user.handle)?.verified && <Verified />}
           </h1>
           <p className="truncate text-sm text-ink-500">{user.email}</p>
+          <Link href="/me?tab=settings" className="mt-1 inline-block text-sm font-medium text-ink-950 underline underline-offset-4">
+            Edit profile
+          </Link>
         </div>
       </div>
 
@@ -190,6 +194,10 @@ export function MyMarket() {
 
           {tab === "settings" && (
             <div className="max-w-xl space-y-8">
+              <section>
+                <h2 className="mb-3 text-sm font-semibold text-ink-950">Your profile</h2>
+                <ProfileForm />
+              </section>
               <section>
                 <h2 className="text-sm font-semibold text-ink-950">Appearance</h2>
                 <div className="mt-3 w-64">

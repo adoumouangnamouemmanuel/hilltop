@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { BuyGuideButton } from "@/components/buy-guide";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck } from "lucide-react";
@@ -38,7 +39,8 @@ export default async function Home() {
               <SearchBox large />
             </Suspense>
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <BuyGuideButton className="mt-4" />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs text-ink-400">Trending</span>
             {popularSearches.slice(0, 5).map((s) => (
               <Link

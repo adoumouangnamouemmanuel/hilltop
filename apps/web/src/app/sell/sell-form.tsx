@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { enabledBoostPlans } from "@hilltop/shared/config";
 import { useMarket } from "@/lib/use-market";
+import { SellGuide } from "./sell-guide";
 import { useConfig } from "@/lib/config";
 import { formatCedi } from "@/lib/format";
 import { isActive } from "@/lib/model";
@@ -150,7 +151,12 @@ export function SellForm() {
       <h1 className="text-2xl font-semibold tracking-[-0.025em] text-ink-950 sm:text-3xl">
         {editing ? (isDraft ? "Finish your draft" : "Edit listing") : "List an item"}
       </h1>
-      <p className="mt-1.5 text-sm text-ink-500">Free to list. You&rsquo;re paid as soon as the buyer confirms collection.</p>
+      <p className="mt-1.5 text-sm text-ink-500">
+        {config.payments.inApp
+          ? "Free to list. You're paid as soon as the buyer confirms collection."
+          : "Free to list. Buyers reserve it here and pay you when you meet."}
+      </p>
+      {!editing && <SellGuide values={values} />}
 
       <form onSubmit={publish} noValidate className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
         <div className="divide-y divide-line">
