@@ -61,15 +61,8 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  turbopack: {
-    root,
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
+  // Tailwind runs through PostCSS (postcss.config.mjs), which Turbopack and webpack both use.
+  turbopack: { root },
 };
 
 export default nextConfig;

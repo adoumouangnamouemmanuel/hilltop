@@ -22,7 +22,8 @@ const csp = [
   `img-src 'self' data: blob: https://images.unsplash.com https://photos.hilltop.lumavok.com${dev ? " http://localhost:* http://127.0.0.1:*" : ""}`,
   "font-src 'self' data:",
   `connect-src 'self' data: blob: ${supabase} ${supabase.replace(/^http/, "ws")} https://*.ingest.sentry.io https://*.ingest.us.sentry.io${dev ? " ws://localhost:* ws://127.0.0.1:*" : ""}`,
-  "worker-src 'self'",
+  // The lazy HEIC decoder uses a bundled CSP-safe blob worker (no unsafe-eval).
+  "worker-src 'self' blob:",
   "manifest-src 'self'",
   "frame-src 'none'",
   "frame-ancestors 'none'",
@@ -75,15 +76,8 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  turbopack: {
-    root,
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
+  // Tailwind runs through PostCSS (postcss.config.mjs), which Turbopack and webpack both use.
+  turbopack: { root },
 };
 
 export default nextConfig;
