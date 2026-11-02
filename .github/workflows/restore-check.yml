@@ -32,7 +32,7 @@ jobs:
           if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
             echo "::error::Restore check can't run: the R2 secrets are missing"; exit 1
           fi
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3.1.0
         with:
           version: 2.122.0
       - name: Download the newest backup
