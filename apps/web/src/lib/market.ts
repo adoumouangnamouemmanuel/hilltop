@@ -4,11 +4,22 @@ import { relativeTime } from "@hilltop/shared/format";
 /*
  * The public marketplace: live listings and the students selling them, read from
  * Supabase. The server loads it (cached for a minute) and hands it to the browser,
- * which refreshes it when the tab regains focus. Synchronous lookups (getSeller,
- * getListing) read the copy held here.
+ * which refreshes it when the tab regains focus: only what changed since, with a
+ * full reload every half hour. Synchronous lookups (getSeller, getListing) read the
+ * copy held here, through an index.
+ *
+ * Browsing reads card fields from the market_listings and market_sellers views
+ * (short descriptions, photo lists, each seller once); a listing page reads its
+ * full listing with fetchListing.
  */
 
-export type Market = { listings: Listing[]; sellers: Seller[]; loadedAt: number };
+export type Market = {
+  listings: Listing[];
+  sellers: Seller[];
+  loadedAt: number;
+  /** When the whole market was last read; changes since are merged in between. */
+  fullAt?: number;
+};
 
 export type PlatformReview = { id: string; sellerId: string; author: string; rating: number; text: string; when: string };
 
@@ -18,6 +29,9 @@ const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 const DAY = 86_400_000;
 
 const SELLER_COLUMNS = "id, handle, name, shop_name, specialty, class_of, major, response_time, sales, verified, created_at";
+const CARD_COLUMNS =
+  "id, title, description, price, original_price, category, condition, attributes, pickup, stock, food, move_out, promoted_until, " +
+  "status, posted_at, updated_at, views, saves, seller_id, photos";
 const LISTING_COLUMNS =
   "id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
   `promoted_until, status, posted_at, views, saves, seller:profiles!listings_seller_id_fkey(${SELLER_COLUMNS}), listing_photos(url, position)`;
@@ -60,6 +74,15 @@ export type ListingRow = {
 };
 
 type RatingRow = { seller_id: string; rating: number; reviews: number };
+
+type CardRow = Omit<ListingRow, "extra" | "seller" | "listing_photos"> & { seller_id: string; updated_at: string; photos: string[] };
+
+function fromCard(row: CardRow, seller: SellerRow | undefined, now: number): Listing {
+  return toListing(
+    { ...row, extra: null, seller: seller ?? null, listing_photos: row.photos.map((url, position) => ({ url, position })) },
+    now,
+  );
+}
 
 export function toListing(row: ListingRow, now = Date.now()): Listing {
   return {
@@ -122,11 +145,11 @@ const PAGE = 1000;
 const MAX_LISTINGS = 10_000;
 
 /** Every live and sold listing, a page at a time, so none silently go missing past a fixed limit. */
-async function listingPages(init?: RequestInit) {
-  const rows: ListingRow[] = [];
+async function cardPages(filter: string, init?: RequestInit) {
+  const rows: CardRow[] = [];
   for (let offset = 0; offset < MAX_LISTINGS; offset += PAGE) {
-    const page = await rest<ListingRow[]>(
-      `listings?select=${LISTING_COLUMNS}&status=in.(active,sold)&order=posted_at.desc,id&limit=${PAGE}&offset=${offset}`,
+    const page = await rest<CardRow[]>(
+      `market_listings?select=${CARD_COLUMNS}${filter}&order=posted_at.desc,id&limit=${PAGE}&offset=${offset}`,
       init,
     );
     rows.push(...page);
@@ -136,19 +159,59 @@ async function listingPages(init?: RequestInit) {
   return rows;
 }
 
+function build(rows: CardRow[], sellerRows: SellerRow[], ratings: RatingRow[], now: number) {
+  const ratingOf = new Map(ratings.map((r) => [r.seller_id, r]));
+  const sellerById = new Map(sellerRows.map((s) => [s.id, s]));
+  const listings = rows.filter((r) => sellerById.has(r.seller_id)).map((r) => fromCard(r, sellerById.get(r.seller_id), now));
+  const sellers = sellerRows.map((s) => toSeller(s, ratingOf.get(s.id)));
+  return { listings, sellers };
+}
+
 /** Loads live and sold listings with their sellers. `init` lets the server cache the requests. */
 export async function fetchMarket(init?: RequestInit): Promise<Market> {
   if (!SUPABASE_URL) return emptyMarket();
-  const [rows, ratings] = await Promise.all([
-    listingPages(init),
+  const [rows, sellerRows, ratings] = await Promise.all([
+    cardPages("", init),
+    rest<SellerRow[]>(`market_sellers?select=${SELLER_COLUMNS}`, init),
     rest<RatingRow[]>("seller_ratings?select=seller_id,rating,reviews", init),
   ]);
   const now = Date.now();
-  const ratingOf = new Map(ratings.map((r) => [r.seller_id, r]));
-  const sellers = new Map<string, Seller>();
-  for (const row of rows)
-    if (row.seller && !sellers.has(row.seller.id)) sellers.set(row.seller.id, toSeller(row.seller, ratingOf.get(row.seller.id)));
-  return { listings: rows.filter((r) => r.seller).map((r) => toListing(r, now)), sellers: [...sellers.values()], loadedAt: now };
+  return { ...build(rows, sellerRows, ratings, now), loadedAt: now, fullAt: now };
+}
+
+const FULL_EVERY_MS = 30 * 60_000;
+
+/**
+ * Brings a market up to date: just the listings changed since it was loaded (and
+ * their sellers), or everything every half hour, which also drops listings that
+ * were hidden or deleted (those don't show up as changes).
+ */
+export async function refreshMarket(current: Market): Promise<Market> {
+  const now = Date.now();
+  if (!current.fullAt || now - current.fullAt > FULL_EVERY_MS) return fetchMarket();
+  // A little overlap, so clock differences can't skip a change.
+  const since = new Date(current.loadedAt - 60_000).toISOString();
+  const changed = await cardPages(`&updated_at=gt.${since}`);
+  if (!changed.length) return { ...current, loadedAt: now };
+  const ids = [...new Set(changed.map((r) => r.seller_id))];
+  const [sellerRows, ratings] = await Promise.all([
+    rest<SellerRow[]>(`market_sellers?select=${SELLER_COLUMNS}&id=in.(${ids.join(",")})`),
+    rest<RatingRow[]>(`seller_ratings?select=seller_id,rating,reviews&seller_id=in.(${ids.join(",")})`),
+  ]);
+  const fresh = build(changed, sellerRows, ratings, now);
+  const byId = new Map(current.listings.map((l) => [l.id, l]));
+  for (const l of fresh.listings) byId.set(l.id, l);
+  const sellers = new Map(current.sellers.map((s) => [s.id, s]));
+  for (const s of fresh.sellers) sellers.set(s.id, s);
+  const listings = [...byId.values()].sort((a, b) => a.postedDaysAgo - b.postedDaysAgo);
+  return { listings, sellers: [...sellers.values()], loadedAt: now, fullAt: current.fullAt };
+}
+
+/** One listing in full (description, specs), for its page. Drafts and hidden listings aren't public. */
+export async function fetchListing(id: string, init?: RequestInit): Promise<Listing | null> {
+  if (!SUPABASE_URL || !/^[\w-]{1,80}$/.test(id)) return null;
+  const rows = await rest<ListingRow[]>(`listings?select=${LISTING_COLUMNS}&id=eq.${id}&status=in.(active,sold)&limit=1`, init);
+  return rows[0]?.seller ? toListing(rows[0]) : null;
 }
 
 /** One seller's public profile by handle, read fresh so edits show without waiting for the market cache. */
@@ -212,5 +275,16 @@ export function subscribeMarket(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export const findSeller = (id: string) => market.sellers.find((s) => s.id === id);
-export const findMarketListing = (id: string) => market.listings.find((l) => l.id === id);
+// Lookups by id run for every card on a page, so they use maps built once per market.
+const indexes = new WeakMap<Market, { listings: Map<string, Listing>; sellers: Map<string, Seller> }>();
+function indexOf(m: Market) {
+  let index = indexes.get(m);
+  if (!index) {
+    index = { listings: new Map(m.listings.map((l) => [l.id, l])), sellers: new Map(m.sellers.map((s) => [s.id, s])) };
+    indexes.set(m, index);
+  }
+  return index;
+}
+
+export const findSeller = (id: string) => indexOf(market).sellers.get(id);
+export const findMarketListing = (id: string) => indexOf(market).listings.get(id);

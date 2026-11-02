@@ -1,5 +1,5 @@
-import { fetchMarket, fetchReviews, fetchSeller, type Market, type PlatformReview } from "./market";
-import type { Seller } from "@hilltop/shared/seed";
+import { fetchListing, fetchMarket, fetchReviews, fetchSeller, type Market, type PlatformReview } from "./market";
+import type { Listing, Seller } from "@hilltop/shared/seed";
 
 /** How often the server refetches listings, in seconds. Pages are regenerated on the same schedule. */
 const REFRESH_SECONDS = 60;
@@ -21,6 +21,15 @@ export async function getReviews(seller: Seller): Promise<PlatformReview[]> {
     return await fetchReviews(seller, cached);
   } catch {
     return [];
+  }
+}
+
+/** One listing in full for its page; the market only carries what cards need. */
+export async function getFullListing(id: string): Promise<Listing | null> {
+  try {
+    return await fetchListing(id, cached);
+  } catch {
+    return null;
   }
 }
 

@@ -38,8 +38,11 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
   const [copied, setCopied] = useState(false);
 
   const found = findListing(allListings, id);
-  // The browser's copy of the market has shortened descriptions; the server sent this one in full.
-  const listing = found && initial?.id === found.id ? { ...found, description: initial.description } : (found ?? initial);
+  // The browser's copy of the market only has what cards need; the server sent the description and specs in full.
+  const listing =
+    found && initial?.id === found.id
+      ? { ...found, description: initial.description, extra: initial.extra ?? found.extra }
+      : (found ?? initial);
   const visible = listing && (listing.status !== "draft" || (!!user?.handle && listing.sellerId === user.handle));
 
   useEffect(() => {

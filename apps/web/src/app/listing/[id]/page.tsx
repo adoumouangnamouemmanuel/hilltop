@@ -9,8 +9,10 @@ import { ListingDetail } from "./listing-detail";
 // Listings are regenerated every minute; new ones render on first visit.
 export const revalidate = 60;
 
+// The newest listings are built ahead; the rest render on their first visit and are
+// cached from then on, so builds stay quick however big the market gets.
 export async function generateStaticParams() {
-  return (await getMarket()).listings.map((l) => ({ id: l.id }));
+  return (await getMarket()).listings.slice(0, 200).map((l) => ({ id: l.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/listing/[id]">): Promise<Metadata> {

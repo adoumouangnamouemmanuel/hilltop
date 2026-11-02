@@ -13,7 +13,7 @@ import { supabase } from "./supabase";
 import * as Mine from "./mine";
 import * as Social from "./social";
 import * as Orders from "./orders";
-import { fetchMarket, setMarket } from "./market";
+import { readMarket, refreshMarket, setMarket } from "./market";
 import { getSeller } from "./data";
 import type { DisputeReason, Order, OrderStatus, Review, SavedSearch, State, User } from "./types";
 
@@ -254,7 +254,7 @@ function moveOrder(orderId: string, status: OrderStatus, optimistic: (s: State) 
     if (error) toast(error);
     refreshSocial();
     if (status === "cancelled")
-      fetchMarket()
+      refreshMarket(readMarket())
         .then(setMarket)
         .catch(() => {});
   });
@@ -316,7 +316,7 @@ export const actions = {
     // A load that was already running started before this order existed.
     if (!state.orders.some((o) => o.id === placed.id)) await refreshSocial();
     // The item is reserved now, so others see it as sold or with less stock.
-    fetchMarket()
+    refreshMarket(readMarket())
       .then(setMarket)
       .catch(() => {});
     const order = state.orders.find((o) => o.id === placed.id);

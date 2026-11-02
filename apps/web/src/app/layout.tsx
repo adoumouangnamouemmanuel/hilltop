@@ -9,7 +9,6 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/toaster";
 import { getPlatformConfig } from "@/lib/config-server";
 import { getMarket } from "@/lib/market-server";
-import type { Market } from "@/lib/market";
 import { protectionSummary } from "@hilltop/shared/payments";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
@@ -38,15 +37,8 @@ export const viewport: Viewport = {
   ],
 };
 
-// Every page carries the market to the browser, so descriptions are shortened there;
-// listing pages load the full text from the server.
-const forBrowser = (market: Market): Market => ({
-  ...market,
-  listings: market.listings.map((l) => (l.description.length > 200 ? { ...l, description: `${l.description.slice(0, 200)}…` } : l)),
-});
-
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [config, market] = await Promise.all([getPlatformConfig(), getMarket().then(forBrowser)]);
+  const [config, market] = await Promise.all([getPlatformConfig(), getMarket()]);
   return (
     // The theme class is set by the inline script before hydration.
     <html lang="en" className={`${poppins.variable} h-full antialiased`} suppressHydrationWarning>

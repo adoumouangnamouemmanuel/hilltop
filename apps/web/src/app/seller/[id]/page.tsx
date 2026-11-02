@@ -7,8 +7,12 @@ import { SellerHeader, SellerListings, SellerReviews } from "./seller-live";
 
 export const revalidate = 60;
 
+// The most active sellers are built ahead; the rest render on first visit.
 export async function generateStaticParams() {
-  return (await getMarket()).sellers.map((s) => ({ id: s.id }));
+  return (await getMarket()).sellers
+    .toSorted((a, b) => b.sales - a.sales)
+    .slice(0, 100)
+    .map((s) => ({ id: s.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/seller/[id]">): Promise<Metadata> {

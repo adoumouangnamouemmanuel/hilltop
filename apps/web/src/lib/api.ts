@@ -1,5 +1,5 @@
 import type { Listing, Seller } from "./data";
-import { getMarket, getReviews, getSellerProfile } from "./market-server";
+import { getFullListing, getMarket, getReviews, getSellerProfile } from "./market-server";
 import { paginate, queryListings, type ListingQuery } from "./queries";
 import { applyFilters, type Filters } from "./search";
 
@@ -12,8 +12,9 @@ export async function getListings(q: ListingQuery = {}): Promise<Listing[]> {
   return queryListings((await getMarket()).listings, q);
 }
 
+/** A listing in full: description and specs, which the market's cards leave out. */
 export async function getListing(id: string): Promise<Listing | null> {
-  return (await getMarket()).listings.find((l) => l.id === id && l.status !== "draft") ?? null;
+  return getFullListing(id);
 }
 
 export async function searchListings(filters: Filters, opts: { page?: number; pageSize?: number; labelOf?: (id: string) => string } = {}) {
