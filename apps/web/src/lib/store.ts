@@ -6,7 +6,7 @@ import { useMarket } from "./use-market";
 import { runtimeConfig, useConfig } from "./config";
 import { withExpiry } from "@hilltop/shared/ranking";
 import * as M from "./model";
-import { showSystemNotification } from "./push";
+import { forgetPushSubscription, showSystemNotification, syncPushSubscription } from "./push";
 import { toast } from "./toast";
 import { signOutEverywhere } from "./auth";
 import { supabase } from "./supabase";
@@ -256,18 +256,30 @@ export const actions = {
     // Browsing history lives in this browser. It carries over when a visitor signs in,
     // but not to someone else using the same browser afterwards.
     const otherPerson = switched && !!state.user?.profileId;
+    // A visitor signing in brings what they browsed into their account.
+    const arriving = switched && !state.user?.profileId && !!user?.profileId;
+    const visitorHistory = { viewed: state.recentlyViewed, searches: state.recentSearches };
     if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}), ...(otherPerson ? noHistory : {}) }), true);
     if (switched) {
       mineLoadedFor = null;
       socialLoadedFor = null;
       watch(user?.profileId);
+      if (user?.profileId) void syncPushSubscription(user.profileId);
     }
-    if (user?.profileId && mineLoadedFor !== user.profileId) refreshMine();
+    if (arriving && (visitorHistory.viewed.length || visitorHistory.searches.length)) {
+      writes++;
+      Mine.mergeHistory(user!.profileId!, visitorHistory.viewed, visitorHistory.searches).then(() => {
+        writes++;
+        refreshMine();
+      });
+    } else if (user?.profileId && mineLoadedFor !== user.profileId) refreshMine();
     if (user?.profileId && socialLoadedFor !== user.profileId) refreshSocial();
   },
   refreshMine,
   refreshSocial,
   async signOut() {
+    // While still signed in, so the database lets us remove it.
+    await forgetPushSubscription().catch(() => {});
     await signOutEverywhere();
     watch(undefined);
     commit((s) => ({ ...s, user: null, ...noMine, ...noHistory }), true);
@@ -420,11 +432,43 @@ export const actions = {
       refreshSocial();
       return null;
     }
-    // A new conversation gets its real id.
+    // A new conversation gets its real id; the message gets its own on the next load.
     if (result.conversationId !== tempId) {
       commit((s) => ({ ...s, conversations: s.conversations.map((c) => (c.id === tempId ? { ...c, id: result.conversationId } : c)) }));
     }
+    refreshSocialSoon();
     return result.conversationId;
+  },
+  async editMessage(conversationId: string, messageId: string, text: string) {
+    writes++;
+    const body = text.trim();
+    commit((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) =>
+        c.id === conversationId
+          ? { ...c, messages: c.messages.map((m) => (m.id === messageId ? { ...m, text: body, edited: true } : m)) }
+          : c,
+      ),
+    }));
+    const error = await Social.editMessageRemote(messageId, body);
+    writes++;
+    if (error) toast(error);
+    refreshSocialSoon();
+  },
+  async deleteMessage(conversationId: string, messageId: string) {
+    writes++;
+    commit((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) =>
+        c.id === conversationId
+          ? { ...c, messages: c.messages.map((m) => (m.id === messageId ? { ...m, text: "", deleted: true } : m)) }
+          : c,
+      ),
+    }));
+    const error = await Social.deleteMessageRemote(messageId);
+    writes++;
+    if (error) toast(error);
+    refreshSocialSoon();
   },
   readConversation(id: string) {
     writes++;
@@ -451,15 +495,26 @@ export const actions = {
     const q = query.trim();
     if (!q) return;
     commit((s) => ({ ...s, recentSearches: [q, ...s.recentSearches.filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, 5) }));
+    const profileId = me();
+    if (profileId) {
+      writes++;
+      Mine.recordSearchRemote(profileId, q.slice(0, 100)).then(() => writes++);
+    }
   },
   clearRecentSearches() {
+    writes++;
     commit((s) => ({ ...s, recentSearches: [] }));
+    if (me()) Mine.clearHistoryRemote("searches").then(() => writes++);
   },
   clearRecentlyViewed() {
+    writes++;
     commit((s) => ({ ...s, recentlyViewed: [] }));
+    if (me()) Mine.clearHistoryRemote("views").then(() => writes++);
   },
   removeRecentlyViewed(id: string) {
+    writes++;
     commit((s) => ({ ...s, recentlyViewed: s.recentlyViewed.filter((x) => x !== id) }));
+    if (me()) Mine.clearHistoryRemote("views", id).then(() => writes++);
   },
   async saveSearch(search: Omit<SavedSearch, "id" | "createdAt" | "alerts">) {
     writes++;
@@ -494,7 +549,14 @@ export const actions = {
     if (profileId) Mine.reportRemote(profileId, { listingId, reason, details }).then(failed);
   },
   recordView(id: string) {
-    if (state.recentlyViewed[0] !== id) commit((s) => M.recordView(s, id));
+    if (state.recentlyViewed[0] !== id) {
+      commit((s) => M.recordView(s, id));
+      const profileId = me();
+      if (profileId) {
+        writes++;
+        Mine.recordViewRemote(profileId, id).then(() => writes++);
+      }
+    }
     if (!counted.has(id)) {
       counted.add(id);
       supabase()

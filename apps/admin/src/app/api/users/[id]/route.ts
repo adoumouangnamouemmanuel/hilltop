@@ -8,9 +8,9 @@ import type { Database } from "@hilltop/shared/database.types";
  *
  * Deleting the profile cascades in the database to their listings and photos,
  * conversations and messages, offers, reviews, reports, saved items and searches,
- * notifications and email. Their photos are removed from R2, their sign-in from
- * Supabase Auth, and their name from the audit log. Orders stay for the other
- * student, shown as with a deleted student.
+ * notifications and email. Their photos are removed from R2 and their sign-in from
+ * Supabase Auth. Records are kept: orders keep both names (copied when placed) and
+ * the audit log is never rewritten.
  */
 
 type PhotoBucket = {
@@ -83,9 +83,6 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/us
     const { error } = await server.auth.admin.deleteUser(profile.user_id);
     if (error) return fail(500, `Their data is gone, but the sign-in couldn't be deleted: ${error.message}`);
   }
-
-  // Earlier entries that named them keep what happened, without who it was about.
-  await server.from("audit_log").update({ target: "Deleted student" }).eq("target", profile.name);
 
   return Response.json({ deleted: profile.name });
 }

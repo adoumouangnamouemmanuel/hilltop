@@ -323,6 +323,45 @@ select throws_ok($$insert into public.saved_listings (profile_id, listing_id) va
   '23514', null, 'saved items are capped');
 reset role;
 
+-- Messages: edits for 15 minutes, deletes any time, history kept for the team ---------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select lives_ok($$update public.messages set body = 'Still available? (edited)' where body = 'Still available?'$$,
+  'a sender can edit their message');
+select ok((select edited_at is not null from public.messages where body = 'Still available? (edited)'), 'an edit is marked');
+select lives_ok($$update public.messages set deleted_at = now() where body = 'Still available? (edited)'$$,
+  'a sender can delete their message');
+select is((select count(*)::int from public.messages where body like 'Still available%'), 0, 'a deleted message''s text is gone');
+select is((select count(*)::int from public.message_revisions), 0, 'students can''t read message history');
+reset role;
+select is((select count(*)::int from public.message_revisions where body like 'Still available%'), 2, 'the team keeps what it said');
+select set_config('request.jwt.claims', '', true);
+update public.messages set created_at = now() - interval '1 hour', deleted_at = null, body = 'Old message'
+where id = (select id from public.messages where deleted_at is not null limit 1);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select throws_ok($$update public.messages set body = 'Changed my mind' where body = 'Old message'$$,
+  '23514', 'Messages can be edited for 15 minutes after sending', 'old messages can''t be edited');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
+select throws_ok($$update public.messages set body = 'Forged' where body = 'Old message'$$,
+  '42501', null, 'nobody can change someone else''s message');
+reset role;
+
+-- History belongs to the account and keeps the newest -------------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
+select lives_ok($$insert into public.search_history (profile_id, query, searched_at)
+  select current_setting('test.wellington')::uuid, 'search ' || n, now() - make_interval(secs => n) from generate_series(1, 8) n$$,
+  'searches are saved to the account');
+select is((select count(*)::int from public.search_history), 5, 'only the newest 5 searches are kept');
+select is((select min(query) from public.search_history), 'search 1', 'the newest are the ones kept');
+reset role;
+
+-- Orders keep both names ----------------------------------------------------------------------------
+select ok((select buyer_name is not null and seller_name is not null from public.orders where listing_id = 'casio-fx82'),
+  'orders keep the buyer''s and seller''s names');
+
 -- Deleting a student removes everything that's theirs -----------------------------------------
 select set_config('test.stu_orders', (select count(*)::text from public.orders where buyer_id = current_setting('test.stu')::uuid), true);
 delete from public.profiles where id = current_setting('test.stu')::uuid;
@@ -332,6 +371,7 @@ select is((select count(*)::int from public.conversations where listing_id = 'ca
 select is((select count(*)::int from public.reviews where body = 'Great'), 0, 'their reviews are gone');
 select is((select count(*)::int from public.orders where buyer_id is null), current_setting('test.stu_orders')::int,
   'their orders stay for the other student, without them');
+select is((select buyer_name from public.orders where listing_id = 'casio-fx82'), 'Stu Dent', 'and still say who bought');
 
 select * from finish();
 rollback;

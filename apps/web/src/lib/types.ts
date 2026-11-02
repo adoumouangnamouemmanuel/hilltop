@@ -87,7 +87,18 @@ export type IncomingOffer = {
   at: number;
 };
 
-export type Message = { id: string; from: "me" | "them"; text: string; at: number; read?: boolean };
+export type Message = {
+  id: string;
+  from: "me" | "them";
+  text: string;
+  at: number;
+  read?: boolean;
+  edited?: boolean;
+  /** Deleted by the sender; the text is gone. */
+  deleted?: boolean;
+  /** Not saved yet (just sent, waiting for the database). */
+  pending?: boolean;
+};
 
 export type Conversation = {
   id: string;

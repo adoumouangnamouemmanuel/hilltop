@@ -101,17 +101,18 @@ export function PushPrompt() {
   const permission = useSyncExternalStore(noop, notificationPermission, () => "unsupported" as const);
   // The answer from this session wins; until then follow the browser's current permission.
   const [decided, setState] = useState<string | null>(null);
+  const { user } = useStore();
   if ((decided ?? permission) !== "default") return null;
   return (
     <div className="flex items-center gap-3 rounded-xl bg-surface p-3.5">
       <BellRing className="size-5 shrink-0 text-ink-950" aria-hidden />
       <p className="flex-1 text-[13px] text-ink-700">
-        Get a heads-up when sellers reply or your payment is released, even when Hilltop is closed.
+        Get a heads-up when someone messages you, answers your offer or orders from you, even when Hilltop is closed.
       </p>
       <button
         type="button"
         onClick={async () => {
-          const result = await enableNotifications();
+          const result = await enableNotifications(user?.profileId);
           setState(result);
           if (result === "granted") toast("Notifications on", { tone: "success" });
         }}

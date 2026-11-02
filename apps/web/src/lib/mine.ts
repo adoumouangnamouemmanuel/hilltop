@@ -20,6 +20,9 @@ export type Mine = {
   saved: string[];
   savedSearches: SavedSearch[];
   reports: ListingReport[];
+  /** Newest first. */
+  recentlyViewed: string[];
+  recentSearches: string[];
 };
 
 /** Turns a database error into words for a toast. */
@@ -34,13 +37,15 @@ export function problem(error: { message?: string; code?: string } | null | unde
 export async function loadMine(profileId: string): Promise<Mine | null> {
   const client = supabase();
   if (!client) return null;
-  const [listings, saved, searches, reports] = await Promise.all([
+  const [listings, saved, searches, reports, viewed, searched] = await Promise.all([
     client.from("listings").select(LISTING_COLUMNS).eq("seller_id", profileId).order("updated_at", { ascending: false }),
     client.from("saved_listings").select("listing_id, created_at").order("created_at", { ascending: false }),
     client.from("saved_searches").select("id, label, query, alerts, seen_ids, created_at").order("created_at", { ascending: false }),
     client.from("reports").select("listing_id, reason, details, created_at").eq("reporter_id", profileId),
+    client.from("browsing_history").select("listing_id").order("viewed_at", { ascending: false }),
+    client.from("search_history").select("query").order("searched_at", { ascending: false }),
   ]);
-  if (listings.error || saved.error || searches.error || reports.error) return null;
+  if (listings.error || saved.error || searches.error || reports.error || viewed.error || searched.error) return null;
   const now = Date.now();
   return {
     myListings: (listings.data as unknown as ListingRow[]).map((r) => toListing(r, now)),
@@ -54,7 +59,44 @@ export async function loadMine(profileId: string): Promise<Mine | null> {
       createdAt: Date.parse(r.created_at),
     })),
     reports: reports.data.map((r) => ({ listingId: r.listing_id, reason: r.reason, details: r.details, at: Date.parse(r.created_at) })),
+    recentlyViewed: viewed.data.map((r) => r.listing_id),
+    recentSearches: searched.data.map((r) => r.query),
   };
+}
+
+// Browsing and search history ------------------------------------------------------------------
+
+export async function recordViewRemote(profileId: string, listingId: string) {
+  await supabase()?.from("browsing_history").upsert({ profile_id: profileId, listing_id: listingId, viewed_at: new Date().toISOString() });
+}
+
+export async function recordSearchRemote(profileId: string, query: string) {
+  await supabase()?.from("search_history").upsert({ profile_id: profileId, query, searched_at: new Date().toISOString() });
+}
+
+export async function clearHistoryRemote(kind: "views" | "searches", listingId?: string) {
+  const client = supabase();
+  if (!client) return;
+  if (kind === "searches") await client.from("search_history").delete().neq("query", "");
+  else if (listingId) await client.from("browsing_history").delete().eq("listing_id", listingId);
+  else await client.from("browsing_history").delete().neq("listing_id", "");
+}
+
+/** Adds what a visitor viewed and searched before signing in to their account, keeping the order. */
+export async function mergeHistory(profileId: string, viewed: string[], searches: string[]) {
+  const client = supabase();
+  if (!client) return;
+  const now = Date.now();
+  // Newest first, a second apart, so the account keeps the same order.
+  const at = (i: number) => new Date(now - i * 1000).toISOString();
+  await Promise.all([
+    viewed.length
+      ? client.from("browsing_history").upsert(viewed.map((listing_id, i) => ({ profile_id: profileId, listing_id, viewed_at: at(i) })))
+      : null,
+    searches.length
+      ? client.from("search_history").upsert(searches.map((query, i) => ({ profile_id: profileId, query, searched_at: at(i) })))
+      : null,
+  ]);
 }
 
 // Photos -------------------------------------------------------------------------------

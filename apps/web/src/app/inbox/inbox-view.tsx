@@ -5,11 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowUp, Check, CheckCheck, ExternalLink, MessageCircle, Search, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowUp, Check, CheckCheck, ExternalLink, MessageCircle, Pencil, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import { useConfig } from "@/lib/config";
 import { formatCedi } from "@/lib/format";
-import { useBodyScrollLock, useMediaQuery } from "@/lib/hooks";
+import { useBodyScrollLock, useMediaQuery, useNow } from "@/lib/hooks";
 import { findListing, useStore } from "@/lib/store";
+import { EDIT_WINDOW_MS, joinTyping } from "@/lib/social";
 import type { Conversation, Message } from "@/lib/types";
 import { RelativeTime } from "@/components/controls";
 import { Avatar, buttonClass, cn } from "@/components/ui";
@@ -151,7 +152,7 @@ function ConversationRow({ convo, active, onSelect }: { convo: Conversation; act
           <span className="mt-0.5 flex items-center gap-2">
             <span className={cn("min-w-0 flex-1 truncate text-[13px]", convo.unread ? "font-medium text-ink-950" : "text-ink-500")}>
               {last?.from === "me" && "You: "}
-              {last?.text}
+              {last?.deleted ? <span className="italic">Message deleted</span> : last?.text}
             </span>
             {convo.unread > 0 && (
               <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-maroon-700 px-1.5 text-[11px] leading-5 font-semibold text-white">
@@ -184,7 +185,10 @@ function MobileThread({ convo, onBack }: { convo: Conversation; onBack: () => vo
   );
 }
 
-const quickReplies = ["Is it still available?", "Can we meet today?", "Is the price negotiable?", "Can you send more photos?"];
+const quickReplies = {
+  buying: ["Is it still available?", "Can we meet today?", "Is the price negotiable?", "Where can we meet?"],
+  selling: ["Yes, it's still available", "I can meet today", "Library works for me", "Sorry, it's sold"],
+};
 
 const dayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
@@ -204,9 +208,32 @@ function groupMessages(messages: Message[]) {
 }
 
 function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) {
-  const { allListings, sendMessage, readConversation } = useStore();
+  const { allListings, sendMessage, readConversation, editMessage, deleteMessage, user } = useStore();
   const listing = findListing(allListings, convo.listingId);
+  const selling = convo.role === "selling";
   const [text, setText] = useState("");
+  // The message whose actions are open, and the one being edited.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Message | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [theyType, setTheyType] = useState(false);
+  const typing = useRef<{ typing: () => void; leave: () => void } | null>(null);
+
+  // Live "typing…" from the other person; nothing is stored.
+  useEffect(() => {
+    if (!user?.profileId || convo.id.startsWith("c-")) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    typing.current = joinTyping(convo.id, user.profileId, () => {
+      setTheyType(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setTheyType(false), 4000);
+    });
+    return () => {
+      clearTimeout(timer);
+      typing.current?.leave();
+      typing.current = null;
+    };
+  }, [convo.id, user?.profileId]);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const awaitingReply = convo.messages.at(-1)?.from === "me";
@@ -224,11 +251,28 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
   }, [convo.messages.length, awaitingReply]);
 
   function send(body: string) {
-    if (!listing || !body.trim()) return;
-    sendMessage(listing, convo.sellerName, body.trim(), convo.id);
+    if (!body.trim()) return;
+    if (editing) {
+      if (body.trim() !== editing.text) editMessage(convo.id, editing.id, body);
+      setEditing(null);
+    } else {
+      if (!listing) return;
+      sendMessage(listing, convo.sellerName, body.trim(), convo.id);
+    }
     setText("");
+    setTheyType(false);
     if (input.current) input.current.style.height = "";
   }
+
+  function startEditing(m: Message) {
+    setEditing(m);
+    setPicked(null);
+    setText(m.text);
+    requestAnimationFrame(() => input.current?.focus());
+  }
+
+  const now = useNow();
+  const canEdit = (m: Message) => !m.deleted && !m.pending && !!now && now - m.at < EDIT_WINDOW_MS;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -245,7 +289,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold text-ink-950">{convo.sellerName}</p>
           <p className="flex items-center gap-1 text-xs text-ink-500">
-            <ShieldCheck className="size-3.5 text-maroon-700" aria-hidden /> Verified student
+            <ShieldCheck className="size-3.5 text-maroon-700" aria-hidden /> {theyType ? "typing…" : "Ashesi student"}
           </p>
         </div>
         {listing && (
@@ -271,13 +315,17 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
             <span className="block truncate text-[13px] font-medium text-ink-950">{listing.title}</span>
             <span className="text-xs text-ink-500 tabular">{formatCedi(listing.price)}</span>
           </span>
-          <span className={buttonClass("dark", "sm")}>Buy</span>
+          {selling ? (
+            <span className="text-xs font-medium text-ink-500">Your listing</span>
+          ) : (
+            <span className={buttonClass("dark", "sm")}>Buy</span>
+          )}
         </Link>
       )}
 
       <div ref={scroller} className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 md:px-6" aria-live="polite">
         <p className="mx-auto mb-4 max-w-xs rounded-xl bg-surface px-3 py-2 text-center text-[11px] leading-4 text-ink-500">
-          Keep payments on Hilltop. Never send Mobile Money directly, even if asked.
+          Meet somewhere public on campus, and only pay once you have the item. Never send money in advance.
         </p>
         <AnimatePresence initial={false}>
           {items.map((it) =>
@@ -295,22 +343,34 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
                 className={cn("flex", it.m.from === "me" ? "justify-end" : "justify-start", it.first ? "mt-3" : "mt-0.5")}
               >
                 <div
+                  role={it.m.from === "me" && !it.m.deleted ? "button" : undefined}
+                  tabIndex={it.m.from === "me" && !it.m.deleted ? 0 : undefined}
+                  aria-label={it.m.from === "me" && !it.m.deleted ? "Message options" : undefined}
+                  onClick={() => it.m.from === "me" && !it.m.deleted && setPicked(picked === it.m.id ? null : it.m.id)}
+                  onKeyDown={(e) => e.key === "Enter" && it.m.from === "me" && !it.m.deleted && setPicked(it.m.id)}
                   className={cn(
                     "max-w-[80%] px-3.5 py-2 text-[15px] leading-6 break-words md:max-w-[70%] md:text-sm",
-                    it.m.from === "me" ? "bg-ink-950 text-canvas" : "bg-surface text-ink-950",
+                    it.m.from === "me" && !it.m.deleted && "cursor-pointer",
+                    it.m.deleted
+                      ? "border border-dashed border-line-strong bg-transparent text-ink-500 italic"
+                      : it.m.from === "me"
+                        ? "bg-ink-950 text-canvas"
+                        : "bg-surface text-ink-950",
+                    it.m.pending && "opacity-70",
                     it.m.from === "me"
                       ? cn("rounded-2xl", !it.first && "rounded-tr-md", !it.last && "rounded-br-md", it.last && "rounded-br-md")
                       : cn("rounded-2xl", !it.first && "rounded-tl-md", !it.last && "rounded-bl-md", it.last && "rounded-bl-md"),
                   )}
                 >
-                  {it.m.text}
-                  {it.last && (
+                  {it.m.deleted ? "This message was deleted" : it.m.text}
+                  {(it.last || it.m.edited) && (
                     <span
                       className={cn(
                         "mt-0.5 flex items-center justify-end gap-1 text-[10px]",
                         it.m.from === "me" ? "text-canvas/60" : "text-ink-500",
                       )}
                     >
+                      {it.m.edited && !it.m.deleted && <span>edited ·</span>}
                       <RelativeTime at={it.m.at} />
                       {it.m.from === "me" &&
                         it.m.id === lastMine?.id &&
@@ -318,15 +378,85 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
                     </span>
                   )}
                 </div>
+                {picked === it.m.id && (
+                  <div className="ml-2 flex shrink-0 items-center gap-1 self-center">
+                    {canEdit(it.m) && (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(it.m)}
+                        aria-label="Edit message"
+                        className="grid size-8 place-items-center rounded-full bg-surface text-ink-700 hover:text-ink-950"
+                      >
+                        <Pencil className="size-3.5" aria-hidden />
+                      </button>
+                    )}
+                    {!it.m.pending && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(true)}
+                        aria-label="Delete message"
+                        className="grid size-8 place-items-center rounded-full bg-surface text-maroon-700 hover:bg-maroon-50"
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </button>
+                    )}
+                  </div>
+                )}
               </motion.div>
             ),
           )}
         </AnimatePresence>
+        {theyType && (
+          <p className="mt-3 text-xs text-ink-500" aria-live="polite">
+            {convo.sellerName.split(" ")[0]} is typing…
+          </p>
+        )}
       </div>
 
+      {confirmDelete && picked && (
+        <div className="flex items-center justify-between gap-3 border-t border-line bg-maroon-50 px-4 py-2.5 text-[13px] md:px-5">
+          <span className="text-ink-950">Delete this message for everyone?</span>
+          <span className="flex gap-2">
+            <button type="button" onClick={() => setConfirmDelete(false)} className={buttonClass("ghost", "sm")}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                deleteMessage(convo.id, picked);
+                setConfirmDelete(false);
+                setPicked(null);
+              }}
+              className={buttonClass("dark", "sm")}
+            >
+              Delete
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="border-t border-line bg-canvas px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-5 md:pb-3">
-        <div className="-mx-3 mb-2 no-scrollbar flex gap-1.5 overflow-x-auto px-3 md:mx-0 md:px-0">
-          {quickReplies.map((q) => (
+        {editing && (
+          <div className="mb-2 flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2 text-xs">
+            <span className="flex min-w-0 items-center gap-1.5 text-ink-700">
+              <Pencil className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">Editing: {editing.text}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null);
+                setText("");
+              }}
+              aria-label="Cancel editing"
+              className="grid size-6 shrink-0 place-items-center rounded-full hover:bg-surface-2"
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
+          </div>
+        )}
+        <div className={cn("-mx-3 mb-2 no-scrollbar flex gap-1.5 overflow-x-auto px-3 md:mx-0 md:px-0", editing && "hidden")}>
+          {quickReplies[selling ? "selling" : "buying"].map((q) => (
             <button
               key={q}
               type="button"
@@ -353,6 +483,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
             value={text}
             onChange={(e) => {
               setText(e.target.value);
+              if (!editing) typing.current?.typing();
               // Grow with the text up to a few lines.
               e.target.style.height = "auto";
               e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
@@ -365,7 +496,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
             }}
             rows={1}
             enterKeyHint="send"
-            placeholder="Message"
+            placeholder={editing ? "Edit message" : "Message"}
             className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line-strong bg-elevated px-4 py-2.5 text-[16px] leading-6 outline-none focus:border-ink-950 md:text-sm"
           />
           <motion.button

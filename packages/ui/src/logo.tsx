@@ -1,10 +1,19 @@
 import Link from "next/link";
 
+/** The Hilltop mark: a lowercase h whose arch is the hill, with the sun rising behind it. */
 export function LogoMark({ size = 30 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden>
-      <rect width="32" height="32" rx="8" className="fill-maroon-700" />
-      <path d="M6 23.5 13.2 11l4.1 7.1 2.4-3.9L26 23.5H6Z" fill="white" />
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
+      <rect width="64" height="64" rx="16" className="fill-maroon-700" />
+      <circle cx="45.5" cy="18.5" r="6.5" fill="#F5B841" />
+      <path
+        d="M21 13v37M21 37c0-8 5.4-13 12-13s12 5 12 13v13"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="8.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

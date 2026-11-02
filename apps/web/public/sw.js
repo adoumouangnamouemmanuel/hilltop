@@ -72,6 +72,8 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/badge-72.png",
+      // Same tag as a notification the open app may show, so it never appears twice.
+      tag: data.tag,
       data: { href: data.href || "/notifications" },
     }),
   );

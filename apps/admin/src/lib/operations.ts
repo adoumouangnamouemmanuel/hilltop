@@ -40,7 +40,7 @@ export async function loadOperations(): Promise<Operations | null> {
     client
       .from("orders")
       .select(
-        "id, listing_id, listing_title, buyer_id, seller_id, quantity, slot, amount, fee, payment_kind, paid_in_app, pickup, status, placed_at, handed_over_at, listing:listings(category), order_events(status, at)",
+        "id, listing_id, listing_title, buyer_id, seller_id, buyer_name, seller_name, quantity, slot, amount, fee, payment_kind, paid_in_app, pickup, status, placed_at, handed_over_at, listing:listings(category), order_events(status, at)",
       )
       .order("placed_at", { ascending: false })
       .limit(2000),
@@ -94,8 +94,9 @@ export async function loadOperations(): Promise<Operations | null> {
     listingId: o.listing_id ?? "",
     title: o.listing_title,
     category: (o.listing as { category: string } | null)?.category ?? "other",
-    buyer: (o.buyer_id && names.get(o.buyer_id)) || "Deleted student",
-    seller: (o.seller_id && names.get(o.seller_id)) || "Deleted student",
+    // Names copied onto the order keep the record readable after an account is deleted.
+    buyer: (o.buyer_id && names.get(o.buyer_id)) || (o.buyer_name ? `${o.buyer_name} (deleted)` : "Deleted student"),
+    seller: (o.seller_id && names.get(o.seller_id)) || (o.seller_name ? `${o.seller_name} (deleted)` : "Deleted student"),
     amount: Number(o.amount),
     fee: Number(o.fee),
     method: o.payment_kind === "pickup" ? "Paid at pickup" : "In the app",

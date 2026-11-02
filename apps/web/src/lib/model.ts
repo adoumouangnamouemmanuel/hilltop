@@ -337,7 +337,7 @@ export function sendMessage(
   s: State,
   m: { conversationId: string; listingId: string; sellerId: string; sellerName: string; text: string; id: string; now: number },
 ): State {
-  const msg = { id: m.id, from: "me" as const, text: m.text, at: m.now };
+  const msg = { id: m.id, from: "me" as const, text: m.text, at: m.now, pending: true };
   const existing = s.conversations.find((c) => c.id === m.conversationId);
   const convo: Conversation = existing
     ? { ...existing, messages: [...existing.messages, msg] }

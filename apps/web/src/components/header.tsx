@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Heart,
   LayoutGrid,
+  LifeBuoy,
   LogOut,
   MessageCircle,
   Package,
@@ -349,6 +350,7 @@ function AccountMenu({ name, email }: { name: string; email: string }) {
     ...(features.messaging ? [{ href: "/inbox", label: "Messages", icon: MessageCircle }] : []),
     { href: "/saved", label: "Saved", icon: Heart },
     { href: "/sell", label: "Sell an item", icon: Plus },
+    { href: "/help", label: "Help & support", icon: LifeBuoy },
   ];
 
   return (

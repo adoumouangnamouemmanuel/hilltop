@@ -25,7 +25,7 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
     client
       .from("conversations")
       .select(
-        "id, listing_id, buyer_id, buyer:profiles!conversations_buyer_id_fkey(handle, name), seller:profiles!conversations_seller_id_fkey(handle, name), messages(id, sender_id, body, created_at, read_at)",
+        "id, listing_id, buyer_id, buyer:profiles!conversations_buyer_id_fkey(handle, name), seller:profiles!conversations_seller_id_fkey(handle, name), messages(id, sender_id, body, created_at, read_at, edited_at, deleted_at)",
       )
       .order("last_message_at", { ascending: false })
       .order("created_at", { referencedTable: "messages", ascending: true })
@@ -65,6 +65,8 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
           text: m.body,
           at: Date.parse(m.created_at),
           read: !!m.read_at,
+          edited: !!m.edited_at,
+          deleted: !!m.deleted_at,
         })),
         unread: c.messages.filter((m) => m.sender_id !== profileId && !m.read_at).length,
       } satisfies Conversation,
@@ -129,6 +131,41 @@ export async function sendMessageRemote(
   const sent = await client.from("messages").insert({ conversation_id: id, sender_id: profileId, body: text });
   if (sent.error) return { error: problem(sent.error, "Your message didn't send. Try again.")! };
   return { conversationId: id };
+}
+
+/** Messages can be edited for this long after sending; the database enforces it too. */
+export const EDIT_WINDOW_MS = 15 * 60_000;
+
+export async function editMessageRemote(messageId: string, body: string) {
+  const { error } = (await supabase()?.from("messages").update({ body }).eq("id", messageId)) ?? {};
+  return problem(error, "Couldn't edit the message. Try again.");
+}
+
+/** Deletes a message for everyone. The team keeps what it said, for disputes. */
+export async function deleteMessageRemote(messageId: string) {
+  const { error } = (await supabase()?.from("messages").update({ deleted_at: new Date().toISOString() }).eq("id", messageId)) ?? {};
+  return problem(error, "Couldn't delete the message. Try again.");
+}
+
+/**
+ * "Typing…" between the two people in a conversation, over Realtime broadcast:
+ * nothing is stored. `onTyping` fires when the other person types.
+ */
+export function joinTyping(conversationId: string, profileId: string, onTyping: () => void) {
+  const client = supabase();
+  if (!client) return { typing: () => {}, leave: () => {} };
+  const channel = client.channel(`typing:${conversationId}`, { config: { broadcast: { self: false } } });
+  channel.on("broadcast", { event: "typing" }, ({ payload }) => payload?.from !== profileId && onTyping()).subscribe();
+  let last = 0;
+  return {
+    typing: () => {
+      // At most every couple of seconds.
+      if (Date.now() - last < 2500) return;
+      last = Date.now();
+      void channel.send({ type: "broadcast", event: "typing", payload: { from: profileId } });
+    },
+    leave: () => void client.removeChannel(channel),
+  };
 }
 
 export async function readConversationRemote(profileId: string, conversationId: string) {

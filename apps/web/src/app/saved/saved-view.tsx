@@ -108,7 +108,11 @@ export function SavedView() {
             (recent.length ? (
               <>
                 <div className="mb-6 flex items-center justify-between gap-4">
-                  <p className="text-sm text-ink-500">Kept on this device only, and cleared when you log out.</p>
+                  <p className="text-sm text-ink-500">
+                    {user
+                      ? "The last 12 listings you opened, on any device."
+                      : "Kept on this device. Log in to keep them with your account."}
+                  </p>
                   <button type="button" onClick={clearRecentlyViewed} className={buttonClass("outline", "sm")}>
                     Clear all
                   </button>

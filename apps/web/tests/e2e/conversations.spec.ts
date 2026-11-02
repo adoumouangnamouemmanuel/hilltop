@@ -42,4 +42,30 @@ test("a buyer offers and messages; the seller accepts and replies", async ({ bro
   await expect(buyer.getByText("Yes, 4pm works.").first()).toBeVisible();
   await buyer.goto("/listing/my-smartwatch");
   await expect(buyer.getByText(/GH₵340/).first()).toBeVisible();
+
+  // Kofi corrects his reply, then deletes it; Esi sees both.
+  await seller.getByRole("button", { name: "Message options" }).last().click();
+  await seller.getByRole("button", { name: "Edit message" }).click();
+  await seller.getByLabel("Message Esi Mensah").fill("Yes, 5pm works.");
+  await seller.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(seller.getByText("Yes, 5pm works.").last()).toBeVisible();
+
+  await buyer.goto("/inbox");
+  await buyer
+    .getByRole("button", { name: /Kofi Darko/ })
+    .first()
+    .click();
+  await expect(buyer.getByText("Yes, 5pm works.").last()).toBeVisible();
+  await expect(buyer.getByText(/edited/).last()).toBeVisible();
+
+  await seller.getByRole("button", { name: "Message options" }).last().click();
+  await seller.getByRole("button", { name: "Delete message" }).click();
+  await seller.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(seller.getByText("This message was deleted").last()).toBeVisible();
+  await buyer.reload();
+  await buyer
+    .getByRole("button", { name: /Kofi Darko/ })
+    .first()
+    .click();
+  await expect(buyer.getByText("This message was deleted").last()).toBeVisible();
 });

@@ -159,7 +159,13 @@ const seed =
   photoRows.join(",\n") +
   `\non conflict (listing_id, position) do nothing;\n`;
 
+// Locally the database asks the dev server to deliver push notifications.
+const localSettings = `
+-- Push notifications go to the local dev server, reached from Docker.
+update private.settings set value = 'http://host.docker.internal:3000/api/push' where key = 'push_url';
+`;
+
 const dir = join(__dirname, "..", "supabase");
 writeFileSync(join(dir, "bootstrap.sql"), bootstrap);
-writeFileSync(join(dir, "seed.sql"), seed);
+writeFileSync(join(dir, "seed.sql"), seed + localSettings);
 console.log(`Wrote bootstrap.sql and seed.sql: ${sellers.length} sellers, ${listings.length} listings, ${photoRows.length} photos.`);

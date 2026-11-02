@@ -11,7 +11,7 @@ import type { Order, OrderStatus, Review } from "./types";
  */
 
 const ORDER_COLUMNS =
-  "id, listing_id, listing_title, pickup, buyer_id, seller_id, quantity, amount, fee, payment_kind, paid_in_app, due_at_pickup, slot, status, handed_over_at, auto_released, placed_at, " +
+  "id, listing_id, listing_title, pickup, buyer_id, seller_id, buyer_name, seller_name, quantity, amount, fee, payment_kind, paid_in_app, due_at_pickup, slot, status, handed_over_at, auto_released, placed_at, " +
   "buyer:profiles!orders_buyer_id_fkey(name), seller:profiles!orders_seller_id_fkey(name, handle), order_events(status, at), disputes(reason, details, state, opened_at), reviews(id)";
 
 type Row = {
@@ -21,6 +21,8 @@ type Row = {
   pickup: string | null;
   buyer_id: string | null;
   seller_id: string | null;
+  buyer_name: string | null;
+  seller_name: string | null;
   quantity: number;
   amount: number;
   fee: number;
@@ -54,7 +56,8 @@ function toOrder(r: Row, profileId: string): Order {
     pickup: r.pickup ?? undefined,
     sellerHandle: r.seller?.handle,
     role: selling ? "selling" : "buying",
-    counterpart: (selling ? r.buyer?.name : r.seller?.name) ?? "Deleted student",
+    // The name copied onto the order covers someone who has since deleted their account.
+    counterpart: (selling ? (r.buyer?.name ?? r.buyer_name) : (r.seller?.name ?? r.seller_name)) ?? "A student",
     quantity: r.quantity,
     amount: Number(r.amount),
     fee: Number(r.fee),

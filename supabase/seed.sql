@@ -216,3 +216,6 @@ insert into public.listing_photos (listing_id, url, position) values
   ('my-desk-fan', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=1600&q=80&auto=format', 0),
   ('my-desk-lamp', 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=1600&q=80&auto=format', 0)
 on conflict (listing_id, position) do nothing;
+
+-- Push notifications go to the local dev server, reached from Docker.
+update private.settings set value = 'http://host.docker.internal:3000/api/push' where key = 'push_url';

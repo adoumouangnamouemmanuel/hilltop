@@ -129,6 +129,40 @@ export type Database = {
           },
         ];
       };
+      browsing_history: {
+        Row: {
+          listing_id: string;
+          profile_id: string;
+          viewed_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          listing_id: string;
+          profile_id: string;
+          viewed_at?: string;
+        };
+        Update: {
+          listing_id?: string;
+          profile_id?: string;
+          viewed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "browsing_history_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "browsing_history_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       config_draft: {
         Row: {
           config: NonNullable<Json>;
@@ -481,11 +515,46 @@ export type Database = {
           },
         ];
       };
+      message_revisions: {
+        Row: {
+          at: string;
+          body: string;
+          id: number;
+          kind: string;
+          message_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          at?: string;
+          body: string;
+          id?: never;
+          kind: string;
+          message_id: string;
+        };
+        Update: {
+          at?: string;
+          body?: string;
+          id?: never;
+          kind?: string;
+          message_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "message_revisions_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: false;
+            referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       messages: {
         Row: {
           body: string;
           conversation_id: string;
           created_at: string;
+          deleted_at: string | null;
+          edited_at: string | null;
           id: string;
           read_at: string | null;
           sender_id: string;
@@ -495,6 +564,8 @@ export type Database = {
           body: string;
           conversation_id: string;
           created_at?: string;
+          deleted_at?: string | null;
+          edited_at?: string | null;
           id?: string;
           read_at?: string | null;
           sender_id: string;
@@ -503,6 +574,8 @@ export type Database = {
           body?: string;
           conversation_id?: string;
           created_at?: string;
+          deleted_at?: string | null;
+          edited_at?: string | null;
           id?: string;
           read_at?: string | null;
           sender_id?: string;
@@ -532,6 +605,7 @@ export type Database = {
           id: string;
           kind: string;
           profile_id: string;
+          pushed_at: string | null;
           read_at: string | null;
           title: string;
         };
@@ -543,6 +617,7 @@ export type Database = {
           id?: string;
           kind: string;
           profile_id: string;
+          pushed_at?: string | null;
           read_at?: string | null;
           title: string;
         };
@@ -553,6 +628,7 @@ export type Database = {
           id?: string;
           kind?: string;
           profile_id?: string;
+          pushed_at?: string | null;
           read_at?: string | null;
           title?: string;
         };
@@ -660,6 +736,7 @@ export type Database = {
           amount: number;
           auto_released: boolean;
           buyer_id: string | null;
+          buyer_name: string | null;
           due_at_pickup: number;
           fee: number;
           handed_over_at: string | null;
@@ -672,6 +749,7 @@ export type Database = {
           placed_at: string;
           quantity: number;
           seller_id: string | null;
+          seller_name: string | null;
           slot: string | null;
           status: Database["public"]["Enums"]["order_status"];
           unit_price: number;
@@ -682,6 +760,7 @@ export type Database = {
           amount: number;
           auto_released?: boolean;
           buyer_id?: string | null;
+          buyer_name?: string | null;
           due_at_pickup?: number;
           fee?: number;
           handed_over_at?: string | null;
@@ -694,6 +773,7 @@ export type Database = {
           placed_at?: string;
           quantity?: number;
           seller_id?: string | null;
+          seller_name?: string | null;
           slot?: string | null;
           status?: Database["public"]["Enums"]["order_status"];
           unit_price: number;
@@ -703,6 +783,7 @@ export type Database = {
           amount?: number;
           auto_released?: boolean;
           buyer_id?: string | null;
+          buyer_name?: string | null;
           due_at_pickup?: number;
           fee?: number;
           handed_over_at?: string | null;
@@ -715,6 +796,7 @@ export type Database = {
           placed_at?: string;
           quantity?: number;
           seller_id?: string | null;
+          seller_name?: string | null;
           slot?: string | null;
           status?: Database["public"]["Enums"]["order_status"];
           unit_price?: number;
@@ -822,6 +904,39 @@ export type Database = {
           verified?: boolean;
         };
         Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          p256dh: string;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          p256dh: string;
+          profile_id: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          p256dh?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       reports: {
         Row: {
@@ -1004,6 +1119,33 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "saved_searches_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      search_history: {
+        Row: {
+          profile_id: string;
+          query: string;
+          searched_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          profile_id: string;
+          query: string;
+          searched_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          query?: string;
+          searched_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "search_history_profile_id_fkey";
             columns: ["profile_id"];
             isOneToOne: false;
             referencedRelation: "profiles";

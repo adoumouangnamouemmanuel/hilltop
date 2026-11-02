@@ -140,8 +140,17 @@ Students write with plain inserts and updates; triggers and row-level security d
 ### Still to come
 
 - Paying in the app (Paystack), which switches on buyer protection, deposits and promotion (`payments.inApp` in the config).
-- Push notifications: set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and implement `savePushSubscription` in `apps/web/src/lib/push.ts`.
 - Deleting accounts from the portal, which needs the Supabase secret key as a Worker secret.
+
+### Push notifications
+
+When the database writes a notification, it asks the marketplace to deliver it (`net.http_post` to `private.settings.push_url`, which is `/api/push` on production and the dev server locally). `/api/push` loads it with the server key, claims it so it's sent once, encrypts it (RFC 8291) and signs it (VAPID, RFC 8292) with WebCrypto in `apps/web/src/lib/web-push.ts`, and sends it to every browser in `push_subscriptions` for that student. Browsers register when the student turns notifications on, and are removed on sign-out.
+
+Production needs, on the `hilltop-web` Worker: the `SUPABASE_SECRET_KEY` and `VAPID_PRIVATE_KEY` secrets, and `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in `apps/web/.env.production`. Generate the pair with `npx web-push generate-vapid-keys`.
+
+### Records
+
+Orders copy both students' names when placed, and the audit log is never rewritten, so both stay complete after an account is deleted. Edited and deleted messages keep their earlier text in `message_revisions`, readable only by the team. Browsing and search history belong to the account (`browsing_history`, `search_history`), like the big shops: they follow the student across devices and are cleared from a browser when they sign out.
 
 ### Backups
 

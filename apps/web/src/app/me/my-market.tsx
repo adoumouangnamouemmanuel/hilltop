@@ -204,6 +204,13 @@ export function MyMarket() {
                 <p className="mt-2 text-xs text-ink-500">Manage notification permissions in your browser settings at any time.</p>
               </section>
               <section>
+                <h2 className="text-sm font-semibold text-ink-950">Help & support</h2>
+                <p className="mt-1 text-sm text-ink-500">Questions about an order, a listing or your account?</p>
+                <Link href="/help" className={buttonClass("outline", "md", "mt-3")}>
+                  Get help
+                </Link>
+              </section>
+              <section>
                 <h2 className="text-sm font-semibold text-ink-950">Your account</h2>
                 <p className="mt-1 text-sm text-ink-500">
                   To delete your account or ask what Hilltop keeps about you, see{" "}
