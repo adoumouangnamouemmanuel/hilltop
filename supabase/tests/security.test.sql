@@ -220,12 +220,24 @@ select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) value
   'a student can make an offer');
 select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('casio-fx82', current_setting('test.stu')::uuid, 65)$$,
   'a new offer replaces the pending one');
-select lives_ok($$insert into public.conversations (listing_id, buyer_id, seller_id)
-  values ('casio-fx82', current_setting('test.stu')::uuid, current_setting('test.wellington')::uuid)$$,
-  'a student can start a conversation');
-select lives_ok($$insert into public.messages (conversation_id, sender_id, body)
-  select id, current_setting('test.stu')::uuid, 'Still available?' from public.conversations where listing_id = 'casio-fx82'$$,
-  'a student can message a seller');
+-- One chat per pair of students: a second item from the same seller continues it.
+select is(public.start_conversation('casio-fx82'), (select id from public.conversations where listing_id = 'casio-fx991'),
+  'asking the same seller about another item continues the same chat');
+select lives_ok($$insert into public.messages (conversation_id, sender_id, body, listing_id)
+  values (public.start_conversation('casio-fx82'), current_setting('test.stu')::uuid, 'Still available?', 'casio-fx82')$$,
+  'a student can message a seller about an item');
+select is((select listing_id from public.conversations where id = public.start_conversation('casio-fx82')), 'casio-fx82',
+  'the chat moves to the item being discussed');
+select is((select count(*)::int from public.conversations), 1, 'the student has one chat with the seller');
+select throws_ok($$insert into public.messages (conversation_id, sender_id, body, listing_id)
+  values (public.start_conversation('casio-fx82'), current_setting('test.stu')::uuid, 'Look', 'sam-free-item')$$,
+  '23514', null, 'messages can only point at real listings');
+select throws_ok($$insert into public.messages (conversation_id, sender_id, body, listing_id)
+  select public.start_conversation('casio-fx82'), current_setting('test.stu')::uuid, 'Look', id
+  from public.listings where seller_id <> current_setting('test.wellington')::uuid and status = 'active' limit 1$$,
+  '23514', null, 'a message can''t show someone else''s item');
+select is(public.account_page('conversations') -> 'items' -> 0 -> 'messages' -> 0 -> 'listing' ->> 'id', 'casio-fx82',
+  'chat history carries each message''s item card');
 select is((select count(*)::int from public.notifications where profile_id <> current_setting('test.stu')::uuid), 0,
   'students only see their own notifications');
 

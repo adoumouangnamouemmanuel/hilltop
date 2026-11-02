@@ -759,6 +759,7 @@ export type Database = {
           deleted_at: string | null;
           edited_at: string | null;
           id: string;
+          listing_id: string | null;
           read_at: string | null;
           sender_id: string;
         };
@@ -770,6 +771,7 @@ export type Database = {
           deleted_at?: string | null;
           edited_at?: string | null;
           id?: string;
+          listing_id?: string | null;
           read_at?: string | null;
           sender_id: string;
         };
@@ -780,6 +782,7 @@ export type Database = {
           deleted_at?: string | null;
           edited_at?: string | null;
           id?: string;
+          listing_id?: string | null;
           read_at?: string | null;
           sender_id?: string;
         };
@@ -789,6 +792,20 @@ export type Database = {
             columns: ["conversation_id"];
             isOneToOne: false;
             referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "market_listings";
             referencedColumns: ["id"];
           },
           {
@@ -1756,21 +1773,21 @@ export type Database = {
       };
     };
     Functions: {
-      account_page: { Args: { p_kind: string; p_cursor?: Json; p_limit?: number; p_parent?: string }; Returns: Json };
-      market_page: { Args: { p_filters?: Json; p_cursor?: Json; p_limit?: number }; Returns: Json };
-      latest_offers: { Args: { p_listings: string[] }; Returns: Json };
-
+      account_page: { Args: { p_cursor?: Json; p_kind: string; p_limit?: number; p_parent?: string }; Returns: Json };
       add_dispute_message: { Args: { p_body: string; p_dispute: string }; Returns: undefined };
       answer_offer: { Args: { p_offer: string; p_status: string }; Returns: undefined };
       claim_push_deliveries: { Args: { p_notification?: string }; Returns: Json };
       finish_push_delivery: { Args: { p_id: string; p_lease: string; p_retry_seconds?: number; p_status: number }; Returns: undefined };
+      latest_offers: { Args: { p_listings: string[] }; Returns: Json };
       mark_handed_over: { Args: { p_order: string }; Returns: undefined };
+      market_page: { Args: { p_cursor?: Json; p_filters?: Json; p_limit?: number }; Returns: Json };
       message_unread_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       my_permissions: { Args: Record<PropertyKey, never>; Returns: string[] };
       open_dispute: { Args: { p_details?: string; p_order: string; p_reason: string }; Returns: string };
       resolve_dispute: { Args: { p_dispute: string; p_note?: string; p_outcome: string }; Returns: undefined };
       save_listing: { Args: { p_expected_revision?: number; p_fields: Json; p_id: string; p_photos: string[] }; Returns: number };
       settle_order: { Args: { p_action: string; p_order: string }; Returns: undefined };
+      start_conversation: { Args: { p_listing: string }; Returns: string };
       verify_audit_chain: {
         Args: Record<PropertyKey, never>;
         Returns: {
