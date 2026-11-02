@@ -96,8 +96,10 @@ export type Database = {
           actor_id: string | null;
           actor_name: string;
           at: string;
+          hash: string | null;
           id: number;
           permission: string;
+          prev_hash: string | null;
           target: string | null;
         };
         ComputedFields: never;
@@ -106,8 +108,10 @@ export type Database = {
           actor_id?: string | null;
           actor_name: string;
           at?: string;
+          hash?: string | null;
           id?: never;
           permission: string;
+          prev_hash?: string | null;
           target?: string | null;
         };
         Update: {
@@ -115,8 +119,10 @@ export type Database = {
           actor_id?: string | null;
           actor_name?: string;
           at?: string;
+          hash?: string | null;
           id?: never;
           permission?: string;
+          prev_hash?: string | null;
           target?: string | null;
         };
         Relationships: [
@@ -330,7 +336,9 @@ export type Database = {
           details: string;
           id: string;
           opened_at: string;
+          opened_by: string | null;
           order_id: string;
+          pre_status: Database["public"]["Enums"]["order_status"] | null;
           reason: string;
           resolution_note: string | null;
           resolved_at: string | null;
@@ -342,7 +350,9 @@ export type Database = {
           details?: string;
           id?: string;
           opened_at?: string;
+          opened_by?: string | null;
           order_id: string;
+          pre_status?: Database["public"]["Enums"]["order_status"] | null;
           reason: string;
           resolution_note?: string | null;
           resolved_at?: string | null;
@@ -353,7 +363,9 @@ export type Database = {
           details?: string;
           id?: string;
           opened_at?: string;
+          opened_by?: string | null;
           order_id?: string;
+          pre_status?: Database["public"]["Enums"]["order_status"] | null;
           reason?: string;
           resolution_note?: string | null;
           resolved_at?: string | null;
@@ -361,6 +373,13 @@ export type Database = {
           state?: Database["public"]["Enums"]["dispute_state"];
         };
         Relationships: [
+          {
+            foreignKeyName: "disputes_opened_by_fkey";
+            columns: ["opened_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "disputes_order_id_fkey";
             columns: ["order_id"];
@@ -604,6 +623,7 @@ export type Database = {
           href: string;
           id: string;
           kind: string;
+          message_id: string | null;
           profile_id: string;
           pushed_at: string | null;
           read_at: string | null;
@@ -616,6 +636,7 @@ export type Database = {
           href?: string;
           id?: string;
           kind: string;
+          message_id?: string | null;
           profile_id: string;
           pushed_at?: string | null;
           read_at?: string | null;
@@ -627,12 +648,20 @@ export type Database = {
           href?: string;
           id?: string;
           kind?: string;
+          message_id?: string | null;
           profile_id?: string;
           pushed_at?: string | null;
           read_at?: string | null;
           title?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "notifications_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: false;
+            referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "notifications_profile_id_fkey";
             columns: ["profile_id"];
@@ -820,6 +849,39 @@ export type Database = {
           {
             foreignKeyName: "orders_seller_id_fkey";
             columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      photo_uploads: {
+        Row: {
+          attached: boolean;
+          bytes: number;
+          created_at: string;
+          key: string;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          attached?: boolean;
+          bytes: number;
+          created_at?: string;
+          key: string;
+          profile_id: string;
+        };
+        Update: {
+          attached?: boolean;
+          bytes?: number;
+          created_at?: string;
+          key?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "photo_uploads_profile_id_fkey";
+            columns: ["profile_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -1183,7 +1245,21 @@ export type Database = {
       };
     };
     Functions: {
+      add_dispute_message: { Args: { p_body: string; p_dispute: string }; Returns: undefined };
+      mark_handed_over: { Args: { p_order: string }; Returns: undefined };
       my_permissions: { Args: Record<PropertyKey, never>; Returns: string[] };
+      open_dispute: { Args: { p_details?: string; p_order: string; p_reason: string }; Returns: string };
+      resolve_dispute: { Args: { p_dispute: string; p_note?: string; p_outcome: string }; Returns: undefined };
+      settle_order: { Args: { p_action: string; p_order: string }; Returns: undefined };
+      verify_audit_chain: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          broken_at: number;
+          expected_hash: string;
+          stored_hash: string;
+        }[];
+      };
+      withdraw_dispute: { Args: { p_order: string }; Returns: undefined };
     };
     Enums: {
       dispute_state: "open" | "withdrawn" | "refunded" | "released";

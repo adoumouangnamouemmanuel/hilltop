@@ -125,10 +125,15 @@ select lives_ok($$update public.reports set status = 'actioned', handled_by = pr
   'moderators handle reports');
 select throws_ok($$insert into public.config_releases (config) values ('{}')$$, '42501', null, 'moderators can''t publish config');
 select throws_ok($$insert into public.admin_roles (id, name) values ('rogue', 'Rogue')$$, '42501', null, 'moderators can''t create roles');
-select lives_ok($$insert into public.audit_log (permission, action, target, actor_name) values ('listings.moderate', 'Hid listing', 'student-lamp', 'anyone')$$,
-  'admins record their actions');
+select throws_ok($$insert into public.audit_log (permission, action, target, actor_name) values ('orders.refund', 'Refunded order (forged)', 'ord-1', 'anyone')$$,
+  '42501', null, 'admins can''t write audit entries themselves');
 reset role;
-select is((select actor_name from public.audit_log order by id desc limit 1), 'Mo Derator', 'audit entries are attributed by the server, not the client');
+select is((select actor_name from public.audit_log where action = 'Hid listing' order by id desc limit 1), 'Mo Derator',
+  'moderation is logged by the database, attributed to the moderator');
+select ok(exists (select 1 from public.audit_log where action = 'Acted on report' and permission = 'listings.moderate'),
+  'handling a report is logged');
+select is((select handled_by from public.reports where listing_id = 'casio-fx991'), (select id from public.profiles where user_id = '33333333-3333-3333-3333-333333333333'),
+  'the database records who handled a report');
 
 -- The student again: their hidden listing stays hidden --------------------------------------
 set local role authenticated;
@@ -264,7 +269,16 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "44444444-4444-4444-4444-444444444444", "role": "authenticated"}', true);
 select ok(exists (select 1 from public.notifications where title = 'New order: Casio fx-82MS'), 'the seller is told about the order');
 select lives_ok($$update public.orders set status = 'ready' where listing_id = 'casio-fx82'$$, 'the seller marks it ready');
-select lives_ok($$update public.orders set status = 'collected' where listing_id = 'casio-fx82'$$, 'the seller records the handover');
+select throws_ok($$update public.orders set status = 'collected' where listing_id = 'casio-fx82'$$,
+  '42501', null, 'the seller can''t complete an order on the buyer''s behalf');
+select lives_ok($$select public.mark_handed_over(id) from public.orders where listing_id = 'casio-fx82'$$, 'the seller records the handover');
+reset role;
+select isnt((select handed_over_at from public.orders where listing_id = 'casio-fx82'), null, 'the handover time is kept');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}', true);
+select throws_ok($$select public.mark_handed_over(id) from public.orders where listing_id = 'casio-fx82'$$,
+  '42501', null, 'only the seller records a handover');
+select lives_ok($$update public.orders set status = 'collected' where listing_id = 'casio-fx82'$$, 'the buyer confirms collection');
 select throws_ok($$update public.orders set status = 'cancelled' where listing_id = 'casio-fx82'$$,
   '42501', null, 'a completed order can''t be cancelled');
 reset role;
@@ -372,6 +386,190 @@ select is((select count(*)::int from public.reviews where body = 'Great'), 0, 't
 select is((select count(*)::int from public.orders where buyer_id is null), current_setting('test.stu_orders')::int,
   'their orders stay for the other student, without them');
 select is((select buyer_name from public.orders where listing_id = 'casio-fx82'), 'Stu Dent', 'and still say who bought');
+
+-- Audit fixes (web/audit.md) ------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.admin_roles (id, name, permissions)
+values ('ops-lead', 'Ops lead', array['dashboard.view', 'team.manage', 'disputes.view', 'disputes.resolve']);
+insert into public.admin_members (email, name, role_id) values ('lead@ashesi.edu.gh', 'Lea D', 'ops-lead');
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('55555555-5555-5555-5555-555555555555', 'sam@ashesi.edu.gh', '{"full_name": "Sam Seller"}'),
+  ('66666666-6666-6666-6666-666666666666', 'bea@ashesi.edu.gh', '{"full_name": "Bea Buyer"}'),
+  ('77777777-7777-7777-7777-777777777777', 'tina@ashesi.edu.gh', '{"full_name": "Tina Buyer"}'),
+  ('88888888-8888-8888-8888-888888888888', 'lead@ashesi.edu.gh', '{"full_name": "Lea D"}');
+select set_config('test.sam', (select id::text from public.profiles where user_id = '55555555-5555-5555-5555-555555555555'), true);
+select set_config('test.bea', (select id::text from public.profiles where user_id = '66666666-6666-6666-6666-666666666666'), true);
+select set_config('test.tina', (select id::text from public.profiles where user_id = '77777777-7777-7777-7777-777777777777'), true);
+insert into public.listings (id, seller_id, title, price, category, pickup, status) values
+  ('sam-chair', current_setting('test.sam')::uuid, 'Office chair', 200, 'hostel', 'Library', 'active'),
+  ('sam-desk', current_setting('test.sam')::uuid, 'Small desk', 100, 'hostel', 'Library', 'active'),
+  ('sam-draft', current_setting('test.sam')::uuid, 'Unfinished', 100, 'hostel', 'Library', 'draft');
+insert into public.listing_photos (listing_id, url, position) values ('sam-draft', 'https://photos.example.com/draft.jpg', 0);
+
+-- SEC-026: photos follow their listing's visibility.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "77777777-7777-7777-7777-777777777777", "role": "authenticated"}', true);
+select is((select count(*)::int from public.listing_photos where listing_id = 'sam-draft'), 0, 'strangers can''t see a draft''s photos');
+select set_config('request.jwt.claims', '{"sub": "55555555-5555-5555-5555-555555555555", "role": "authenticated"}', true);
+select is((select count(*)::int from public.listing_photos where listing_id = 'sam-draft'), 1, 'sellers see their draft''s photos');
+reset role;
+
+-- SEC-025: a burst of views from one visitor counts once.
+set local role anon;
+select set_config('request.jwt.claims', '{"role": "anon"}', true);
+select set_config('request.headers', '{"x-forwarded-for": "203.0.113.7"}', true);
+insert into public.listing_views (listing_id) select 'sam-desk' from generate_series(1, 5);
+select set_config('request.headers', '{"x-forwarded-for": "203.0.113.8"}', true);
+insert into public.listing_views (listing_id) values ('sam-desk');
+reset role;
+select set_config('request.headers', '', true);
+select is((select views from public.listings where id = 'sam-desk'), 2, 'views count once per visitor');
+
+-- SEC-021: one accepted offer per one-off item; the others are declined.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('sam-chair', current_setting('test.bea')::uuid, 150)$$, 'Bea offers');
+select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('sam-desk', current_setting('test.bea')::uuid, 80)$$, 'Bea offers on the desk');
+select set_config('request.jwt.claims', '{"sub": "77777777-7777-7777-7777-777777777777", "role": "authenticated"}', true);
+select lives_ok($$insert into public.offers (listing_id, buyer_id, amount) values ('sam-chair', current_setting('test.tina')::uuid, 160)$$, 'Tina offers');
+select set_config('request.jwt.claims', '{"sub": "55555555-5555-5555-5555-555555555555", "role": "authenticated"}', true);
+select lives_ok($$update public.offers set status = 'accepted' where listing_id = 'sam-chair' and buyer_id = current_setting('test.bea')::uuid$$,
+  'the seller accepts one offer');
+select throws_ok($$update public.offers set status = 'accepted' where listing_id = 'sam-chair' and buyer_id = current_setting('test.tina')::uuid$$,
+  '42501', null, 'a second offer can''t be accepted on a one-off item');
+reset role;
+select is((select count(*)::int from public.offers where listing_id = 'sam-chair' and status = 'accepted'), 1, 'one agreed price per item');
+select is((select status::text from public.offers where listing_id = 'sam-chair' and buyer_id = current_setting('test.tina')::uuid), 'declined',
+  'accepting an offer declines the others');
+
+-- SEC-024 / SEC-023: disputes are stored, frozen and settled by the team.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select lives_ok($$insert into public.orders (listing_id, quantity, payment_kind) values ('sam-chair', 1, 'pickup')$$, 'Bea reserves the chair');
+reset role;
+select set_config('test.chair_order', (select id from public.orders where listing_id = 'sam-chair'), true);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select throws_ok($$select public.open_dispute(current_setting('test.chair_order'), 'made-up', '')$$,
+  '23514', null, 'disputes need a configured reason');
+select lives_ok($$select public.open_dispute(current_setting('test.chair_order'), 'not-as-described', 'One leg is broken')$$,
+  'the buyer reports a problem');
+select is((select status::text from public.orders where listing_id = 'sam-chair'), 'disputed', 'the order is frozen');
+reset role;
+select is((select count(*)::int from public.disputes where order_id = current_setting('test.chair_order')), 1, 'the dispute is stored');
+select set_config('test.chair_dispute', (select id::text from public.disputes where order_id = current_setting('test.chair_order')), true);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "77777777-7777-7777-7777-777777777777", "role": "authenticated"}', true);
+select throws_ok($$select public.open_dispute(current_setting('test.chair_order'), 'other', '')$$,
+  '42501', null, 'strangers can''t report someone else''s order');
+select set_config('request.jwt.claims', '{"sub": "55555555-5555-5555-5555-555555555555", "role": "authenticated"}', true);
+select ok(exists (select 1 from public.disputes where order_id = current_setting('test.chair_order')), 'the seller sees the dispute');
+select throws_ok($$update public.orders set status = 'cancelled' where listing_id = 'sam-chair'$$,
+  '42501', null, 'a disputed order can''t be moved by either side');
+select throws_ok($$select public.withdraw_dispute(current_setting('test.chair_order'))$$,
+  '42501', null, 'only the reporter can withdraw a dispute');
+select throws_ok($$select public.resolve_dispute(current_setting('test.chair_dispute')::uuid, 'released', '')$$,
+  '42501', null, 'students can''t settle disputes');
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select lives_ok($$select public.withdraw_dispute(current_setting('test.chair_order'))$$, 'the reporter withdraws');
+select is((select status::text from public.orders where listing_id = 'sam-chair'), 'paid', 'withdrawing restores the order');
+select lives_ok($$select public.open_dispute(current_setting('test.chair_order'), 'damaged', 'Actually it''s broken')$$,
+  'a withdrawn report can be reopened');
+select set_config('request.jwt.claims', '{"sub": "88888888-8888-8888-8888-888888888888", "role": "authenticated"}', true);
+select lives_ok($$select public.resolve_dispute(current_setting('test.chair_dispute')::uuid, 'refunded', 'Seller agreed to take it back')$$,
+  'the team settles a dispute');
+select throws_ok($$select public.settle_order(current_setting('test.chair_order'), 'refund')$$,
+  '42501', null, 'refunds need orders.refund');
+reset role;
+select is((select state::text from public.disputes where order_id = current_setting('test.chair_order')), 'refunded',
+  'the outcome is stored');
+select is((select status::text from public.orders where listing_id = 'sam-chair'), 'cancelled', 'a pay-at-pickup order settled for the buyer is cancelled');
+select is((select status::text from public.listings where id = 'sam-chair'), 'active', 'and the item goes back on the market');
+select is((select actor_name from public.audit_log where permission = 'disputes.resolve' order by id desc limit 1), 'Lea D',
+  'settling a dispute is logged');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}', true);
+select throws_ok($$select public.settle_order(current_setting('test.chair_order'), 'refund')$$,
+  '23514', null, 'nothing is refunded for pay-at-pickup orders');
+
+-- SEC-020: published config is checked.
+select throws_ok($$insert into public.config_releases (config) values ('{"version": 1}')$$, '23514', null, 'an incomplete config can''t be published');
+select throws_ok($$insert into public.config_releases (config) select jsonb_set(config, '{listings,maxActive}', '-1') from public.current_config$$,
+  '23514', null, 'out-of-range limits can''t be published');
+select throws_ok($$insert into public.config_releases (config) select config || '{"surprise": {}}' from public.current_config$$,
+  '23514', null, 'unknown sections can''t be published');
+
+-- SEC-004: inviting someone who already has an account activates them.
+select lives_ok($$insert into public.admin_members (email, name, role_id) values ('tina@ashesi.edu.gh', 'Tina', 'viewer')$$, 'the owner invites Tina');
+select is((select status::text from public.admin_members where email = 'tina@ashesi.edu.gh'), 'active', 'an existing account is active at once');
+reset role;
+
+-- SEC-010: team.manage isn't a back door to owner.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "88888888-8888-8888-8888-888888888888", "role": "authenticated"}', true);
+select is(private.has_permission('team.manage'), true, 'the ops lead manages the team');
+select throws_ok($$update public.admin_members set role_id = 'owner' where email = 'lead@ashesi.edu.gh'$$,
+  '42501', null, 'nobody makes themselves owner');
+select throws_ok($$update public.admin_roles set permissions = array['dashboard.view', 'team.manage', 'users.delete'] where id = 'ops-lead'$$,
+  '42501', null, 'nobody adds permissions to their own role');
+select throws_ok($$insert into public.admin_roles (id, name, permissions) values ('sneaky', 'Sneaky', array['settings.publish'])$$,
+  '42501', null, 'a role can''t get permissions its creator lacks');
+select throws_ok($$update public.admin_members set role_id = 'viewer' where email = 'emmanuel.adoum@ashesi.edu.gh'$$,
+  '42501', null, 'only owners change owners');
+select lives_ok($$insert into public.admin_roles (id, name, permissions) values ('helpers', 'Helpers', array['dashboard.view'])$$,
+  'a role within the creator''s permissions is fine');
+select lives_ok($$update public.admin_members set role_id = 'helpers' where email = 'tina@ashesi.edu.gh'$$,
+  'and can be given to others');
+reset role;
+select ok(exists (select 1 from public.audit_log where permission = 'team.manage' and target = 'Tina' and actor_name = 'Lea D'),
+  'team changes are logged by the database');
+
+-- SEC-027: deleting a message removes only its own notification.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+insert into public.conversations (listing_id, buyer_id, seller_id) values ('sam-desk', current_setting('test.bea')::uuid, current_setting('test.sam')::uuid);
+insert into public.messages (conversation_id, sender_id, body)
+select id, current_setting('test.bea')::uuid, 'Is it still available?' from public.conversations, generate_series(1, 2) where listing_id = 'sam-desk';
+update public.messages set deleted_at = now()
+where id = (select id from public.messages where body = 'Is it still available?' order by created_at, id limit 1);
+reset role;
+select is((select count(*)::int from public.notifications where profile_id = current_setting('test.sam')::uuid and body = 'Is it still available?'), 1,
+  'the other identical message keeps its notification');
+
+-- SEC-031: push subscriptions only reach browser push services.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "66666666-6666-6666-6666-666666666666", "role": "authenticated"}', true);
+select throws_ok($$insert into public.push_subscriptions (endpoint, profile_id, p256dh, auth) values ('https://attacker.example/collect', current_setting('test.bea')::uuid, 'k', 'a')$$,
+  '23514', null, 'arbitrary push endpoints are refused');
+select lives_ok($$insert into public.push_subscriptions (endpoint, profile_id, p256dh, auth) values ('https://fcm.googleapis.com/fcm/send/abc', current_setting('test.bea')::uuid, 'k', 'a')$$,
+  'real push services are accepted');
+reset role;
+
+-- SEC-012: suspension stops selling.
+update public.profiles set status = 'suspended' where id = current_setting('test.sam')::uuid;
+select is((select status::text from public.listings where id = 'sam-desk'), 'hidden', 'suspending a seller takes their listings down');
+select is((select status::text from public.offers where listing_id = 'sam-desk' and buyer_id = current_setting('test.bea')::uuid), 'declined',
+  'and closes the offers on them');
+select ok(exists (select 1 from public.audit_log where action = 'Suspended user' and target = 'Sam Seller'), 'suspension is logged');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "55555555-5555-5555-5555-555555555555", "role": "authenticated"}', true);
+select throws_ok($$update public.listings set title = 'Still selling' where id = 'sam-chair'$$,
+  '23514', null, 'suspended sellers can''t edit listings');
+select throws_ok($$update public.listings set posted_at = now() where id = 'sam-chair'$$,
+  '23514', null, 'suspended sellers can''t renew listings');
+reset role;
+
+-- SEC-011: the log is sealed; editing a row shows.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}', true);
+select is((select count(*)::int from public.verify_audit_chain()), 0, 'the audit chain checks out');
+reset role;
+update public.audit_log set action = 'Nothing happened' where id = (select min(id) from public.audit_log);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}', true);
+select is((select count(*)::int from public.verify_audit_chain()), 1, 'a tampered entry is found');
+reset role;
 
 select * from finish();
 rollback;
