@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "hilltop-web",
-  "account_id": "5355b49c1a233e2cb0db485b587408fd",
+  // The account comes from CLOUDFLARE_ACCOUNT_ID (a CI variable), not this file.
   "main": "worker.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -13,6 +13,11 @@
     // Lets the worker revalidate its own cached pages; the name must match "name".
     { "binding": "WORKER_SELF_REFERENCE", "service": "hilltop-web" },
   ],
+  // Page revalidation queue (see open-next.config.ts).
+  "durable_objects": { "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
+  // Daily at 03:17 UTC: delete photos no listing uses (worker.ts).
+  "triggers": { "crons": ["17 3 * * *"] },
   "r2_buckets": [
     // Cached pages and "use cache" results. Create it once: wrangler r2 bucket create hilltop-web-opennext-cache
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "hilltop-web-opennext-cache" },
@@ -21,8 +26,13 @@
   ],
   "routes": [{ "pattern": "hilltop.lumavok.com", "custom_domain": true }],
   // Sentry reads the DSN from here and the release from the version metadata.
+  // Secrets set in the Cloudflare dashboard (Settings → Variables and Secrets):
+  //   SUPABASE_SECRET_KEY   push delivery and the daily photo cleanup
+  //   VAPID_PRIVATE_KEY     signs push messages
+  //   PUSH_WEBHOOK_SECRET   must equal private.settings push_secret in the database
   "vars": {
     "PHOTOS_URL": "https://photos.hilltop.lumavok.com",
+    "SUPABASE_URL": "https://ppkozgiszmctmdrrpyiw.supabase.co",
     "SENTRY_DSN": "https://bba3ee20449ca20f5be08aebde16a807@o4509836470386688.ingest.us.sentry.io/4512357462573056",
   },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
