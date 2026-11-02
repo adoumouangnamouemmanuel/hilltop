@@ -20,7 +20,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://images.unsplash.com https://photos.hilltop.lumavok.com https://hilltop.lumavok.com${dev ? " http://localhost:* http://127.0.0.1:*" : ""}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${supabase} ${supabase.replace(/^http/, "ws")} https://*.ingest.sentry.io https://*.ingest.us.sentry.io${dev ? " ws://localhost:* ws://127.0.0.1:*" : ""}`,
+  `connect-src 'self' data: blob: ${supabase} ${supabase.replace(/^http/, "ws")} https://*.ingest.sentry.io https://*.ingest.us.sentry.io${dev ? " ws://localhost:* ws://127.0.0.1:*" : ""}`,
   "worker-src 'self'",
   "frame-src 'none'",
   "frame-ancestors 'none'",

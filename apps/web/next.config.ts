@@ -13,6 +13,7 @@ const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
  * Pages are prerendered, so per-request nonces aren't possible; Next's inline
  * bootstrap needs 'unsafe-inline' for scripts, and the rest of the policy still
  * keeps out other sites' scripts, connections, frames, plugins and form targets.
+ * (data: and blob: connections are the browser reading its own photos before upload.)
  */
 const csp = [
   "default-src 'self'",
@@ -20,7 +21,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://images.unsplash.com https://photos.hilltop.lumavok.com${dev ? " http://localhost:* http://127.0.0.1:*" : ""}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${supabase} ${supabase.replace(/^http/, "ws")} https://*.ingest.sentry.io https://*.ingest.us.sentry.io${dev ? " ws://localhost:* ws://127.0.0.1:*" : ""}`,
+  `connect-src 'self' data: blob: ${supabase} ${supabase.replace(/^http/, "ws")} https://*.ingest.sentry.io https://*.ingest.us.sentry.io${dev ? " ws://localhost:* ws://127.0.0.1:*" : ""}`,
   "worker-src 'self'",
   "manifest-src 'self'",
   "frame-src 'none'",
