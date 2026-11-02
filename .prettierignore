@@ -12,3 +12,4 @@ supabase/.temp
 # Email markup is kept exactly as written for mail clients.
 supabase/templates
 **/.auth
+audit.md

@@ -1,14 +1,33 @@
 name: Database backup
 
 # Nightly dump of the production database to the private hilltop-backups R2 bucket.
-# Needs three repository secrets; until they exist the job is skipped.
-#   SUPABASE_DB_URL       Supabase → Connect → Session pooler connection string (with the password)
-#   R2_ACCESS_KEY_ID      R2 API token with write access to hilltop-backups
+#
+# Each backup is encrypted before it leaves the runner (age), uploaded with a SHA-256
+# checksum, downloaded again to prove the upload is intact, and old backups are pruned:
+# every night for 35 days, then the first of each month for a year. restore-check.yml
+# restores the newest backup into a scratch database every week. See docs/RUNBOOK.md.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL        Supabase → Connect → Session pooler connection string (with the password)
+#   R2_ACCESS_KEY_ID       R2 API token with read/write access to hilltop-backups only
 #   R2_SECRET_ACCESS_KEY
+#   BACKUP_AGE_RECIPIENT   public age key (age1...) whose private half is kept offline
+# Repository variable:
+#   CLOUDFLARE_ACCOUNT_ID
+#
+# A missing secret fails the run (and GitHub emails the repository's owners), rather
+# than quietly skipping it.
 on:
   schedule:
     - cron: "30 2 * * *" # 02:30 UTC, the quietest hour at Ashesi
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
 
 jobs:
   backup:
@@ -18,26 +37,53 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      R2_ENDPOINT: https://5355b49c1a233e2cb0db485b587408fd.r2.cloudflarestorage.com
+      AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+      R2_ENDPOINT: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
     steps:
-      - name: Skip until the secrets are added
-        id: ready
+      - name: Check the secrets are set
         run: |
-          if [ -n "$SUPABASE_DB_URL" ] && [ -n "$AWS_ACCESS_KEY_ID" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "Backup secrets aren't set; skipping."; fi
-      - uses: supabase/setup-cli@v1
-        if: steps.ready.outputs.ok == 'true'
+          missing=""
+          [ -n "$SUPABASE_DB_URL" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$AWS_ACCESS_KEY_ID" ] || missing="$missing R2_ACCESS_KEY_ID"
+          [ -n "$AWS_SECRET_ACCESS_KEY" ] || missing="$missing R2_SECRET_ACCESS_KEY"
+          [ -n "$AGE_RECIPIENT" ] || missing="$missing BACKUP_AGE_RECIPIENT"
+          [ "$R2_ENDPOINT" != "https://.r2.cloudflarestorage.com" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID(variable)"
+          if [ -n "$missing" ]; then echo "::error::No backup was taken. Missing:$missing"; exit 1; fi
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.122.0
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
       - name: Dump the database
-        if: steps.ready.outputs.ok == 'true'
         run: |
           supabase db dump --db-url "$SUPABASE_DB_URL" -f schema.sql
           supabase db dump --db-url "$SUPABASE_DB_URL" --data-only -f data.sql
           supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f roles.sql
+          # An empty or tiny dump means something went wrong, not that there's no data.
+          test "$(wc -c < data.sql)" -gt 1000
+          grep -q 'CREATE TABLE' schema.sql
           tar czf backup.tar.gz schema.sql data.sql roles.sql
-      - name: Upload to R2
-        if: steps.ready.outputs.ok == 'true'
+          age -r "$AGE_RECIPIENT" -o backup.tar.gz.age backup.tar.gz
+          sha256sum backup.tar.gz.age | cut -d' ' -f1 > backup.tar.gz.age.sha256
+          rm -f schema.sql data.sql roles.sql backup.tar.gz
+      - name: Upload and verify
         run: |
-          key="db/$(date -u +%Y/%m/%Y-%m-%dT%H%MZ).tar.gz"
-          aws s3 cp backup.tar.gz "s3://hilltop-backups/$key" --endpoint-url "$R2_ENDPOINT"
-          echo "Saved $key"
+          key="db/$(date -u +%Y/%m/%Y-%m-%dT%H%MZ).tar.gz.age"
+          aws s3 cp backup.tar.gz.age "s3://hilltop-backups/$key" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp backup.tar.gz.age.sha256 "s3://hilltop-backups/$key.sha256" --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "s3://hilltop-backups/$key" check.age --endpoint-url "$R2_ENDPOINT"
+          test "$(sha256sum check.age | cut -d' ' -f1)" = "$(cat backup.tar.gz.age.sha256)"
+          echo "Saved and verified $key"
+      - name: Prune old backups
+        run: |
+          # Keep every backup for 35 days, then only the first of each month for a year.
+          now=$(date -u +%s)
+          aws s3api list-objects-v2 --bucket hilltop-backups --prefix db/ --endpoint-url "$R2_ENDPOINT" \
+            --query 'Contents[].Key' --output text | tr '\t' '\n' | grep -E '\.age(\.sha256)?$' | while read -r key; do
+            stamp=$(basename "$key" | sed -E 's/^([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
+            age_days=$(( (now - $(date -u -d "$stamp" +%s)) / 86400 ))
+            day=${stamp:8:2}
+            if [ "$age_days" -gt 365 ] || { [ "$age_days" -gt 35 ] && [ "$day" != "01" ]; }; then
+              aws s3 rm "s3://hilltop-backups/$key" --endpoint-url "$R2_ENDPOINT"
+            fi
+          done

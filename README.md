@@ -82,9 +82,11 @@ Permissions are defined in `packages/shared/src/permissions.ts` (each guards a r
 
 Published releases live in the `config_releases` table and the shared draft in `config_draft`; the marketplace reads the newest release through the public `current_config` view, caches it for two minutes on the server, refreshes it in open tabs on focus, and falls back to defaults if Supabase is unreachable.
 
-Admins sign in with an emailed code; `apps/admin/src/lib/session.tsx` loads their team row and role. The database enforces every permission with row-level security, so the portal hiding a control is only a convenience. The team, roles, drafts, releases and audit log are stored in Supabase; so are students (with their emails, for admins with users.view), listings and reports, orders and disputes, loaded in `apps/admin/src/lib/operations.ts`. On production the portal also sits behind Cloudflare Access.
+Admins sign in with an emailed code; `apps/admin/src/lib/session.tsx` loads their team row and role. The database enforces every permission with row-level security, so the portal hiding a control is only a convenience. The team, roles, drafts, releases and audit log are stored in Supabase; so are students (with their emails, for admins with users.view), listings and reports, orders and disputes, loaded in `apps/admin/src/lib/operations.ts`. On production the portal also sits behind Cloudflare Access, which the Worker checks again on every request (`apps/admin/access.ts`). Refunds, payout releases and dispute decisions are database functions, and the database writes the audit log itself; the browser can't.
 
 ## Deploying
+
+Operations outside the code (Cloudflare Access, sign-in email, secrets, backups and the restore drill, monitoring) are in [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
 Both apps run on Cloudflare Workers through the OpenNext adapter (`@opennextjs/cloudflare`):
 
@@ -135,18 +137,17 @@ Categories come only from the published platform config (`packages/shared/src/co
 
 ### Rules the database enforces
 
-Students write with plain inserts and updates; triggers and row-level security decide what's allowed, so a modified app can't get around them: listing limits from the published config (price cap, banned words, active listing cap), offer minimums, order pricing (an accepted offer counts) and status moves, stock, suspended accounts, and rate limits on messages, offers, orders and reports. Notifications are written by the database when something happens to someone. See `supabase/migrations` and the tests in `supabase/tests`.
+Students write with plain inserts and updates; triggers and row-level security decide what's allowed, so a modified app can't get around them: listing limits from the published config (price cap, banned words, active listing cap), offer minimums and one accepted offer per item, order pricing (an accepted offer counts) and status moves (the seller records the handover, the buyer confirms collection), disputes (opened by the buyer or seller, settled by the team), stock, suspended accounts (who can't edit, renew or answer offers either), upload quotas, and rate limits on messages, offers, orders and reports. Published config is checked before it goes live. Notifications are written by the database when something happens to someone. See `supabase/migrations` and the tests in `supabase/tests`.
 
 ### Still to come
 
 - Paying in the app (Paystack), which switches on buyer protection, deposits and promotion (`payments.inApp` in the config).
-- Deleting accounts from the portal, which needs the Supabase secret key as a Worker secret.
 
 ### Push notifications
 
-When the database writes a notification, it asks the marketplace to deliver it (`net.http_post` to `private.settings.push_url`, which is `/api/push` on production and the dev server locally). `/api/push` loads it with the server key, claims it so it's sent once, encrypts it (RFC 8291) and signs it (VAPID, RFC 8292) with WebCrypto in `apps/web/src/lib/web-push.ts`, and sends it to every browser in `push_subscriptions` for that student. Browsers register when the student turns notifications on, and are removed on sign-out.
+When the database writes a notification, it asks the marketplace to deliver it (`net.http_post` to `private.settings.push_url`, which is `/api/push` on production and the dev server locally). `/api/push` checks the shared secret the database sends (`x-hilltop-webhook`), loads it with the server key, claims it so it's sent once, encrypts it (RFC 8291) and signs it (VAPID, RFC 8292) with WebCrypto in `apps/web/src/lib/web-push.ts`, and sends it to every browser in `push_subscriptions` for that student. Browsers register when the student turns notifications on, and are removed on sign-out.
 
-Production needs, on the `hilltop-web` Worker: the `SUPABASE_SECRET_KEY` and `VAPID_PRIVATE_KEY` secrets, and `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in `apps/web/.env.production`. Generate the pair with `npx web-push generate-vapid-keys`.
+Production needs, on the `hilltop-web` Worker: the `SUPABASE_SECRET_KEY`, `VAPID_PRIVATE_KEY` and `PUSH_WEBHOOK_SECRET` secrets (the last equal to `private.settings.push_secret`), and `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in `apps/web/.env.production`. Generate the pair with `npx web-push generate-vapid-keys`.
 
 ### Records
 
@@ -154,7 +155,7 @@ Orders copy both students' names when placed, and the audit log is never rewritt
 
 ### Backups
 
-`.github/workflows/backup.yml` dumps the production database nightly into the private `hilltop-backups` R2 bucket once the `SUPABASE_DB_URL`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` repository secrets exist.
+`.github/workflows/backup.yml` dumps the production database nightly, encrypted and checksummed, into the private `hilltop-backups` R2 bucket, and `restore-check.yml` restores the newest one into a scratch database every week. Both fail loudly until their secrets exist; see the runbook for the secrets and the restore drill.
 
 ## Tests
 

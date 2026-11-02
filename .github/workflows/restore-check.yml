@@ -1,0 +1,77 @@
+name: Backup restore check
+
+# Every week, restores the newest backup into a fresh, throwaway Supabase on the
+# runner and checks that the data is there and consistent. A backup that has never
+# been restored isn't known to work; this is the automated part of the restore drill
+# in docs/RUNBOOK.md (the manual drill also signs in and places an order).
+#
+# Needs, besides backup.yml's R2 secrets and CLOUDFLARE_ACCOUNT_ID variable:
+#   BACKUP_AGE_IDENTITY   the private age key (AGE-SECRET-KEY-...). Keep a second copy
+#                         offline; this one only lets the check decrypt.
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC, after Sunday night's backup
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+      R2_ENDPOINT: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+    steps:
+      - name: Check the secrets are set
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$AGE_IDENTITY" ]; then
+            echo "::error::Restore check can't run: R2 or age secrets are missing"; exit 1
+          fi
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+        with:
+          version: 2.122.0
+      - name: Download the newest backup
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq age postgresql-client
+          key=$(aws s3api list-objects-v2 --bucket hilltop-backups --prefix db/ --endpoint-url "$R2_ENDPOINT" \
+            --query 'sort_by(Contents[?ends_with(Key, `.age`)], &LastModified)[-1].Key' --output text)
+          echo "Restoring $key"
+          aws s3 cp "s3://hilltop-backups/$key" backup.tar.gz.age --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp "s3://hilltop-backups/$key.sha256" backup.sha256 --endpoint-url "$R2_ENDPOINT"
+          test "$(sha256sum backup.tar.gz.age | cut -d' ' -f1)" = "$(cat backup.sha256)"
+          # Backups older than 8 days mean the nightly job has stopped.
+          stamp=$(basename "$key" | cut -c1-10)
+          test $(( ($(date -u +%s) - $(date -u -d "$stamp" +%s)) / 86400 )) -le 8
+          printf '%s\n' "$AGE_IDENTITY" > identity.txt
+          age -d -i identity.txt -o backup.tar.gz backup.tar.gz.age
+          rm identity.txt
+          tar xzf backup.tar.gz
+      - name: Restore into a fresh Supabase
+        run: |
+          # An empty project: Supabase's own schemas (auth, storage) but none of Hilltop's.
+          mkdir scratch && cd scratch && supabase init --force > /dev/null
+          supabase db start
+          db="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          started=$(date +%s)
+          psql "$db" -v ON_ERROR_STOP=0 -q -f ../roles.sql
+          psql "$db" -v ON_ERROR_STOP=1 -q -f ../schema.sql
+          psql "$db" -v ON_ERROR_STOP=1 -q -c 'set session_replication_role = replica' -f ../data.sql
+          echo "Restored in $(( $(date +%s) - started ))s"
+      - name: Check the restored data
+        run: |
+          db="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          q() { psql "$db" -tA -v ON_ERROR_STOP=1 -c "$1"; }
+          echo "profiles: $(q 'select count(*) from public.profiles')"
+          echo "listings: $(q 'select count(*) from public.listings')"
+          echo "orders:   $(q 'select count(*) from public.orders')"
+          test "$(q 'select count(*) from public.config_releases')" -ge 1
+          # Every sign-in still has its profile, and every linked profile its sign-in.
+          test "$(q 'select count(*) from public.profiles p left join auth.users u on u.id = p.user_id where p.user_id is not null and u.id is null')" = 0
+          test "$(q 'select count(*) from auth.users u left join public.profiles p on p.user_id = u.id where p.id is null')" = 0
+          # Row-level security came back with the schema.
+          test "$(q "select count(*) from pg_tables where schemaname = 'public' and not rowsecurity")" = 0
+          echo "Restore check passed"
