@@ -69,3 +69,26 @@ test("a buyer offers and messages; the seller accepts and replies", async ({ bro
     .click();
   await expect(buyer.getByText("This message was deleted").last()).toBeVisible();
 });
+
+// Two students share one chat: asking the same seller about a second item continues
+// it, and the thread shows which item each part of the conversation is about.
+test("messaging the same seller about two items keeps one chat with both items", async ({ page }) => {
+  for (const [id, text] of [
+    ["my-desk-lamp", `Does the lamp still work? ${Date.now()}`],
+    ["my-desk-fan", `And is the fan quiet? ${Date.now()}`],
+  ]) {
+    await signIn(page, `/listing/${id}`, "buyer");
+    await openPanel(page, "Message", page.getByLabel("Message to Kofi Darko"));
+    await page.getByLabel("Message to Kofi Darko").fill(text);
+    await page.getByRole("button", { name: "Send message" }).click();
+    await expect(page.getByText("Message sent").first()).toBeVisible();
+  }
+
+  await page.goto("/inbox");
+  await expect(page.getByRole("button", { name: /Kofi Darko/ })).toHaveCount(1);
+  await page.getByRole("button", { name: /Kofi Darko/ }).click();
+  await expect(page.getByRole("link", { name: /Adjustable desk lamp/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Rechargeable desk fan/ }).first()).toBeVisible();
+  await expect(page.getByText(/Does the lamp still work\?/).last()).toBeVisible();
+  await expect(page.getByText(/And is the fan quiet\?/).last()).toBeVisible();
+});

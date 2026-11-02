@@ -4,7 +4,7 @@ import { z } from "zod";
 import { accountPage, cursorPager } from "./pagination";
 import { problem } from "./mine";
 import { supabase } from "./supabase";
-import type { AppNotification, Conversation, IncomingOffer, NotificationKind, Offer } from "./types";
+import type { AppNotification, ChatItem, Conversation, IncomingOffer, NotificationKind, Offer } from "./types";
 
 /*
  * Conversations, offers and notifications for the signed-in student. Writes go
@@ -34,6 +34,17 @@ export function saveMessageDraft(profileId: string | undefined, conversationId: 
   const oldest = drafts.keys().next().value;
   if (drafts.size > 50 && oldest !== undefined) drafts.delete(oldest);
 }
+const cardSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    price: z.number(),
+    status: z.string(),
+    seller: z.string().nullable(),
+    image: z.string().nullable(),
+  })
+  .nullable()
+  .optional();
 const messageSchema = z.object({
   id: z.string(),
   sender_id: z.string().nullable(),
@@ -42,7 +53,21 @@ const messageSchema = z.object({
   read_at: z.string().nullable(),
   edited_at: z.string().nullable(),
   deleted_at: z.string().nullable(),
+  listing_id: z.string().nullable().optional(),
+  listing: cardSchema,
 });
+
+const toItem = (card: z.infer<typeof cardSchema>): ChatItem | undefined =>
+  card
+    ? {
+        id: card.id,
+        title: card.title,
+        price: card.price,
+        image: card.image ?? undefined,
+        sellerHandle: card.seller ?? undefined,
+        sold: card.status === "sold",
+      }
+    : undefined;
 const personSchema = z.object({ handle: z.string(), name: z.string() }).nullable();
 const conversationSchema = z.object({
   id: z.string(),
@@ -51,6 +76,7 @@ const conversationSchema = z.object({
   last_message_at: z.string(),
   buyer: personSchema,
   seller: personSchema,
+  listing: cardSchema,
   messages: z.array(messageSchema),
 });
 const notificationSchema = z.object({
@@ -137,15 +163,19 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
 
   const conversations: Conversation[] = convos.items.flatMap((c) => {
     const iAmBuyer = c.buyer_id === profileId;
-    // The other person: the seller when buying, the buyer when selling.
+    // One thread per pair: the other person is whoever isn't me.
     const other = (iAmBuyer ? c.seller : c.buyer) as Person;
+    const mine = (iAmBuyer ? c.buyer : c.seller) as Person;
+    const item = toItem(c.listing);
     return [
       {
         id: c.id,
         listingId: c.listing_id ?? "",
+        item,
         sellerId: other?.handle ?? "",
         sellerName: other?.name ?? "A student",
-        role: iAmBuyer ? "buying" : "selling",
+        // Whether the item being discussed now is mine to sell.
+        role: item?.sellerHandle && item.sellerHandle === mine?.handle ? "selling" : "buying",
         messages: [...(activeThread === c.id && history ? history.items : c.messages.slice(0, 30))].reverse().map((m) => ({
           id: m.id,
           from: m.sender_id === profileId ? "me" : "them",
@@ -154,6 +184,8 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
           read: !!m.read_at,
           edited: !!m.edited_at,
           deleted: !!m.deleted_at,
+          listingId: m.listing_id ?? undefined,
+          item: toItem(m.listing),
         })),
         hasMoreMessages: activeThread === c.id && history ? !!history.next : c.messages.length > 30,
         unread: unreadFor(c.id),
@@ -199,10 +231,14 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
 
 // Messages -----------------------------------------------------------------------------
 
-/** Sends a message about a listing, starting the conversation if needed. Returns its id. */
+/**
+ * Sends a message. Two students share one thread, so a message from a listing page
+ * continues their chat (starting it if needed) and names the item (`about`), which the
+ * thread shows as a card. Replies in the inbox name no item. Returns the thread's id.
+ */
 export async function sendMessageRemote(
   profileId: string,
-  listing: { id: string; sellerProfileId: string },
+  about: { listingId: string } | null,
   conversationId: string | undefined,
   text: string,
   messageId = crypto.randomUUID(),
@@ -211,23 +247,14 @@ export async function sendMessageRemote(
   if (!client) return { error: "Messaging isn't available right now." };
   let id = conversationId;
   if (!id) {
-    const existing = await client.from("conversations").select("id").eq("listing_id", listing.id).eq("buyer_id", profileId).maybeSingle();
-    id = existing.data?.id;
+    if (!about) return { error: "Couldn't find this conversation. Reload and try again." };
+    const started = await client.rpc("start_conversation", { p_listing: about.listingId });
+    if (started.error || !started.data) return { error: problem(started.error, "Couldn't start the conversation.")! };
+    id = started.data;
   }
-  if (!id) {
-    const created = await client
-      .from("conversations")
-      .insert({ listing_id: listing.id, buyer_id: profileId, seller_id: listing.sellerProfileId })
-      .select("id")
-      .single();
-    if (created.error) {
-      if (created.error.code !== "23505") return { error: problem(created.error, "Couldn't start the conversation.")! };
-      const concurrent = await client.from("conversations").select("id").eq("listing_id", listing.id).eq("buyer_id", profileId).single();
-      if (!concurrent.data) return { error: "Couldn't start the conversation. Try again." };
-      id = concurrent.data.id;
-    } else id = created.data.id;
-  }
-  const sent = await client.from("messages").insert({ id: messageId, conversation_id: id, sender_id: profileId, body: text });
+  const sent = await client
+    .from("messages")
+    .insert({ id: messageId, conversation_id: id, sender_id: profileId, body: text, listing_id: about?.listingId ?? null });
   if (sent.error) {
     if (sent.error.code === "23505") {
       const previous = await client

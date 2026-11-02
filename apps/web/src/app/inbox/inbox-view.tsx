@@ -11,7 +11,7 @@ import { formatCedi } from "@/lib/format";
 import { useBodyScrollLock, useMediaQuery, useNow } from "@/lib/hooks";
 import { findListing, useStore } from "@/lib/store";
 import { EDIT_WINDOW_MS, joinTyping, readMessageDraft, saveMessageDraft } from "@/lib/social";
-import type { Conversation, Message } from "@/lib/types";
+import type { ChatItem, Conversation, Message } from "@/lib/types";
 import { RelativeTime } from "@/components/controls";
 import { Avatar, buttonClass, cn } from "@/components/ui";
 
@@ -121,6 +121,8 @@ export function InboxView() {
 function ConversationRow({ convo, active, onSelect }: { convo: Conversation; active: boolean; onSelect: () => void }) {
   const { allListings } = useStore();
   const listing = findListing(allListings, convo.listingId);
+  // The item discussed most recently, from the chat itself or the market.
+  const item = convo.item ?? (listing ? { title: listing.title, image: listing.images[0] } : undefined);
   const last = convo.messages.at(-1);
   return (
     <li>
@@ -135,9 +137,9 @@ function ConversationRow({ convo, active, onSelect }: { convo: Conversation; act
       >
         <span className="relative shrink-0">
           <Avatar name={convo.sellerName} size={50} />
-          {listing && (
+          {item?.image && (
             <span className="absolute -right-1 -bottom-1 size-6 overflow-hidden rounded-md border-2 border-canvas">
-              <Image src={listing.images[0]} alt="" fill sizes="24px" className="object-cover" />
+              <Image src={item.image} alt="" fill sizes="24px" className="object-cover" />
             </span>
           )}
         </span>
@@ -153,7 +155,7 @@ function ConversationRow({ convo, active, onSelect }: { convo: Conversation; act
               />
             )}
           </span>
-          <span className="block truncate text-xs text-ink-500">{listing?.title}</span>
+          {item && <span className="block truncate text-xs text-ink-500">{item.title}</span>}
           <span className="mt-0.5 flex items-center gap-2">
             <span className={cn("min-w-0 flex-1 truncate text-[13px]", convo.unread ? "font-medium text-ink-950" : "text-ink-500")}>
               {last?.from === "me" && "You: "}
@@ -197,16 +199,35 @@ const quickReplies = {
 
 const dayLabel = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
-/** Groups consecutive messages by sender and inserts a label whenever the day changes. */
+type ThreadPart =
+  | { kind: "day"; label: string; key: string }
+  | { kind: "item"; item?: ChatItem; key: string }
+  | { kind: "msg"; m: Message; first: boolean; last: boolean };
+
+/**
+ * Groups consecutive messages by sender, inserts a label whenever the day changes, and
+ * a card for the item whenever the conversation moves on to a different one.
+ */
 function groupMessages(messages: Message[]) {
-  const out: ({ kind: "day"; label: string; key: string } | { kind: "msg"; m: Message; first: boolean; last: boolean })[] = [];
+  const out: ThreadPart[] = [];
+  let shownItem: string | undefined;
   messages.forEach((m, i) => {
     const prev = messages[i - 1];
     const next = messages[i + 1];
     const day = new Date(m.at).toDateString();
     if (!prev || new Date(prev.at).toDateString() !== day) out.push({ kind: "day", label: dayLabel.format(m.at), key: `d-${m.id}` });
-    const samePrev = prev && prev.from === m.from && new Date(prev.at).toDateString() === day && m.at - prev.at < 5 * 60_000;
-    const sameNext = next && next.from === m.from && new Date(next.at).toDateString() === day && next.at - m.at < 5 * 60_000;
+    if (m.listingId && m.listingId !== shownItem) {
+      shownItem = m.listingId;
+      out.push({ kind: "item", item: m.item, key: `i-${m.id}` });
+    }
+    const newItem = out.at(-1)?.kind === "item";
+    const samePrev = !newItem && prev && prev.from === m.from && new Date(prev.at).toDateString() === day && m.at - prev.at < 5 * 60_000;
+    const sameNext =
+      next &&
+      next.from === m.from &&
+      new Date(next.at).toDateString() === day &&
+      next.at - m.at < 5 * 60_000 &&
+      !(next.listingId && next.listingId !== (m.listingId ?? shownItem));
     out.push({ kind: "msg", m, first: !samePrev, last: !sameNext });
   });
   return out;
@@ -215,7 +236,13 @@ function groupMessages(messages: Message[]) {
 function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) {
   const { allListings, sendMessage, readConversation, editMessage, deleteMessage, user, loadMoreSocial, closeMessageHistory } = useStore();
   const listing = findListing(allListings, convo.listingId);
-  const selling = convo.role === "selling";
+  // The item discussed most recently; earlier ones appear as cards in the thread.
+  const item: ChatItem | undefined =
+    convo.item ??
+    (listing
+      ? { id: listing.id, title: listing.title, price: listing.price, image: listing.images[0], sellerHandle: listing.sellerId }
+      : undefined);
+  const selling = !!item?.sellerHandle && item.sellerHandle === user?.handle;
   const [text, setText] = useState(() => readMessageDraft(user?.profileId, convo.id));
   // The message whose actions are open, and the one being edited.
   const [picked, setPicked] = useState<string | null>(null);
@@ -271,12 +298,8 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
         }
         setEditing(null);
       } else {
-        if (!listing) {
-          setSendError("This listing is unavailable. Your message has been kept.");
-          return;
-        }
         if (retryMessage.current?.body !== body.trim()) retryMessage.current = { body: body.trim(), id: crypto.randomUUID() };
-        const result = await sendMessage(listing, convo.sellerName, body.trim(), convo.id, retryMessage.current.id);
+        const result = await sendMessage(null, convo.sellerName, body.trim(), convo.id, retryMessage.current.id);
         if (!result) {
           setSendError("Your message wasn't confirmed. Your text is kept below. Try again.");
           return;
@@ -322,33 +345,35 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
             <ShieldCheck className="size-3.5 text-maroon-700" aria-hidden /> {theyType ? "typing…" : "Ashesi student"}
           </p>
         </div>
-        {listing && (
+        {item && (
           <Link
-            href={`/listing/${listing.id}`}
+            href={`/listing/${item.id}`}
             className="grid size-10 place-items-center rounded-full hover:bg-surface"
-            aria-label="Open listing"
+            aria-label="Open the item you're discussing"
           >
             <ExternalLink className="size-[18px]" />
           </Link>
         )}
       </header>
 
-      {listing && (
+      {item && (
         <Link
-          href={`/listing/${listing.id}`}
+          href={`/listing/${item.id}`}
           className="flex items-center gap-3 border-b border-line bg-surface px-4 py-2.5 hover:bg-surface-2 md:px-5"
         >
-          <span className="relative size-11 shrink-0 overflow-hidden rounded-lg">
-            <Image src={listing.images[0]} alt="" fill sizes="44px" className="object-cover" />
+          <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+            {item.image && <Image src={item.image} alt="" fill sizes="44px" className="object-cover" />}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium text-ink-950">{listing.title}</span>
-            <span className="text-xs text-ink-500 tabular">{formatCedi(listing.price)}</span>
+            <span className="block text-[11px] text-ink-500">Talking about</span>
+            <span className="block truncate text-[13px] font-medium text-ink-950">{item.title}</span>
           </span>
           {selling ? (
             <span className="text-xs font-medium text-ink-500">Your listing</span>
+          ) : item.sold ? (
+            <span className="text-xs font-medium text-ink-500">Sold</span>
           ) : (
-            <span className={buttonClass("dark", "sm")}>Buy</span>
+            <span className={buttonClass("dark", "sm")}>{formatCedi(item.price)} · View</span>
           )}
         </Link>
       )}
@@ -363,6 +388,10 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
               <motion.p key={it.key} layout className="my-4 text-center text-[11px] font-medium text-ink-500">
                 {it.label}
               </motion.p>
+            ) : it.kind === "item" ? (
+              <motion.div key={it.key} layout className="my-3 flex justify-center">
+                <ItemCard item={it.item} />
+              </motion.div>
             ) : (
               <motion.div
                 key={it.m.id}
@@ -553,5 +582,28 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
         </form>
       </div>
     </div>
+  );
+}
+
+/** The item the next messages are about, shown in the thread where the conversation turns to it. */
+function ItemCard({ item }: { item?: ChatItem }) {
+  if (!item)
+    return <p className="rounded-full bg-surface px-3 py-1 text-[11px] text-ink-500">About an item that&rsquo;s no longer listed</p>;
+  return (
+    <Link
+      href={`/listing/${item.id}`}
+      className="flex w-full max-w-xs items-center gap-3 rounded-xl border border-line bg-elevated p-2 pr-3 transition-colors hover:border-ink-400"
+    >
+      <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-surface">
+        {item.image && <Image src={item.image} alt="" fill sizes="40px" className="object-cover" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-medium text-ink-950">{item.title}</span>
+        <span className="text-xs text-ink-500 tabular">
+          {formatCedi(item.price)}
+          {item.sold && " · Sold"}
+        </span>
+      </span>
+    </Link>
   );
 }

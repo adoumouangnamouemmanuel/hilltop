@@ -89,8 +89,15 @@ export type IncomingOffer = {
   at: number;
 };
 
+/** A listing as a chat shows it: enough for a small card. */
+export type ChatItem = { id: string; title: string; price: number; image?: string; sellerHandle?: string; sold?: boolean };
+
 export type Message = {
   id: string;
+  /** The item this message is about, when it was sent from a listing. */
+  listingId?: string;
+  /** That item's card; missing when the listing is no longer visible. */
+  item?: ChatItem;
   from: "me" | "them";
   text: string;
   at: number;
@@ -102,11 +109,14 @@ export type Message = {
   pending?: boolean;
 };
 
+/** One thread per pair of students, across every item they discuss. */
 export type Conversation = {
   hasMoreMessages?: boolean;
   id: string;
+  /** The item discussed most recently. */
   listingId: string;
-  /** The other person in the conversation (the seller, or the buyer when you're selling). */
+  item?: ChatItem;
+  /** The other person in the conversation. */
   sellerId: string;
   sellerName: string;
   role?: "buying" | "selling";

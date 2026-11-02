@@ -103,7 +103,8 @@ export function OfferPanel({ listing, sellerName }: { listing: Listing; sellerNa
 /** Starts or continues a conversation about this listing. */
 export function MessagePanel({ listing, sellerName }: { listing: Listing; sellerName: string }) {
   const { conversations, sendMessage } = useStore();
-  const existing = conversations.find((c) => c.listingId === listing.id && c.role !== "selling");
+  // One chat per person: asking about another of their items continues it.
+  const existing = conversations.find((c) => c.sellerId === listing.sellerId);
   const quick = ["Is this still available?", "Can we meet today?", "Is the price negotiable?"];
   const [text, setText] = useState(`Hi ${firstName(sellerName)}, is this still available?`);
 
@@ -162,6 +163,13 @@ export function MessagePanel({ listing, sellerName }: { listing: Listing; seller
 /** Offers buyers made on the seller's own listing, newest first, to accept or decline. */
 export function IncomingOffers({ listing }: { listing: Listing }) {
   const { incomingOffers, answerOffer } = useStore();
+  // The offer being answered: its buttons wait until the database confirms.
+  const [answering, setAnswering] = useState<{ id: string; accepted: boolean } | null>(null);
+  async function answer(id: string, accepted: boolean) {
+    setAnswering({ id, accepted });
+    await answerOffer(id, accepted);
+    setAnswering(null);
+  }
   const offers = (incomingOffers ?? []).filter((o) => o.listingId === listing.id && o.status !== "withdrawn");
   if (!offers.length) return null;
   return (
@@ -176,11 +184,11 @@ export function IncomingOffers({ listing }: { listing: Listing }) {
             </span>
             {o.status === "pending" ? (
               <>
-                <button type="button" onClick={() => answerOffer(o.id, false)} className={buttonClass("ghost", "sm")}>
-                  Decline
+                <button type="button" disabled={!!answering} onClick={() => answer(o.id, false)} className={buttonClass("ghost", "sm")}>
+                  {answering?.id === o.id && !answering.accepted ? "Declining…" : "Decline"}
                 </button>
-                <button type="button" onClick={() => answerOffer(o.id, true)} className={buttonClass("dark", "sm")}>
-                  Accept
+                <button type="button" disabled={!!answering} onClick={() => answer(o.id, true)} className={buttonClass("dark", "sm")}>
+                  {answering?.id === o.id && answering.accepted ? "Accepting…" : "Accept"}
                 </button>
               </>
             ) : (

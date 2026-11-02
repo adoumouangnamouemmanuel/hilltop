@@ -529,33 +529,47 @@ export const actions = {
     if (!error) commit((s) => M.makeOffer(s, listing.id, amount, Date.now()));
     return error;
   },
+  /**
+   * Accepts or declines an offer. Shown as answered only once the database has it, so
+   * leaving the page straight after tapping can't silently lose the answer.
+   */
   async answerOffer(offerId: string, accepted: boolean) {
     writes++;
-    commit((s) => ({
-      ...s,
-      incomingOffers: s.incomingOffers?.map((o) => (o.id === offerId ? { ...o, status: accepted ? "accepted" : "declined" } : o)),
-    }));
-    const error = await Social.answerOfferRemote(offerId, accepted);
+    const error = await Social.answerOfferRemote(offerId, accepted).catch(() => "Couldn't answer the offer. Try again.");
+    writes++;
     if (error) toast(error);
+    else
+      commit((s) => ({
+        ...s,
+        incomingOffers: s.incomingOffers?.map((o) => (o.id === offerId ? { ...o, status: accepted ? "accepted" : "declined" } : o)),
+      }));
     refreshSocial();
     return error;
   },
 
-  // Messages. `conversationId` is known when replying in the inbox.
-  async sendMessage(listing: Listing, sellerName: string, text: string, conversationId?: string, messageId = crypto.randomUUID()) {
+  /**
+   * Sends a message. From a listing page, `about` is that listing: the message continues
+   * the student's one chat with its seller and shows the item. Replies in the inbox pass
+   * the conversation and no item.
+   */
+  async sendMessage(about: Listing | null, otherName: string, text: string, conversationId?: string, messageId = crypto.randomUUID()) {
     writes++;
     const profileId = me();
     if (!profileId) return null;
     const existing =
       state.conversations.find((c) => c.id === conversationId) ??
-      state.conversations.find((c) => c.listingId === listing.id && c.role !== "selling");
+      (about ? state.conversations.find((c) => c.sellerId === about.sellerId) : undefined);
+    if (!existing && !about) return null;
     const tempId = existing?.id ?? uid("c");
+    const item = about
+      ? { id: about.id, title: about.title, price: about.price, image: about.images[0], sellerHandle: about.sellerId }
+      : undefined;
     commit((s) =>
       M.sendMessage(s, {
         conversationId: tempId,
-        listingId: listing.id,
-        sellerId: listing.sellerId,
-        sellerName,
+        item,
+        sellerId: existing?.sellerId ?? about!.sellerId,
+        sellerName: otherName,
         text,
         id: messageId,
         now: Date.now(),
@@ -563,8 +577,8 @@ export const actions = {
     );
     const result = await Social.sendMessageRemote(
       profileId,
-      { id: listing.id, sellerProfileId: listing.sellerProfileId ?? getSeller(listing.sellerId)?.profileId ?? "" },
-      existing?.id,
+      about ? { listingId: about.id } : null,
+      existing && !existing.id.startsWith("c-") ? existing.id : undefined,
       text,
       messageId,
     ).catch(() => ({ error: "Couldn't confirm your message. Retry to check or send it safely." }));

@@ -248,10 +248,10 @@ describe("offers", () => {
 describe("messages", () => {
   it("starts a conversation, receives a reply and clears unread", () => {
     const l = listing("headphones");
-    const id = M.conversationIdFor(l.id);
+    const id = "c-new";
     let s = M.sendMessage(seed(), {
       conversationId: id,
-      listingId: l.id,
+      item: { id: l.id, title: l.title, price: l.price, sellerHandle: l.sellerId },
       sellerId: l.sellerId,
       sellerName: "Issaka Idrissa",
       text: "Hi",
@@ -267,6 +267,36 @@ describe("messages", () => {
     s = M.readConversation(s, id);
     expect(s.conversations[0].unread).toBe(0);
     expect(s.notifications[0].read).toBe(true);
+  });
+
+  it("keeps one chat per person and marks which item each message is about", () => {
+    const first = listing("headphones");
+    const other = { id: "another-item", title: "Desk lamp", price: 40, sellerHandle: first.sellerId };
+    const card = { id: first.id, title: first.title, price: first.price, sellerHandle: first.sellerId };
+    let s = M.sendMessage(seed(), {
+      conversationId: "c-1",
+      item: card,
+      sellerId: first.sellerId,
+      sellerName: "Issaka",
+      text: "Hi",
+      id: "m-1",
+      now: T,
+    });
+    s = M.sendMessage(s, {
+      conversationId: "c-1",
+      item: other,
+      sellerId: first.sellerId,
+      sellerName: "Issaka",
+      text: "And this?",
+      id: "m-2",
+      now: T + 1,
+    });
+    s = M.sendMessage(s, { conversationId: "c-1", sellerId: first.sellerId, sellerName: "Issaka", text: "Thanks", id: "m-3", now: T + 2 });
+    const chats = s.conversations.filter((c) => c.id === "c-1");
+    expect(chats).toHaveLength(1);
+    expect(chats[0].messages.map((m) => m.listingId)).toEqual([first.id, "another-item", undefined]);
+    // The thread follows the latest item discussed; a plain reply doesn't change it.
+    expect(chats[0]).toMatchObject({ listingId: "another-item", item: { title: "Desk lamp" } });
   });
 
   it("picks canned replies by keyword", () => {

@@ -4,10 +4,12 @@ import { formatCedi } from "./format";
 import { applyFilters, parseFilters } from "./search";
 import type {
   AppNotification,
+  ChatItem,
   Conversation,
   DisputeReason,
-  NotificationKind,
   ListingReport,
+  Message,
+  NotificationKind,
   Order,
   OrderPayment,
   OrderStatus,
@@ -337,13 +339,21 @@ export const wouldAccept = (offer: number, price: number, autoAcceptRatio: numbe
 
 export function sendMessage(
   s: State,
-  m: { conversationId: string; listingId: string; sellerId: string; sellerName: string; text: string; id: string; now: number },
+  m: { conversationId: string; item?: ChatItem; sellerId: string; sellerName: string; text: string; id: string; now: number },
 ): State {
-  const msg = { id: m.id, from: "me" as const, text: m.text, at: m.now, pending: true };
+  const msg: Message = { id: m.id, from: "me", text: m.text, at: m.now, pending: true, listingId: m.item?.id, item: m.item };
   const existing = s.conversations.find((c) => c.id === m.conversationId);
   const convo: Conversation = existing
-    ? { ...existing, messages: [...existing.messages, msg] }
-    : { id: m.conversationId, listingId: m.listingId, sellerId: m.sellerId, sellerName: m.sellerName, messages: [msg], unread: 0 };
+    ? { ...existing, ...(m.item ? { listingId: m.item.id, item: m.item } : {}), messages: [...existing.messages, msg] }
+    : {
+        id: m.conversationId,
+        listingId: m.item?.id ?? "",
+        item: m.item,
+        sellerId: m.sellerId,
+        sellerName: m.sellerName,
+        messages: [msg],
+        unread: 0,
+      };
   return { ...s, conversations: [convo, ...s.conversations.filter((c) => c.id !== m.conversationId)] };
 }
 
@@ -372,8 +382,6 @@ export function readConversation(s: State, conversationId: string): State {
     notifications: s.notifications.map((n) => (n.href === `/inbox?c=${conversationId}` ? { ...n, read: true } : n)),
   };
 }
-
-export const conversationIdFor = (listingId: string) => `c-${listingId}`;
 
 /** Canned seller replies for the demo, picked by keywords in the buyer's message. */
 export function autoReply(text: string) {
