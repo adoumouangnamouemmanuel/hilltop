@@ -82,7 +82,7 @@ export function Header() {
       >
         Skip to content
       </a>
-      <div className="container-page flex h-16 items-center gap-3 lg:gap-6">
+      <div className="container-page flex h-16 items-center gap-2 xs:gap-3 lg:gap-6">
         <Logo />
         <button
           ref={megaTrigger}
@@ -109,8 +109,7 @@ export function Header() {
         <Suspense fallback={<SearchFallback className="hidden flex-1 md:flex" />}>
           <SearchBox className="hidden max-w-2xl flex-1 md:block" shortcut />
         </Suspense>
-        <div className="ml-auto flex items-center gap-1">
-          <ThemeToggle />
+        <div className="ml-auto flex min-w-0 items-center gap-0.5 xs:gap-1">
           <HeaderActions />
         </div>
       </div>
@@ -171,7 +170,7 @@ function MegaMenu({ onClose }: { onClose: (returnFocus?: boolean) => void }) {
       transition={{ duration: 0.18 }}
       className="absolute inset-x-0 top-16 z-50 hidden border-y border-line bg-elevated shadow-pop lg:block"
     >
-      <div className="container-page grid grid-cols-[1fr_280px] gap-10 py-8">
+      <div className="container-page grid grid-cols-[minmax(0,1fr)_280px] gap-10 py-8">
         <nav
           aria-label="All categories"
           className="grid grid-cols-3 gap-1 xl:grid-cols-4"
@@ -306,6 +305,8 @@ function HeaderActions() {
 
   return (
     <>
+      {/* Signed-in phones switch theme from the account menu, which frees room for messages and alerts. */}
+      <ThemeToggle className={cn("max-xs:hidden", user && "max-sm:hidden")} />
       <Link href="/saved" className={cn(iconLink, "hidden md:grid")} aria-label={`Saved items (${saved.length})`}>
         <Heart className="size-5" aria-hidden />
         <CountBadge count={saved.length} />
@@ -327,7 +328,7 @@ function HeaderActions() {
       {user ? (
         <AccountMenu name={user.name} email={user.email} />
       ) : (
-        <Link href="/sign-in" className={buttonClass("outline", "md", "ml-1 h-10")}>
+        <Link href="/sign-in" className={buttonClass("outline", "md", "ml-1 h-10 whitespace-nowrap max-xs:px-3")}>
           Log in
         </Link>
       )}

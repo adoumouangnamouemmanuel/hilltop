@@ -58,7 +58,7 @@ export function Footer() {
         </div>
       </footer>
       <footer className="mt-24 hidden border-t border-line bg-surface md:block">
-        <div className="container-page grid gap-10 py-14 lg:grid-cols-[1.1fr_2fr]">
+        <div className="container-page grid grid-cols-1 gap-10 py-14 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
           <div className="max-w-xs">
             <Logo />
             <p className="mt-4 text-sm leading-6 text-ink-500">

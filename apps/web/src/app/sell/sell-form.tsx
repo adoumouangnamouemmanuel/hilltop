@@ -158,7 +158,7 @@ export function SellForm() {
       </p>
       {!editing && <SellGuide values={values} />}
 
-      <form onSubmit={publish} noValidate className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
+      <form onSubmit={publish} noValidate className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
         <div className="divide-y divide-line">
           <Section
             title="Photos"
@@ -233,7 +233,12 @@ export function SellForm() {
                 control={control}
                 name="condition"
                 render={({ field }) => (
-                  <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Condition" aria-invalid={!!errors.condition}>
+                  <div
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+                    role="radiogroup"
+                    aria-label="Condition"
+                    aria-invalid={!!errors.condition}
+                  >
                     {config.conditions.map(({ value: c, help }) => (
                       <button
                         key={c}
@@ -269,7 +274,7 @@ export function SellForm() {
           {values.category === "food" && <FoodFields form={form} />}
 
           <Section title="Price">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Controller
                 control={control}
                 name="price"
@@ -361,7 +366,7 @@ export function SellForm() {
                 control={control}
                 name="boost"
                 render={({ field }) => (
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {[{ id: "none" as const, label: "No promotion", price: 0, reach: "Standard placement" }, ...boostPlans].map((p) => (
                       <button
                         key={p.id}

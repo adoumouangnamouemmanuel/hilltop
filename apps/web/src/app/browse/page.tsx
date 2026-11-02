@@ -17,7 +17,7 @@ function BrowseSkeleton() {
   return (
     <div className="container-page pt-8">
       <div className="h-8 w-48 rounded-lg bg-surface" />
-      <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6">
         {Array.from({ length: 8 }, (_, i) => (
           <ListingCardSkeleton key={i} />
         ))}

@@ -8,6 +8,7 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/toaster";
 import { getPlatformConfig } from "@/lib/config-server";
 import { getMarket } from "@/lib/market-server";
+import type { Market } from "@/lib/market";
 import { protectionSummary } from "@hilltop/shared/payments";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
@@ -36,8 +37,15 @@ export const viewport: Viewport = {
   ],
 };
 
+// Every page carries the market to the browser, so descriptions are shortened there;
+// listing pages load the full text from the server.
+const forBrowser = (market: Market): Market => ({
+  ...market,
+  listings: market.listings.map((l) => (l.description.length > 200 ? { ...l, description: `${l.description.slice(0, 200)}…` } : l)),
+});
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [config, market] = await Promise.all([getPlatformConfig(), getMarket()]);
+  const [config, market] = await Promise.all([getPlatformConfig(), getMarket().then(forBrowser)]);
   return (
     // The theme class is set by the inline script before hydration.
     <html lang="en" className={`${poppins.variable} h-full antialiased`} suppressHydrationWarning>
@@ -48,7 +56,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <Providers config={config} market={market}>
           <Announcement />
           <Header />
-          <main id="main" className="flex-1 pb-28 md:pb-0">
+          {/* Clipping (not hiding) keeps sticky elements working while stopping any wide content from scrolling the page sideways. */}
+          <main id="main" className="min-w-0 flex-1 overflow-x-clip pb-28 md:pb-0">
             {children}
           </main>
           <Footer />

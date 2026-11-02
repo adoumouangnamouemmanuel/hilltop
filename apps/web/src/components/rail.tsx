@@ -61,7 +61,10 @@ export function ListingRail({
         className="-mx-4 no-scrollbar flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:gap-4 lg:px-0"
       >
         {listings.map((l) => (
-          <div key={l.id} className="w-[44%] shrink-0 snap-start sm:w-[30%] md:w-[23%] lg:w-[calc((100%-4rem)/5)]">
+          <div
+            key={l.id}
+            className="w-[44%] shrink-0 snap-start xs:w-[42%] sm:w-[30%] md:w-[23%] lg:w-[calc((100%-4rem)/5)] 3xl:w-[calc((100%-5rem)/6)]"
+          >
             <ListingCard listing={l} sizes="(min-width: 1024px) 20vw, 45vw" />
           </div>
         ))}

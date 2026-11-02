@@ -242,7 +242,7 @@ export function BrowseView() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-[250px_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
           <div className="sticky top-[132px] no-scrollbar max-h-[calc(100vh-150px)] overflow-y-auto pb-8">{panel}</div>
         </aside>
@@ -314,7 +314,10 @@ export function BrowseView() {
           </div>
 
           {results.length > 0 ? (
-            <motion.div layout className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4">
+            <motion.div
+              layout
+              className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6"
+            >
               <AnimatePresence mode="popLayout" initial={false}>
                 {shown.map((l, i) => (
                   <motion.div
@@ -335,7 +338,11 @@ export function BrowseView() {
           )}
 
           {hasMore && (
-            <div ref={sentinel} className="mt-8 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4" aria-hidden>
+            <div
+              ref={sentinel}
+              className="mt-8 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6"
+              aria-hidden
+            >
               {Array.from({ length: 4 }, (_, i) => (
                 <ListingCardSkeleton key={i} />
               ))}

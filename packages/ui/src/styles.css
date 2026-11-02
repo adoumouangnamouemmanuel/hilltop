@@ -45,7 +45,17 @@
   --color-chart: var(--chart);
 }
 
+/*
+ * Breakpoints, smallest first. Each screen class gets its own layout rather than
+ * stretching one: xs covers everyday Android phones (360px and up; anything narrower
+ * is a small or zoomed-in phone and gets the base layout), sm large phones in
+ * landscape and small tablets, md tablets, lg laptops, xl desktops, 2xl wide
+ * desktops and 3xl very large screens (1920px and up).
+ */
 @theme {
+  --breakpoint-xs: 22.5rem;
+  --breakpoint-3xl: 120rem;
+
   --animate-shimmer: shimmer 1.4s linear infinite;
   --animate-marquee: marquee 40s linear infinite;
   --animate-ken-burns: ken-burns 24s ease-in-out infinite alternate;
@@ -153,6 +163,8 @@
 body {
   background: var(--canvas);
   color: var(--ink-900);
+  /* Long unbroken words (links, shop names) wrap instead of widening the page. */
+  overflow-wrap: break-word;
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   transition: background-color 0.25s ease;
@@ -207,6 +219,13 @@ body {
   }
   @media (min-width: 64rem) {
     padding-inline: 2rem;
+  }
+  @media (min-width: 96rem) {
+    max-width: 90rem;
+  }
+  @media (min-width: 120rem) {
+    max-width: 104rem;
+    padding-inline: 3rem;
   }
 }
 

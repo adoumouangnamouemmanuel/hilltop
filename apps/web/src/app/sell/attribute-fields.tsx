@@ -23,7 +23,7 @@ export function AttributeFields({
   const attrErrors = (errors.attributes ?? {}) as Record<string, { message?: string } | undefined>;
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {category.attributes.map((a) => (
           <Controller
             key={a.key}
@@ -124,7 +124,7 @@ function ExtraDetails({ control }: { control: Control<ListingFormValues> }) {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mb-2 grid grid-cols-[1fr_1.4fr_auto] gap-2">
+            <div className="mb-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] gap-2">
               <Controller
                 control={control}
                 name={`extra.${i}.label`}

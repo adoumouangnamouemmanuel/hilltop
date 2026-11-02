@@ -37,7 +37,9 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
   const [panel, setPanel] = useState<Panel>(null);
   const [copied, setCopied] = useState(false);
 
-  const listing = findListing(allListings, id) ?? initial;
+  const found = findListing(allListings, id);
+  // The browser's copy of the market has shortened descriptions; the server sent this one in full.
+  const listing = found && initial?.id === found.id ? { ...found, description: initial.description } : (found ?? initial);
   const visible = listing && (listing.status !== "draft" || (!!user?.handle && listing.sellerId === user.handle));
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
           {category.label}
         </Link>
         <span className="mx-1.5 text-ink-300">/</span>
-        <span className="text-ink-950">{listing.title}</span>
+        <span className="[overflow-wrap:anywhere] text-ink-950">{listing.title}</span>
       </nav>
 
       {listing.status === "draft" && (
@@ -100,7 +102,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
         </p>
       )}
 
-      <div className="grid gap-8 sm:mt-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
+      <div className="grid grid-cols-1 gap-8 sm:mt-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10 xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-12">
         <div className="relative min-w-0">
           <Gallery images={listing.images} title={listing.title} />
           {!available && (
@@ -113,9 +115,11 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
           </div>
         </div>
 
-        <div className="lg:sticky lg:top-[132px] lg:self-start">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-[22px] leading-snug font-semibold tracking-[-0.02em] text-ink-950 sm:text-2xl">{listing.title}</h1>
+        <div className="min-w-0 lg:sticky lg:top-[132px] lg:self-start">
+          <div className="flex items-start justify-between gap-3 xs:gap-4">
+            <h1 className="min-w-0 text-xl leading-snug font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] text-ink-950 xs:text-[22px] sm:text-2xl">
+              {listing.title}
+            </h1>
             <div className="flex shrink-0 gap-1">
               <IconButton label={copied ? "Link copied" : "Share"} onClick={share}>
                 {copied ? <Check className="size-[18px]" /> : <Share className="size-[18px]" />}
@@ -135,8 +139,10 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
             </div>
           </div>
 
-          <div className="mt-3 flex items-baseline gap-2.5">
-            <span className="text-[28px] font-semibold tracking-[-0.02em] text-ink-950 tabular">{formatCedi(listing.price)}</span>
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="text-2xl font-semibold tracking-[-0.02em] text-ink-950 tabular xs:text-[28px]">
+              {formatCedi(listing.price)}
+            </span>
             {off > 0 && (
               <>
                 <span className="text-sm text-ink-400 tabular line-through">{formatCedi(listing.originalPrice!)}</span>
@@ -201,7 +207,7 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
           {!seller.isMe && <ReportListing listingId={listing.id} title={listing.title} />}
         </div>
 
-        <div className="lg:hidden">
+        <div className="min-w-0 lg:hidden">
           <About listing={listing} facts={factsFor(listing, category)} />
         </div>
       </div>
@@ -217,10 +223,10 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
 
       {/* Mobile buy bar */}
       {!seller.isMe && available && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-elevated px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-line bg-elevated px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xs:gap-3 xs:px-4 md:hidden">
           <div className="min-w-0 flex-1">
             <p className="text-lg leading-tight font-semibold text-ink-950 tabular">{formatCedi(unitPrice)}</p>
-            <p className="text-[11px] text-ink-500">{mobilePayLine}</p>
+            <p className="truncate text-[11px] text-ink-500">{mobilePayLine}</p>
           </div>
           {features.offers && !listing.food && (
             <button
@@ -229,12 +235,12 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
                 setPanel("offer");
                 document.getElementById("buy-box")?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
-              className={buttonClass("outline", "md")}
+              className={buttonClass("outline", "md", "shrink-0 max-xs:px-3")}
             >
               Offer
             </button>
           )}
-          <button type="button" onClick={() => setCheckoutOpen(true)} className={buttonClass("primary", "md")}>
+          <button type="button" onClick={() => setCheckoutOpen(true)} className={buttonClass("primary", "md", "shrink-0 max-xs:px-3")}>
             {listing.food ? "Order" : "Buy now"}
           </button>
         </div>

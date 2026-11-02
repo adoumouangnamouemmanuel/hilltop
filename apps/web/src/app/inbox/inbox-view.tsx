@@ -56,7 +56,7 @@ export function InboxView() {
   const unread = conversations.reduce((n, c) => n + c.unread, 0);
 
   return (
-    <div className="md:grid md:h-[calc(100dvh-11rem)] md:min-h-[520px] md:grid-cols-[340px_1fr] md:overflow-hidden md:rounded-2xl md:border md:border-line">
+    <div className="md:grid md:h-[calc(100dvh-11rem)] md:min-h-[520px] md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden md:rounded-2xl md:border md:border-line">
       {/* Conversation list: the whole page on phones, a sidebar on larger screens */}
       <aside className="flex min-h-0 flex-col md:border-r md:border-line">
         <div className="px-1 pt-2 pb-3 md:px-4 md:pt-5">

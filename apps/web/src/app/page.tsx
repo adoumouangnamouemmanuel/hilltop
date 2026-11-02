@@ -21,7 +21,7 @@ export default async function Home() {
   return (
     <div className="space-y-16 pb-8 sm:space-y-20">
       {/* Hero with the animated guide */}
-      <section className="container-page grid items-center gap-12 pt-6 sm:pt-10 lg:grid-cols-[1.15fr_1fr] lg:gap-6 lg:pt-14">
+      <section className="container-page grid grid-cols-1 items-center gap-12 pt-6 sm:pt-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-6 lg:pt-14">
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-medium text-ink-700">
             <BadgeCheck className="size-3.5 text-maroon-700" aria-hidden /> Only for{" "}
@@ -70,7 +70,7 @@ export default async function Home() {
         {/* Seasonal event, switched on and scheduled in the admin portal */}
         {sale.enabled && (
           <Link href="/move-out" className="group relative block overflow-hidden rounded-3xl bg-maroon-800 text-white">
-            <div className="grid items-center gap-6 p-6 sm:p-10 md:grid-cols-[1fr_auto]">
+            <div className="grid grid-cols-1 items-center gap-6 p-6 sm:p-10 md:grid-cols-[minmax(0,1fr)_auto]">
               <div>
                 <p className="text-sm text-white/70">{dateRange(sale.startsAt, sale.endsAt)}</p>
                 <h2 className="mt-1 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">{sale.name}</h2>

@@ -59,7 +59,14 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
 
       {/* Desktop */}
       {/* Capped so photos (stored up to 1600px) stay sharp and the page doesn't scroll past them. */}
-      <div className={cn("hidden gap-3 md:grid", many ? "max-w-[540px] grid-cols-[64px_1fr]" : "max-w-[460px]")}>
+      <div
+        className={cn(
+          "hidden gap-3 md:grid",
+          many
+            ? "max-w-[540px] grid-cols-[64px_minmax(0,1fr)] xl:max-w-[600px] 3xl:max-w-[680px]"
+            : "max-w-[460px] xl:max-w-[520px] 3xl:max-w-[600px]",
+        )}
+      >
         {many && (
           <div className="flex flex-col gap-2">
             {images.map((src, i) => (

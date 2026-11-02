@@ -44,7 +44,7 @@ export function AuthShell({ image, children }: { image: CampusPhoto; children: R
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Mobile photo header */}
-      <div className="relative h-60 overflow-hidden lg:hidden">
+      <div className="relative h-52 overflow-hidden xs:h-60 sm:h-72 lg:hidden">
         <Image
           src={image.src}
           alt={`${image.place}, Ashesi University`}
@@ -78,7 +78,7 @@ export function AuthShell({ image, children }: { image: CampusPhoto; children: R
       </div>
 
       {/* Form column */}
-      <div className="relative -mt-7 flex min-h-[calc(100dvh-13rem)] flex-col rounded-t-[1.75rem] bg-canvas px-5 pt-8 pb-8 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:px-12 lg:pt-8 xl:px-20">
+      <div className="relative -mt-7 flex min-h-[calc(100dvh-13rem)] min-w-0 flex-col rounded-t-[1.75rem] bg-canvas px-4 pt-8 pb-8 xs:px-5 sm:px-10 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:px-12 lg:pt-8 xl:px-20">
         <div className="hidden items-center justify-between lg:flex">
           <Logo />
           <div className="flex items-center gap-2">
@@ -227,21 +227,27 @@ export function MicrosoftButton({ onClick, loading, comingSoon }: { onClick: () 
       onClick={onClick}
       disabled={loading || comingSoon}
       aria-describedby={comingSoon ? "sso-soon" : undefined}
-      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line-strong bg-elevated text-[15px] font-medium text-ink-950 transition-colors enabled:hover:border-ink-950 disabled:cursor-not-allowed disabled:opacity-60"
+      className="group relative flex h-12 w-full min-w-0 items-center justify-center gap-2.5 rounded-xl border border-line-strong bg-elevated px-4 text-sm font-medium whitespace-nowrap text-ink-950 transition-colors enabled:hover:border-ink-950 disabled:cursor-not-allowed xs:gap-3 xs:text-[15px]"
     >
       {loading ? (
         <Loader2 className="size-4 animate-spin" aria-hidden />
       ) : (
-        <svg viewBox="0 0 21 21" className="size-[18px]" aria-hidden>
+        <svg viewBox="0 0 21 21" className="size-[18px] shrink-0 group-disabled:opacity-60" aria-hidden>
           <rect x="1" y="1" width="9" height="9" fill="#f25022" />
           <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
           <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
           <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
         </svg>
       )}
-      Continue with Ashesi Microsoft
+      {/* Always one line: "Microsoft" joins the label from 360px up, and the label never shares its row with the badge. */}
+      <span className="min-w-0 truncate group-disabled:opacity-60">
+        Continue with Ashesi<span className="hidden xs:inline"> Microsoft</span>
+      </span>
       {comingSoon && (
-        <span id="sso-soon" className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-ink-500">
+        <span
+          id="sso-soon"
+          className="absolute -top-2.5 right-3 rounded-full border border-line-strong bg-elevated px-2 py-px text-[10px] leading-4 font-semibold text-ink-500"
+        >
           Coming soon
         </span>
       )}
@@ -279,7 +285,7 @@ export function OtpInput({ onComplete, disabled }: { onComplete: (code: string) 
   }
 
   return (
-    <fieldset className="grid grid-cols-6 gap-2" disabled={disabled}>
+    <fieldset className="grid grid-cols-6 gap-1.5 xs:gap-2" disabled={disabled}>
       <legend className="sr-only">Verification code</legend>
       {code.map((d, i) => (
         <motion.input
@@ -300,7 +306,7 @@ export function OtpInput({ onComplete, disabled }: { onComplete: (code: string) 
           autoComplete={i === 0 ? "one-time-code" : "off"}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            "h-14 w-full min-w-0 rounded-xl border bg-elevated text-center text-xl font-semibold text-ink-950 tabular transition-colors outline-none focus:border-ink-950",
+            "h-12 w-full min-w-0 rounded-xl border bg-elevated text-center text-lg font-semibold text-ink-950 tabular transition-colors outline-none focus:border-ink-950 xs:h-14 xs:text-xl",
             d ? "border-ink-950" : "border-line-strong",
           )}
         />

@@ -36,7 +36,7 @@ export default async function MoveOutPage() {
         />
         {/* Keeps the text readable over the photo while letting the campus show through. */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-maroon-900/95 via-maroon-800/80 to-maroon-800/40" aria-hidden />
-        <div className="grid gap-10 p-6 sm:p-10 lg:grid-cols-[1.3fr_1fr] lg:items-end lg:p-14">
+        <div className="grid grid-cols-1 gap-10 p-6 sm:p-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-end lg:p-14">
           <div>
             <p className="text-sm font-medium text-white/70">{dateRange(sale.startsAt, sale.endsAt, true)}</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">{sale.name}</h1>
@@ -72,7 +72,7 @@ export default async function MoveOutPage() {
         </dl>
       </section>
 
-      <section className="grid gap-8 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-8 sm:grid-cols-3">
         {[
           ["List before you pack", "Add your items now and they go live to everyone the moment the sale opens."],
           ["Buyers come to your hostel", `Pick a pickup spot. ${protectionSummary(config)}`],
@@ -87,7 +87,7 @@ export default async function MoveOutPage() {
 
       <section>
         <SectionHeader title="Already in the sale" subtitle="Early listings you can buy today" href="/browse?sale=1" />
-        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-5 3xl:grid-cols-6">
           {items.map((l) => (
             <ListingCard key={l.id} listing={l} />
           ))}

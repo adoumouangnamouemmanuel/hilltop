@@ -10,7 +10,7 @@ export function Bone({ className }: { className?: string }) {
 
 export function GridSkeleton({ count = 8 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6">
       {Array.from({ length: count }, (_, i) => (
         <ListingCardSkeleton key={i} />
       ))}
@@ -23,7 +23,7 @@ export function ListingSkeleton() {
   return (
     <div className="container-page pt-6" role="status" aria-label="Loading listing">
       <Bone className="h-3 w-48" />
-      <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
+      <div className="mt-5 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
         <Bone className="aspect-square w-full rounded-2xl" />
         <div className="space-y-4">
           <Bone className="h-7 w-3/4" />
