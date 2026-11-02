@@ -70,7 +70,7 @@ test("a buyer reports a problem with an order and the order is held", async ({ p
     .first();
   await order.getByRole("button", { name: "Report a problem" }).click();
   const sheet = page.getByRole("dialog", { name: "Report a problem" });
-  await sheet.getByRole("radio", { name: "Seller didn't show up" }).click();
+  await sheet.getByText("Seller didn't show up").click();
   await sheet.getByRole("button", { name: "Report the problem" }).click();
   await expect(order.getByText("Under review")).toBeVisible();
 

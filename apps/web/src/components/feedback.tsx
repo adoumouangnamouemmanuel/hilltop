@@ -25,9 +25,9 @@ const kinds: { id: Kind; label: string; prompt: string }[] = [
 /** Opens the feedback sheet from anywhere (a footer link, the help page). */
 export const openFeedback = () => window.dispatchEvent(new Event("hilltop:feedback"));
 
-// Pages with their own controls at the bottom of a phone screen keep it clear there;
-// they still reach feedback from the footer and help page.
-const busyOnPhones = ["/inbox", "/sell"];
+// Pages whose own controls sit at the bottom of the screen (the composer, the publish
+// button) don't show it; the footer link still opens feedback there.
+const busyPages = ["/inbox", "/sell"];
 
 export function FeedbackButton() {
   const pathname = usePathname();
@@ -39,8 +39,9 @@ export function FeedbackButton() {
     return () => window.removeEventListener("hilltop:feedback", show);
   }, []);
 
-  const tucked = busyOnPhones.some((p) => pathname.startsWith(p));
-  // Listing pages have a buy bar instead of the tab bar; both are about the same height.
+  const tucked = busyPages.some((p) => pathname.startsWith(p));
+  // Phones: bottom right, above the tab bar (or a listing's buy bar, about the same height).
+  // Larger screens: bottom left, clear of sticky buy and publish buttons on the right.
   return (
     <>
       <button
@@ -49,8 +50,8 @@ export function FeedbackButton() {
         aria-label="Report a problem or share feedback"
         title="Report a problem or share feedback"
         className={cn(
-          "fixed right-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 flex size-10 items-center justify-center gap-2 rounded-full border border-line bg-elevated/90 text-ink-700 shadow-card backdrop-blur transition-colors hover:text-ink-950 md:right-6 md:bottom-6 md:h-10 md:w-auto md:px-4 md:text-sm md:font-medium",
-          tucked && "max-md:hidden",
+          "fixed right-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 flex size-10 items-center justify-center gap-2 rounded-full border border-line bg-elevated/90 text-ink-700 shadow-card backdrop-blur transition-colors hover:text-ink-950 md:right-auto md:bottom-6 md:left-6 md:h-10 md:w-auto md:px-4 md:text-sm md:font-medium",
+          tucked && "hidden",
         )}
       >
         <MessageSquareWarning className="size-[18px] shrink-0" aria-hidden />
