@@ -51,7 +51,7 @@ jobs:
           [ "$R2_ENDPOINT" != "https://.r2.cloudflarestorage.com" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID(variable)"
           if [ -n "$missing" ]; then echo "::error::No backup was taken. Missing:$missing"; exit 1; fi
           [ -n "$AGE_RECIPIENT" ] || echo "::warning::BACKUP_AGE_RECIPIENT isn't set, so this backup isn't encrypted. See docs/RUNBOOK.md."
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3.1.0
         with:
           version: 2.122.0
       - name: Install age
