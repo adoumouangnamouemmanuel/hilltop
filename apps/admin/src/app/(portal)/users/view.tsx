@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BadgeCheck, BadgeX, Ban, Download, RotateCcw, Trash2, Users } from "lucide-react";
 import { Avatar, buttonClass, Verified } from "@hilltop/ui/ui";
 import { Badge, Card, Confirm, EmptyState, Gate, PageHeader, SearchField, Segmented, Table, Td, Th } from "@/components/kit";
+import { useDetail } from "@/components/details";
 import { RowMenu } from "@/components/row-menu";
 import { deleteUser, setSuspended, setVerified } from "@/lib/model";
 import { perform, useAdmin, useCan } from "@/lib/store";
@@ -38,6 +39,7 @@ function UsersInner() {
   const canVerify = useCan("users.verify");
   const canSuspend = useCan("users.suspend");
   const canDelete = useCan("users.delete");
+  const detail = useDetail();
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -143,14 +145,25 @@ function UsersInner() {
                 </thead>
                 <tbody>
                   {rows.map((u) => (
-                    <tr key={u.id} className="transition-colors hover:bg-surface/60">
+                    <tr
+                      key={u.id}
+                      onClick={() => detail.open("user", u.id)}
+                      className="cursor-pointer transition-colors hover:bg-surface/60"
+                    >
                       <Td>
                         <div className="flex items-center gap-3">
                           <Avatar name={u.name} size={34} />
                           <div className="min-w-0">
-                            <p className="flex items-center gap-1 font-medium text-ink-950">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                detail.open("user", u.id);
+                              }}
+                              className="flex items-center gap-1 text-left font-medium text-ink-950 hover:underline"
+                            >
                               {u.name} {u.verified && <Verified />}
-                            </p>
+                            </button>
                             <p className="truncate text-xs text-ink-500">{u.email}</p>
                           </div>
                         </div>
@@ -165,7 +178,9 @@ function UsersInner() {
                       <Td align="right">{u.reports ? <span className="font-medium text-maroon-700">{u.reports}</span> : 0}</Td>
                       <Td className="whitespace-nowrap">{joined.format(u.joinedAt)}</Td>
                       <Td align="right">
-                        <RowMenu label={u.name} actions={actions(u)} />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <RowMenu label={u.name} actions={actions(u)} />
+                        </div>
                       </Td>
                     </tr>
                   ))}
@@ -176,15 +191,15 @@ function UsersInner() {
               {rows.map((u) => (
                 <li key={u.id} className="flex items-center gap-3 px-4 py-3.5">
                   <Avatar name={u.name} size={40} />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1 truncate text-[14px] font-medium text-ink-950">
+                  <button type="button" onClick={() => detail.open("user", u.id)} className="min-w-0 flex-1 text-left">
+                    <span className="flex items-center gap-1 truncate text-[14px] font-medium text-ink-950">
                       {u.name} {u.verified && <Verified />}
-                    </p>
-                    <p className="truncate text-xs text-ink-500">
+                    </span>
+                    <span className="block truncate text-xs text-ink-500">
                       {u.major ? `${u.major}${u.classOf ? ` · ${u.classOf}` : ""}` : u.specialty}
-                    </p>
-                    <div className="mt-1.5">{status(u)}</div>
-                  </div>
+                    </span>
+                    <span className="mt-1.5 block">{status(u)}</span>
+                  </button>
                   <RowMenu label={u.name} actions={actions(u)} />
                 </li>
               ))}

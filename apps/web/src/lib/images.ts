@@ -2,7 +2,7 @@
  * Shrinks a photo before it's stored, so phone pictures (often 3 to 6MB) don't fill up
  * browser storage. Long edge capped at `maxSize`, re-encoded as JPEG.
  */
-export async function compressImage(file: File, maxSize = 1280, quality = 0.8): Promise<string> {
+export async function compressImage(file: File, maxSize = 1600, quality = 0.82): Promise<string> {
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));

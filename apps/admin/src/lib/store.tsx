@@ -138,7 +138,7 @@ async function syncToDatabase(before: AdminState, after: AdminState) {
     const error = await saveOperations(before, after);
     // Reload so the screen shows what's really stored.
     if (error) {
-      toast(error.startsWith("Deleting") ? error : "Couldn't save that change. Try again.");
+      toast(error);
       void refreshOperations();
       return;
     }

@@ -8,6 +8,7 @@ import { RelativeTime } from "@hilltop/ui/controls";
 import { SafeImage } from "@hilltop/ui/safe-image";
 import { buttonClass, cn } from "@hilltop/ui/ui";
 import { Badge, Card, Confirm, EmptyState, Gate, PageHeader, SearchField, Segmented, Select } from "@/components/kit";
+import { useDetail } from "@/components/details";
 import { RowMenu } from "@/components/row-menu";
 import { MARKETPLACE_URL } from "@/components/shell";
 import { dismissReports, editDraft, setListingState } from "@/lib/model";
@@ -89,6 +90,7 @@ function ListingsInner() {
   const [removing, setRemoving] = useState<ModListing | null>(null);
   const canModerate = useCan("listings.moderate");
   const canFeature = useCan("listings.feature");
+  const detail = useDetail();
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -154,12 +156,23 @@ function ListingsInner() {
                 )}
               >
                 <div className="flex gap-3 p-3">
-                  <div className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-surface">
+                  <button
+                    type="button"
+                    onClick={() => detail.open("listing", l.id)}
+                    aria-label={`Details for ${l.title}`}
+                    className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-surface"
+                  >
                     <SafeImage src={l.image} alt="" fill sizes="80px" className={cn("object-cover", l.state !== "live" && "grayscale")} />
-                  </div>
+                  </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="line-clamp-2 text-[13.5px] leading-snug font-medium text-ink-950">{l.title}</p>
+                      <button
+                        type="button"
+                        onClick={() => detail.open("listing", l.id)}
+                        className="line-clamp-2 text-left text-[13.5px] leading-snug font-medium text-ink-950 hover:underline"
+                      >
+                        {l.title}
+                      </button>
                       <RowMenu
                         label={l.title}
                         actions={[

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,6 +15,7 @@ import { adoptDraft, adoptSession, refreshOperations, useAdmin, useHydrated, use
 import { useAdminSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import type { PlatformConfig } from "@hilltop/shared/config";
+import { DetailHost } from "./details";
 import { CommandPalette } from "./command-palette";
 import { isActive, navGroups } from "./nav";
 
@@ -131,6 +132,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <AnimatePresence>{drawer && <Drawer onClose={() => setDrawer(false)} onSearch={() => setPalette(true)} />}</AnimatePresence>
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
+      <Suspense>
+        <DetailHost />
+      </Suspense>
 
       <main id="main" className="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {children}

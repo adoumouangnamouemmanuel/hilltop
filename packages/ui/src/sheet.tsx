@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { X } from "lucide-react";
@@ -16,12 +16,29 @@ type SheetProps = {
   children: React.ReactNode;
   /** Block closing, e.g. while a payment is processing. */
   dismissable?: boolean;
+  /** A details panel: full height on the right from `md` up, still a bottom sheet on phones. */
+  side?: boolean;
   className?: string;
 };
 
+const wideQuery = "(min-width: 768px)";
+const subscribeWide = (onChange: () => void) => {
+  const query = window.matchMedia(wideQuery);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+/** Whether the screen is wide enough for a side panel. */
+const useWide = () =>
+  useSyncExternalStore(
+    subscribeWide,
+    () => window.matchMedia(wideQuery).matches,
+    () => false,
+  );
+
 /**
- * Bottom sheet on phones (drag the handle down to dismiss), centred dialog from `sm` up.
- * Locks page scroll, traps keyboard focus and closes on Escape.
+ * Bottom sheet on phones (drag the handle down to dismiss), centred dialog from `sm` up,
+ * or with `side`, a panel down the right edge from `md` up. Locks page scroll, traps
+ * keyboard focus and closes on Escape.
  */
 export function Sheet(props: SheetProps) {
   // Rendered into <body> so a transformed or animated ancestor can't trap the fixed overlay.
@@ -29,8 +46,10 @@ export function Sheet(props: SheetProps) {
   return createPortal(<AnimatePresence>{props.open && <SheetPanel {...props} />}</AnimatePresence>, document.body);
 }
 
-function SheetPanel({ onClose, title, headerAction, footer, children, dismissable = true, className }: SheetProps) {
+function SheetPanel({ onClose, title, headerAction, footer, children, dismissable = true, side = false, className }: SheetProps) {
   const drag = useDragControls();
+  const wide = useWide();
+  const fromRight = side && wide;
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
   useBodyScrollLock(true);
@@ -47,7 +66,12 @@ function SheetPanel({ onClose, title, headerAction, footer, children, dismissabl
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4">
+    <div
+      className={cn(
+        "fixed inset-0 z-[60] flex items-end justify-center",
+        side ? "md:items-stretch md:justify-end" : "sm:items-center sm:p-4",
+      )}
+    >
       <motion.div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         initial={{ opacity: 0 }}
@@ -61,25 +85,26 @@ function SheetPanel({ onClose, title, headerAction, footer, children, dismissabl
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
+        initial={fromRight ? { x: "100%" } : { y: "100%" }}
+        animate={fromRight ? { x: 0 } : { y: 0 }}
+        exit={fromRight ? { x: "100%" } : { y: "100%" }}
         transition={{ type: "spring", stiffness: 420, damping: 40 }}
-        drag={dismissable ? "y" : false}
+        drag={dismissable && !fromRight ? "y" : false}
         dragListener={false}
         dragControls={drag}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={(_, info) => (info.offset.y > 120 || info.velocity.y > 600) && onClose()}
         className={cn(
-          "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] bg-elevated shadow-pop outline-none sm:max-w-[460px] sm:rounded-2xl",
+          "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] bg-elevated shadow-pop outline-none",
+          side ? "md:h-dvh md:max-h-none md:max-w-[520px] md:rounded-none md:border-l md:border-line" : "sm:max-w-[460px] sm:rounded-2xl",
           className,
         )}
       >
-        <div className="touch-none pt-2.5 sm:hidden" onPointerDown={startDrag}>
+        <div className={cn("touch-none pt-2.5", side ? "md:hidden" : "sm:hidden")} onPointerDown={startDrag}>
           <div className="mx-auto h-1 w-10 rounded-full bg-line-strong" />
         </div>
-        <div className="flex items-center justify-between px-5 pt-2 pb-3 sm:pt-4" onPointerDown={startDrag}>
+        <div className={cn("flex items-center justify-between px-5 pt-2 pb-3", side ? "md:pt-5" : "sm:pt-4")} onPointerDown={startDrag}>
           <h2 id={titleId} className="text-base font-semibold text-ink-950">
             {title}
           </h2>

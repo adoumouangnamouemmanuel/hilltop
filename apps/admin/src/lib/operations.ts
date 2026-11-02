@@ -29,7 +29,9 @@ export async function loadOperations(): Promise<Operations | null> {
     client.from("seller_ratings").select("seller_id, rating, reviews"),
     client
       .from("listings")
-      .select("id, title, price, category, seller_id, status, promoted_until, views, saves, posted_at, listing_photos(url, position)")
+      .select(
+        "id, title, description, condition, pickup, stock, price, category, seller_id, status, promoted_until, views, saves, posted_at, listing_photos(url, position)",
+      )
       .order("posted_at", { ascending: false }),
     client
       .from("reports")
@@ -38,7 +40,7 @@ export async function loadOperations(): Promise<Operations | null> {
     client
       .from("orders")
       .select(
-        "id, listing_id, listing_title, buyer_id, seller_id, amount, fee, payment_kind, paid_in_app, pickup, status, placed_at, handed_over_at, listing:listings(category)",
+        "id, listing_id, listing_title, buyer_id, seller_id, quantity, slot, amount, fee, payment_kind, paid_in_app, pickup, status, placed_at, handed_over_at, listing:listings(category), order_events(status, at)",
       )
       .order("placed_at", { ascending: false })
       .limit(2000),
@@ -63,21 +65,29 @@ export async function loadOperations(): Promise<Operations | null> {
   }
 
   const now = Date.now();
-  const modListings: ModListing[] = listings.data!.map((l) => ({
-    id: l.id,
-    title: l.title,
-    price: Number(l.price),
-    category: l.category,
-    image: [...(l.listing_photos ?? [])].sort((a, b) => a.position - b.position)[0]?.url ?? "",
-    sellerId: l.seller_id,
-    sellerName: names.get(l.seller_id) ?? "A student",
-    state: listingState(l.status),
-    promoted: !!l.promoted_until && Date.parse(l.promoted_until) > now,
-    views: l.views,
-    saves: l.saves,
-    postedAt: ms(l.posted_at),
-    reports: reportsFor.get(l.id) ?? [],
-  }));
+  const modListings: ModListing[] = listings.data!.map((l) => {
+    const images = [...(l.listing_photos ?? [])].sort((a, b) => a.position - b.position).map((p) => p.url);
+    return {
+      id: l.id,
+      title: l.title,
+      price: Number(l.price),
+      category: l.category,
+      image: images[0] ?? "",
+      images,
+      description: l.description,
+      condition: l.condition ?? undefined,
+      pickup: l.pickup,
+      stock: l.stock ?? undefined,
+      sellerId: l.seller_id,
+      sellerName: names.get(l.seller_id) ?? "A student",
+      state: listingState(l.status),
+      promoted: !!l.promoted_until && Date.parse(l.promoted_until) > now,
+      views: l.views,
+      saves: l.saves,
+      postedAt: ms(l.posted_at),
+      reports: reportsFor.get(l.id) ?? [],
+    };
+  });
 
   const adminOrders: AdminOrder[] = orders.data!.map((o) => ({
     id: o.id,
@@ -95,6 +105,11 @@ export async function loadOperations(): Promise<Operations | null> {
     payment: o.payment_kind,
     paidInApp: Number(o.paid_in_app),
     handedOverAt: o.handed_over_at ? ms(o.handed_over_at) : undefined,
+    buyerId: o.buyer_id,
+    sellerId: o.seller_id,
+    quantity: o.quantity,
+    slot: o.slot ?? undefined,
+    timeline: [...(o.order_events ?? [])].sort((a, b) => a.at.localeCompare(b.at)).map((e) => ({ status: e.status, at: ms(e.at) })),
   }));
 
   const users: AdminUser[] = profiles.data!.map((p) => {
@@ -141,15 +156,22 @@ export async function loadOperations(): Promise<Operations | null> {
 export async function saveOperations(before: Operations, after: Operations) {
   const client = supabase();
   if (!client) return "Not connected.";
-  // Removing an account needs the server's secret key, which the portal doesn't have.
-  if (after.users.length < before.users.length) return "Deleting accounts isn't available yet. Suspend the student instead.";
   const errors: string[] = [];
+  // Deleting an account needs the server's secret key, so it goes through the portal's API.
+  const gone = before.users.filter((u) => !after.users.some((x) => x.id === u.id));
+  if (gone.length) {
+    const token = (await client.auth.getSession()).data.session?.access_token;
+    for (const u of gone) {
+      const res = await fetch(`/api/users/${u.id}`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
+      if (!res.ok) return ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't delete the account.";
+    }
+  }
   const was = new Map(before.users.map((u) => [u.id, u]));
   for (const u of after.users) {
     const old = was.get(u.id);
     if (!old || (old.verified === u.verified && old.status === u.status)) continue;
     const { error } = await client.from("profiles").update({ verified: u.verified, status: u.status }).eq("id", u.id);
-    if (error) errors.push(error.message);
+    if (error) errors.push("Couldn't save that change. Try again.");
   }
   const wasListing = new Map(before.listings.map((l) => [l.id, l]));
   for (const l of after.listings) {
@@ -160,7 +182,7 @@ export async function saveOperations(before: Operations, after: Operations) {
         .from("listings")
         .update({ status: dbListingStatus(l.state) })
         .eq("id", l.id);
-      if (error) errors.push(error.message);
+      if (error) errors.push("Couldn't save that change. Try again.");
     }
     // Reports the portal cleared were acted on (with the listing) or dismissed.
     const cleared = old.reports.filter((r) => !l.reports.some((x) => x.id === r.id)).map((r) => r.id);
@@ -169,7 +191,7 @@ export async function saveOperations(before: Operations, after: Operations) {
         .from("reports")
         .update({ status: old.state !== l.state ? "actioned" : "dismissed", handled_at: new Date().toISOString() })
         .in("id", cleared);
-      if (error) errors.push(error.message);
+      if (error) errors.push("Couldn't save that change. Try again.");
     }
   }
   return errors.length ? errors[0] : null;

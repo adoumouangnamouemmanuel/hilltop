@@ -57,6 +57,12 @@ export type ModListing = {
   saves: number;
   postedAt: number;
   reports: Report[];
+  /** Details for the listing panel. */
+  images?: string[];
+  description?: string;
+  condition?: string;
+  pickup?: string;
+  stock?: number;
 };
 
 export type OrderStatus = "paid" | "ready" | "collected" | "disputed" | "refunded" | "cancelled";
@@ -80,6 +86,12 @@ export type AdminOrder = {
   paidInApp: number;
   /** When the seller handed the item over; held money auto-releases after the configured window. */
   handedOverAt?: number;
+  /** Details for the order panel. */
+  buyerId?: string;
+  sellerId?: string;
+  quantity?: number;
+  slot?: string;
+  timeline?: { status: OrderStatus; at: number }[];
 };
 
 export type DisputeState = "open" | "refunded" | "released";

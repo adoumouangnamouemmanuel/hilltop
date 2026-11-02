@@ -300,5 +300,13 @@ select throws_ok($$insert into public.orders (listing_id, quantity, payment_kind
   '23514', null, 'suspended students can''t order');
 reset role;
 
+-- The server ---------------------------------------------------------------------------------
+-- The secret key's role writes through the same triggers, which use the private helpers.
+set local role service_role;
+select lives_ok($$update public.profiles set name = 'Deleted student', status = 'suspended' where id = current_setting('test.stu')::uuid$$,
+  'the server can anonymise a profile');
+select lives_ok($$update public.listings set status = 'removed' where id = 'stu-one'$$, 'the server can take listings down');
+reset role;
+
 select * from finish();
 rollback;

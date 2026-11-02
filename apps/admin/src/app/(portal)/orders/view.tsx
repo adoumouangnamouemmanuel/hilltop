@@ -6,6 +6,7 @@ import { formatCedi } from "@hilltop/shared/format";
 import { RelativeTime } from "@hilltop/ui/controls";
 import { buttonClass } from "@hilltop/ui/ui";
 import { Badge, Card, Confirm, EmptyState, Gate, PageHeader, SearchField, Segmented, Table, Td, Th, type Tone } from "@/components/kit";
+import { useDetail } from "@/components/details";
 import { RowMenu } from "@/components/row-menu";
 import { downloadCsv } from "@/lib/csv";
 import { refundOrder, releaseOrder } from "@/lib/model";
@@ -48,6 +49,7 @@ function OrdersInner() {
   const [limit, setLimit] = useState(PAGE);
   const [confirm, setConfirm] = useState<{ order: AdminOrder; kind: "refund" | "release" } | null>(null);
   const canRefund = useCan("orders.refund");
+  const detail = useDetail();
   const [now] = useState(() => Date.now());
   const config = useWorkingConfig();
 
@@ -175,9 +177,18 @@ function OrdersInner() {
                 </thead>
                 <tbody>
                   {rows.slice(0, limit).map((o) => (
-                    <tr key={o.id} className="hover:bg-surface/60">
+                    <tr key={o.id} onClick={() => detail.open("order", o.id)} className="cursor-pointer hover:bg-surface/60">
                       <Td>
-                        <p className="font-medium text-ink-950 tabular">{o.id}</p>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            detail.open("order", o.id);
+                          }}
+                          className="block font-medium text-ink-950 tabular hover:underline"
+                        >
+                          {o.id}
+                        </button>
                         <RelativeTime at={o.placedAt} className="text-xs text-ink-500" />
                       </Td>
                       <Td className="max-w-[220px]">
@@ -197,7 +208,9 @@ function OrdersInner() {
                       </Td>
                       <Td align="right">{formatCedi(o.fee)}</Td>
                       <Td align="right">
-                        <RowMenu label={o.id} actions={actions(o)} />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <RowMenu label={o.id} actions={actions(o)} />
+                        </div>
                       </Td>
                     </tr>
                   ))}
@@ -207,7 +220,7 @@ function OrdersInner() {
             <ul className="divide-y divide-line md:hidden">
               {rows.slice(0, limit).map((o) => (
                 <li key={o.id} className="flex items-start gap-3 px-4 py-3.5">
-                  <div className="min-w-0 flex-1">
+                  <button type="button" onClick={() => detail.open("order", o.id)} className="min-w-0 flex-1 text-left">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-[13.5px] font-medium text-ink-950">{o.title}</p>
                       <p className="shrink-0 text-[13.5px] font-semibold text-ink-950 tabular">{formatCedi(o.amount)}</p>
@@ -219,7 +232,7 @@ function OrdersInner() {
                       <OrderBadges order={o} releaseIn={releaseIn(o)} />
                       <RelativeTime at={o.placedAt} className="text-xs text-ink-400" />
                     </div>
-                  </div>
+                  </button>
                   <RowMenu label={o.id} actions={actions(o)} />
                 </li>
               ))}
