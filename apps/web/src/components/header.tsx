@@ -24,7 +24,7 @@ import { useDismiss, useOnNavigate } from "@/lib/hooks";
 import { dateRange } from "@hilltop/shared/config";
 import { useConfig } from "@/lib/config";
 import { useStore } from "@/lib/store";
-import { useCatalog } from "@/lib/use-catalog";
+import { useCatalog, usePersonalCategories } from "@/lib/use-catalog";
 import { CategoryIcon } from "./category-icon";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notifications";
@@ -227,7 +227,8 @@ function MegaMenu({ onClose }: { onClose: (returnFocus?: boolean) => void }) {
 function CategoryNav() {
   const pathname = usePathname();
   const params = useSearchParams();
-  const { categories } = useCatalog();
+  // Ordered by what this student browses, saves and buys; the mega menu keeps the catalogue order.
+  const categories = usePersonalCategories();
   const sale = useConfig().events.moveOut;
   const current = pathname === "/browse" ? (params.get("category") ?? "all") : null;
 
