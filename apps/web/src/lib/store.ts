@@ -82,17 +82,29 @@ function releaseDue() {
 }
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
-const POLL_MS = 20_000;
+const POLL_MS = 15_000;
+// Without Realtime, polls start every 30 seconds and slow to every 2 minutes while
+// the tab sits idle; coming back to the tab starts over.
+const IDLE_POLL_MS = [30_000, 60_000, 120_000];
 // With Realtime connected, polling is only a safety net.
 const LIVE_POLL_MS = 180_000;
 let live = false;
 let lastSocial = 0;
+let idlePolls = 0;
 
 /** Polls unless Realtime is delivering changes and the last load is recent. */
 function pollSocial() {
   if (document.visibilityState !== "visible") return;
-  if (live && Date.now() - lastSocial < LIVE_POLL_MS) return;
+  const wait = live ? LIVE_POLL_MS : IDLE_POLL_MS[Math.min(idlePolls, IDLE_POLL_MS.length - 1)];
+  if (Date.now() - lastSocial < wait) return;
+  idlePolls++;
   refreshSocial();
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") idlePolls = 0;
+  });
 }
 
 function subscribe(listener: () => void) {
@@ -313,9 +325,15 @@ export const actions = {
   markReady(orderId: string) {
     moveOrder(orderId, "ready", (s) => M.markReady(s, orderId, Date.now()));
   },
-  /** For pay-at-pickup orders, handing over is the end: the buyer paid the seller. */
+  /** The seller records the meet-up. The buyer confirms collection, which completes the order. */
   markHandedOver(orderId: string) {
-    moveOrder(orderId, "collected", (s) => M.markHandedOver(s, orderId, Date.now()));
+    writes++;
+    commit((s) => M.markHandedOver(s, orderId, Date.now()));
+    Orders.markHandedOverRemote(orderId).then((error) => {
+      writes++;
+      if (error) toast(error);
+      refreshSocial();
+    });
   },
   confirmCollection(orderId: string) {
     moveOrder(orderId, "collected", (s) => M.confirmCollection(s, orderId, Date.now()));
@@ -328,12 +346,24 @@ export const actions = {
       ),
     }));
   },
-  // Disputes freeze held payments, which arrive with in-app payments.
-  openDispute(orderId: string, reason: DisputeReason, details: string) {
+  /** Reports a problem with an order. The database keeps the case and holds the order until it's settled. */
+  async openDispute(orderId: string, reason: DisputeReason, details: string) {
+    writes++;
     commit((s) => M.openDispute(s, orderId, reason, details, Date.now()));
+    const error = await Orders.openDisputeRemote(orderId, reason, details);
+    writes++;
+    if (error) toast(error);
+    await refreshSocial();
+    return !error;
   },
   withdrawDispute(orderId: string) {
+    writes++;
     commit((s) => M.withdrawDispute(s, orderId, Date.now()));
+    Orders.withdrawDisputeRemote(orderId).then((error) => {
+      writes++;
+      if (error) toast(error);
+      refreshSocial();
+    });
   },
   async addReview(r: Omit<Review, "id" | "at" | "author">) {
     writes++;

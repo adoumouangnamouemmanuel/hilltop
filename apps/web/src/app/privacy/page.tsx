@@ -26,8 +26,8 @@ export default async function PrivacyPage() {
     [
       "Where it’s stored",
       <>
-        Accounts and data are stored with Supabase, photos with Cloudflare, and sign-in emails are sent through Resend. Errors in the app
-        are reported to Sentry so we can fix them. We don&rsquo;t sell your data or show ads.
+        Accounts and data are stored with Supabase, photos with Cloudflare, and sign-in emails are sent by Supabase through Resend. Errors
+        in the app are reported to Sentry so we can fix them. We don&rsquo;t sell your data or show ads.
       </>,
     ],
     [

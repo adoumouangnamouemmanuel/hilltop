@@ -7,23 +7,29 @@ import { getSeller } from "@/lib/data";
 import { useConfig } from "@/lib/config";
 import { findListing, useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
+import { isHeld } from "@/lib/model";
 import type { DisputeReason, Order } from "@/lib/types";
 import { Confetti } from "@/components/confetti";
 import { Stars } from "@/components/controls";
 import { Sheet } from "@/components/sheet";
 import { buttonClass, cn } from "@/components/ui";
 
-/** Buyer reports a problem: freezes the payment and opens a case. */
+/** Buyer reports a problem: opens a case for the team and holds the order (and any payment). */
 export function DisputeSheet({ order, onClose }: { order: Order | null; onClose: () => void }) {
   const { openDispute } = useStore();
-  const reasons = useConfig().disputes.reasons;
+  const { reasons, responseHours } = useConfig().disputes;
   const [reason, setReason] = useState<DisputeReason | null>(null);
   const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+  const held = !!order && isHeld(order);
 
-  function submit() {
+  async function submit() {
     if (!order || !reason) return;
-    openDispute(order.id, reason, details.trim());
-    toast("Problem reported. Your payment is frozen.", { tone: "success" });
+    setSending(true);
+    const ok = await openDispute(order.id, reason, details.trim());
+    setSending(false);
+    if (!ok) return;
+    toast(held ? "Problem reported. Your payment is frozen." : "Problem reported. The Hilltop team will be in touch.", { tone: "success" });
     setReason(null);
     setDetails("");
     onClose();
@@ -37,16 +43,18 @@ export function DisputeSheet({ order, onClose }: { order: Order | null; onClose:
       footer={
         <button
           type="button"
-          disabled={!reason || (reason === "other" && !details.trim())}
+          disabled={!reason || (reason === "other" && !details.trim()) || sending}
           onClick={submit}
           className={buttonClass("dark", "lg", "w-full")}
         >
-          Report and freeze payment
+          {held ? "Report and freeze payment" : "Report the problem"}
         </button>
       }
     >
       <p className="text-sm leading-6 text-ink-500">
-        We hold the payment while our team looks into it. If the item isn&rsquo;t as described, you get a full refund.
+        {held
+          ? "We hold the payment while our team looks into it. If the item isn\u2019t as described, you get a full refund."
+          : `The order is put on hold and the Hilltop team replies within ${responseHours} hours. The seller sees your report too.`}
       </p>
       <fieldset className="mt-5">
         <legend className="text-sm font-semibold text-ink-950">What went wrong?</legend>

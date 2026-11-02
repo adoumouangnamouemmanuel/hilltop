@@ -86,20 +86,21 @@ export function toListing(row: ListingRow, now = Date.now()): Listing {
   };
 }
 
+/** Optional profile fields come through empty when the student hasn't filled them in; pages hide them then. */
 function toSeller(row: SellerRow, rating?: RatingRow): Seller {
   return {
     id: row.handle,
     profileId: row.id,
     name: row.name,
     verified: row.verified,
-    shop: row.shop_name ?? undefined,
-    specialty: row.specialty ?? "Ashesi student",
+    shop: row.shop_name?.trim() || undefined,
+    specialty: row.specialty?.trim() ?? "",
     classOf: row.class_of ?? undefined,
     major: row.major ?? undefined,
     rating: rating ? Number(rating.rating) : 0,
     reviews: rating?.reviews ?? 0,
     sales: row.sales,
-    responseTime: row.response_time ?? "within a day",
+    responseTime: row.response_time ?? "",
     joined: row.created_at.slice(0, 4),
   };
 }
@@ -117,11 +118,29 @@ async function rest<T>(path: string, init?: RequestInit): Promise<T> {
 
 const emptyMarket = (): Market => ({ listings: [], sellers: [], loadedAt: 0 });
 
+const PAGE = 1000;
+const MAX_LISTINGS = 10_000;
+
+/** Every live and sold listing, a page at a time, so none silently go missing past a fixed limit. */
+async function listingPages(init?: RequestInit) {
+  const rows: ListingRow[] = [];
+  for (let offset = 0; offset < MAX_LISTINGS; offset += PAGE) {
+    const page = await rest<ListingRow[]>(
+      `listings?select=${LISTING_COLUMNS}&status=in.(active,sold)&order=posted_at.desc,id&limit=${PAGE}&offset=${offset}`,
+      init,
+    );
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+  console.error(`The market has more than ${MAX_LISTINGS} listings; move browsing to database queries (audit PERF-001).`);
+  return rows;
+}
+
 /** Loads live and sold listings with their sellers. `init` lets the server cache the requests. */
 export async function fetchMarket(init?: RequestInit): Promise<Market> {
   if (!SUPABASE_URL) return emptyMarket();
   const [rows, ratings] = await Promise.all([
-    rest<ListingRow[]>(`listings?select=${LISTING_COLUMNS}&status=in.(active,sold)&order=posted_at.desc&limit=2000`, init),
+    listingPages(init),
     rest<RatingRow[]>("seller_ratings?select=seller_id,rating,reviews", init),
   ]);
   const now = Date.now();
@@ -130,6 +149,16 @@ export async function fetchMarket(init?: RequestInit): Promise<Market> {
   for (const row of rows)
     if (row.seller && !sellers.has(row.seller.id)) sellers.set(row.seller.id, toSeller(row.seller, ratingOf.get(row.seller.id)));
   return { listings: rows.filter((r) => r.seller).map((r) => toListing(r, now)), sellers: [...sellers.values()], loadedAt: now };
+}
+
+/** One seller's public profile by handle, read fresh so edits show without waiting for the market cache. */
+export async function fetchSeller(handle: string, init?: RequestInit): Promise<Seller | null> {
+  if (!SUPABASE_URL || !/^[a-z0-9-]{2,64}$/.test(handle)) return null;
+  const rows = await rest<SellerRow[]>(`profiles?select=${SELLER_COLUMNS}&handle=eq.${handle}&status=eq.active&limit=1`, init);
+  const row = rows[0];
+  if (!row) return null;
+  const ratings = await rest<RatingRow[]>(`seller_ratings?select=seller_id,rating,reviews&seller_id=eq.${row.id}`, init);
+  return toSeller(row, ratings[0]);
 }
 
 /** A seller's public reviews, newest first. */

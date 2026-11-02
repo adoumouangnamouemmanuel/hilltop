@@ -116,6 +116,23 @@ export async function setOrderStatusRemote(orderId: string, status: OrderStatus)
   return problem(error, "Couldn't update the order. Try again.");
 }
 
+/** The seller records the meet-up; the buyer confirms collection after. */
+export async function markHandedOverRemote(orderId: string) {
+  const { error } = (await supabase()?.rpc("mark_handed_over", { p_order: orderId })) ?? {};
+  return problem(error, "Couldn't record the handover. Try again.");
+}
+
+/** Reports a problem: the order is held until the reporter withdraws it or the team settles it. */
+export async function openDisputeRemote(orderId: string, reason: string, details: string) {
+  const { error } = (await supabase()?.rpc("open_dispute", { p_order: orderId, p_reason: reason, p_details: details })) ?? {};
+  return problem(error, "Couldn't report the problem. Try again, or contact support.");
+}
+
+export async function withdrawDisputeRemote(orderId: string) {
+  const { error } = (await supabase()?.rpc("withdraw_dispute", { p_order: orderId })) ?? {};
+  return problem(error, "Couldn't withdraw the report. Try again.");
+}
+
 export async function addReviewRemote(profileId: string, sellerProfileId: string, r: Pick<Review, "orderId" | "rating" | "tags" | "text">) {
   const { error } =
     (await supabase()

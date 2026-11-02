@@ -17,17 +17,21 @@ test("reserve an item, the seller hands it over, then review them", async ({ bro
   await buyer.waitForURL("**/me");
   await expect(buyer.locator("li").filter({ hasText: "Rechargeable desk fan" }).first().getByText("Reserved, pay at pickup")).toBeVisible();
 
-  // Kofi is told, marks it ready, then hands it over and is paid in person.
+  // Kofi is told, marks it ready, then records the handover; Esi confirms she has it.
   await signIn(seller, "/me?tab=selling");
   const sale = seller.locator("li").filter({ hasText: "Rechargeable desk fan" }).filter({ hasText: "Esi Mensah" }).first();
   await sale.getByRole("button", { name: "Mark ready for pickup" }).click();
   await expect(sale.getByText("Ready for pickup")).toBeVisible();
-  await sale.getByRole("button", { name: "Collected and paid" }).click();
-  await expect(sale.getByText("Completed")).toBeVisible();
+  await sale.getByRole("button", { name: "Handed over and paid" }).click();
+  await expect(sale.getByText(/Waiting for Esi to confirm/)).toBeVisible();
 
   await buyer.reload();
   const order = buyer.locator("li").filter({ hasText: "Rechargeable desk fan" }).first();
+  await order.getByRole("button", { name: /collected it/ }).click();
+  await order.getByRole("button", { name: "Yes, collected and paid" }).click();
   await expect(order.getByText("Completed")).toBeVisible();
+  // Confirming opens the review sheet; close it to use the card's own button.
+  await buyer.keyboard.press("Escape");
   await order.getByRole("button", { name: /Leave a review/ }).click();
   const review = buyer.getByRole("dialog", { name: /Review/ });
   await review.getByRole("radio", { name: "5 stars" }).click();
@@ -50,6 +54,31 @@ test("a one-off item is shown as sold once reserved, and is back if cancelled", 
   await expect(order.getByText("Cancelled")).toBeVisible();
   await page.goto("/listing/lace-dress");
   await expect(page.getByRole("button", { name: "Buy now" }).first()).toBeVisible();
+});
+
+test("a buyer reports a problem with an order and the order is held", async ({ page }) => {
+  await signIn(page, "/listing/bucket", "buyer");
+  await page.getByRole("button", { name: "Buy now" }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reserve, pay at pickup" }).click();
+  await expect(page.getByText("Reserved for you")).toBeVisible();
+
+  await page.goto("/me");
+  // Orders are newest first.
+  const order = page
+    .locator("li")
+    .filter({ hasText: /bucket/i })
+    .first();
+  await order.getByRole("button", { name: "Report a problem" }).click();
+  const sheet = page.getByRole("dialog", { name: "Report a problem" });
+  await sheet.getByRole("radio", { name: "Seller didn't show up" }).click();
+  await sheet.getByRole("button", { name: "Report the problem" }).click();
+  await expect(order.getByText("Under review")).toBeVisible();
+
+  // It's stored, not just shown: still there after a reload, and it can be withdrawn.
+  await page.reload();
+  await expect(order.getByText("Under review")).toBeVisible();
+  await order.getByRole("button", { name: "Withdraw report" }).click();
+  await expect(order.getByText("Reserved, pay at pickup")).toBeVisible();
 });
 
 test("students can report a listing once", async ({ page }) => {

@@ -186,12 +186,13 @@ export function markReady(s: State, orderId: string, now: number): State {
   return updateOrder(s, orderId, (o) => (o.status === "paid" ? setStatus(o, "ready", now) : o));
 }
 
-/** The seller says the item is with the buyer. For held money this starts the auto-release clock. */
+/**
+ * The seller says the item is with the buyer. The buyer then confirms collection, which
+ * completes the order; for held money the handover also starts the auto-release clock.
+ */
 export function markHandedOver(s: State, orderId: string, now: number): State {
   const order = s.orders.find((o) => o.id === orderId);
   if (!order || !["paid", "ready"].includes(order.status) || order.handedOverAt) return s;
-  // Nothing is held for pay-at-pickup orders, so handing over completes them.
-  if (!isHeld(order)) return confirmCollection(s, orderId, now);
   return updateOrder(s, orderId, (o) => ({ ...(o.status === "paid" ? setStatus(o, "ready", now) : o), handedOverAt: now }));
 }
 
@@ -232,8 +233,7 @@ export const disputeLabel = (reasons: { id: string; label: string }[], id: strin
 
 export function openDispute(s: State, orderId: string, reason: DisputeReason, details: string, now: number): State {
   const order = s.orders.find((o) => o.id === orderId);
-  // Only held money can be frozen; pay-at-pickup problems go to support directly.
-  if (!order || !["paid", "ready"].includes(order.status) || !isHeld(order)) return s;
+  if (!order || !["paid", "ready"].includes(order.status) || order.dispute?.state === "open") return s;
   const next = updateOrder(s, orderId, (o) => ({
     ...setStatus(o, "disputed", now),
     dispute: { reason, details, openedAt: now, state: "open" },
@@ -242,7 +242,9 @@ export function openDispute(s: State, orderId: string, reason: DisputeReason, de
     id: `n-dispute-${orderId}`,
     kind: "dispute",
     title: "Problem reported",
-    body: "Your payment is frozen while Hilltop reviews it. We reply within 24 hours.",
+    body: isHeld(order)
+      ? "Your payment is frozen while Hilltop reviews it. We reply within 24 hours."
+      : "The order is on hold while Hilltop reviews it. We reply within 24 hours.",
     href: "/me",
     at: now,
   });

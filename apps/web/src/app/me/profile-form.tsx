@@ -130,7 +130,7 @@ export function ProfileForm() {
           disabled={!values}
         />
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-ink-950">Class of</span>
           <select value={v.class_of} onChange={set("class_of")} className={cn(field, "appearance-none")} disabled={!values}>

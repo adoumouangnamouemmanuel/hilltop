@@ -19,7 +19,9 @@ export function authMessage(error: AuthError | Error | null | undefined, step: "
   const status = "status" in error ? error.status : undefined;
   const code = "code" in error ? error.code : undefined;
   const text = error.message ?? "";
-  if (code === "otp_disabled" || /signups not allowed/i.test(text)) return "There's no account with this email yet. Create one instead.";
+  // Signing in with an address that has no account looks like success, so nobody can
+  // find out who has an account by trying addresses. The code step explains what to do.
+  if (step === "send" && (code === "otp_disabled" || /signups not allowed/i.test(text))) return null;
   if (step === "verify" && (code === "otp_expired" || /expired|invalid/i.test(text)))
     return "That code is wrong or has expired. Check the latest email, or send a new code.";
   if (status === 429 || code === "over_email_send_rate_limit" || /security purposes/i.test(text))

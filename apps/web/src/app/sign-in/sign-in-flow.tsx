@@ -8,13 +8,10 @@ import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { emailAllowed } from "@hilltop/shared/config";
 import { useConfig } from "@/lib/config";
 import { requestCode, schoolSignInAvailable, signInWithSchool, verifyCode } from "@/lib/auth";
+import { safeNext } from "@/lib/redirect";
 import { toast } from "@/lib/toast";
 import { MicrosoftButton, OrDivider, OtpInput } from "@/components/auth-shell";
 import { buttonClass, cn } from "@/components/ui";
-
-export function safeNext(next: string | null, fallback = "/") {
-  return next?.startsWith("/") && !next.startsWith("//") ? next : fallback;
-}
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
@@ -179,12 +176,15 @@ export function SignInFlow() {
 
 export function CodeStep({
   email,
+  newAccount,
   busy,
   onBack,
   onComplete,
   onResend,
 }: {
   email: string;
+  /** Sign-up always sends a code; sign-in only does when the address has an account, and doesn't say which. */
+  newAccount?: boolean;
   busy: boolean;
   onBack: () => void;
   /** Checks the code; resolves to an error message, or null when it worked. */
@@ -209,9 +209,20 @@ export function CodeStep({
         <Mail className="size-6" aria-hidden />
       </motion.span>
       <h1 className="mt-5 text-[30px] font-semibold tracking-[-0.035em] text-ink-950">Check your inbox</h1>
-      <p className="mt-2 text-[15px] leading-6 text-ink-500">
-        Enter the 6-digit code we sent to <span className="font-medium text-ink-950">{email}</span>
-      </p>
+      {newAccount ? (
+        <p className="mt-2 text-[15px] leading-6 text-ink-500">
+          Enter the 6-digit code we sent to <span className="font-medium break-all text-ink-950">{email}</span>
+        </p>
+      ) : (
+        <p className="mt-2 text-[15px] leading-6 text-ink-500">
+          If <span className="font-medium break-all text-ink-950">{email}</span> has a Hilltop account, we&rsquo;ve sent it a 6-digit code.
+          No email after a minute?{" "}
+          <Link href="/sign-up" className="font-medium text-ink-950 underline underline-offset-4">
+            Create an account
+          </Link>
+          .
+        </p>
+      )}
       <div className="mt-8">
         <OtpInput
           key={attempt}
@@ -231,7 +242,7 @@ export function CodeStep({
           {error}
         </p>
       )}
-      <div className="mt-6 flex h-5 items-center justify-between text-sm text-ink-500">
+      <div className="mt-6 flex min-h-5 flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-ink-500">
         {busy ? (
           <span className="flex items-center gap-2 text-ink-950">
             <Loader2 className="size-4 animate-spin" aria-hidden /> Verifying

@@ -18,6 +18,8 @@ export type Social = {
 
 type Person = { handle: string; name: string } | null;
 
+const MESSAGES_PER_THREAD = 150;
+
 export async function loadSocial(profileId: string): Promise<Social | null> {
   const client = supabase();
   if (!client) return null;
@@ -28,8 +30,10 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
         "id, listing_id, buyer_id, buyer:profiles!conversations_buyer_id_fkey(handle, name), seller:profiles!conversations_seller_id_fkey(handle, name), messages(id, sender_id, body, created_at, read_at, edited_at, deleted_at)",
       )
       .order("last_message_at", { ascending: false })
-      .order("created_at", { referencedTable: "messages", ascending: true })
-      .limit(100),
+      // The newest messages of each conversation, so a long thread doesn't grow every load.
+      .order("created_at", { referencedTable: "messages", ascending: false })
+      .limit(MESSAGES_PER_THREAD, { referencedTable: "messages" })
+      .limit(60),
     client.from("offers").select("listing_id, amount, status, created_at").eq("buyer_id", profileId).order("created_at"),
     client
       .from("offers")
@@ -59,7 +63,7 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
         sellerId: other?.handle ?? "",
         sellerName: other?.name ?? "A student",
         role: iAmBuyer ? "buying" : "selling",
-        messages: c.messages.map((m) => ({
+        messages: [...c.messages].reverse().map((m) => ({
           id: m.id,
           from: m.sender_id === profileId ? "me" : "them",
           text: m.body,
@@ -149,12 +153,13 @@ export async function deleteMessageRemote(messageId: string) {
 
 /**
  * "Typing…" between the two people in a conversation, over Realtime broadcast:
- * nothing is stored. `onTyping` fires when the other person types.
+ * nothing is stored. The channel is private: the database only lets the two people
+ * in the conversation join it. `onTyping` fires when the other person types.
  */
 export function joinTyping(conversationId: string, profileId: string, onTyping: () => void) {
   const client = supabase();
   if (!client) return { typing: () => {}, leave: () => {} };
-  const channel = client.channel(`typing:${conversationId}`, { config: { broadcast: { self: false } } });
+  const channel = client.channel(`typing:${conversationId}`, { config: { broadcast: { self: false }, private: true } });
   channel.on("broadcast", { event: "typing" }, ({ payload }) => payload?.from !== profileId && onTyping()).subscribe();
   let last = 0;
   return {

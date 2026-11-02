@@ -1,4 +1,4 @@
-import { fetchMarket, fetchReviews, type Market, type PlatformReview } from "./market";
+import { fetchMarket, fetchReviews, fetchSeller, type Market, type PlatformReview } from "./market";
 import type { Seller } from "@hilltop/shared/seed";
 
 /** How often the server refetches listings, in seconds. Pages are regenerated on the same schedule. */
@@ -21,5 +21,14 @@ export async function getReviews(seller: Seller): Promise<PlatformReview[]> {
     return await fetchReviews(seller, cached);
   } catch {
     return [];
+  }
+}
+
+/** A seller with nothing live right now isn't in the market, but still has a public page. */
+export async function getSellerProfile(handle: string): Promise<Seller | null> {
+  try {
+    return await fetchSeller(handle, cached);
+  } catch {
+    return null;
   }
 }

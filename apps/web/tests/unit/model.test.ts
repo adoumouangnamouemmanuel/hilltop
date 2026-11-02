@@ -119,19 +119,28 @@ describe("payment types and auto-release", () => {
     expect(s.notifications[0].title).toBe("Payment held safely");
   });
 
-  it("completes pay-at-pickup orders on handover, with nothing held", () => {
+  it("records a pay-at-pickup handover, then the buyer confirms collection", () => {
     const l = listing("lace-dress");
     let s = buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 });
     expect(s.notifications[0].title).toBe("Reserved for you");
     expect(M.payoutState(order(s, "ord-t1"))).toBe("direct");
     s = M.markHandedOver(s, "ord-t1", T + HOUR);
+    expect(order(s, "ord-t1")).toMatchObject({ status: "ready", handedOverAt: T + HOUR });
+    s = M.confirmCollection(s, "ord-t1", T + 2 * HOUR);
     expect(order(s, "ord-t1").status).toBe("collected");
   });
 
-  it("can't dispute an order paid at pickup", () => {
+  it("lets a buyer report a problem with an order paid at pickup", () => {
     const l = listing("lace-dress");
-    const s = buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 });
-    expect(M.openDispute(s, "ord-t1", "damaged", "", T)).toBe(s);
+    const s = M.openDispute(
+      buy(seed(), l, 1, "ord-t1", { kind: "pickup", paidInApp: 0, dueAtPickup: l.price, fee: 0 }),
+      "ord-t1",
+      "damaged",
+      "",
+      T,
+    );
+    expect(order(s, "ord-t1").status).toBe("disputed");
+    expect(s.notifications[0].body).toContain("on hold");
   });
 
   it("releases held money automatically once the window passes", () => {

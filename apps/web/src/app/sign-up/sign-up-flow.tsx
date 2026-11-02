@@ -12,7 +12,8 @@ import { requestCode, schoolSignInAvailable, signInWithSchool, verifyCode } from
 import { MicrosoftButton, OrDivider } from "@/components/auth-shell";
 import { Confetti } from "@/components/confetti";
 import { buttonClass, cn } from "@/components/ui";
-import { CodeStep, safeNext } from "../sign-in/sign-in-flow";
+import { safeNext } from "@/lib/redirect";
+import { CodeStep } from "../sign-in/sign-in-flow";
 import { majors } from "@/lib/majors";
 
 const years = [2026, 2027, 2028, 2029, 2030];
@@ -223,6 +224,7 @@ export function SignUpFlow() {
         <CodeStep
           key="code"
           email={address}
+          newAccount
           busy={busy === "verify"}
           onBack={() => setStep("details")}
           onComplete={verify}

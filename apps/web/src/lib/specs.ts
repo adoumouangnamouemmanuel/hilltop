@@ -43,11 +43,11 @@ export function sellerFor(listing: Listing, me?: { handle?: string; name: string
   return {
     id: listing.sellerId,
     name: isMe ? me!.name : "A student",
-    specialty: "Ashesi student",
+    specialty: "",
     rating: 0,
     reviews: 0,
     sales: 0,
-    responseTime: "within an hour",
+    responseTime: "",
     joined: String(new Date().getFullYear()),
     isMe,
   };

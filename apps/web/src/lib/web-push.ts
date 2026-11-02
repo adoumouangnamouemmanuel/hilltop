@@ -100,6 +100,19 @@ export async function vapidAuthorization(endpoint: string, vapid: Vapid, now = D
   return `vapid t=${unsigned}.${toBase64Url(signature)}, k=${vapid.publicKey}`;
 }
 
+/** The browsers' push services; subscriptions anywhere else are refused (see the push_subscriptions check). */
+const PUSH_HOSTS =
+  /^(fcm\.googleapis\.com|android\.googleapis\.com|updates\.push\.services\.mozilla\.com|push\.services\.mozilla\.com|[a-z0-9-]+\.notify\.windows\.com|web\.push\.apple\.com|[a-z0-9-]+\.push\.apple\.com)$/;
+
+export function isPushService(endpoint: string) {
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" && !url.port && PUSH_HOSTS.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Delivers one message. Returns the push service's status; 404 and 410 mean the browser unsubscribed. */
 export async function sendPush(target: PushTarget, message: unknown, vapid: Vapid): Promise<number> {
   const body = await encryptPayload(target, encoder.encode(JSON.stringify(message)));

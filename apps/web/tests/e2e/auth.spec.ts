@@ -30,9 +30,12 @@ test("a wrong code is rejected", async ({ page }) => {
   await expect(page.getByText(/That code is wrong or has expired/)).toBeVisible();
 });
 
-test("signing in without an account points to sign-up", async ({ page }) => {
+test("signing in doesn't reveal whether an address has an account", async ({ page }) => {
   await open(page, "/sign-in");
   await page.getByLabel("Ashesi email").fill(`nobody.${Date.now()}@ashesi.edu.gh`);
   await page.getByRole("button", { name: "Email me a code" }).click();
-  await expect(page.getByText(/There's no account with this email yet/)).toBeVisible();
+  // The same screen as for a real account, with a way to sign up.
+  await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+  await expect(page.getByText(/has a Hilltop account/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create an account" })).toBeVisible();
 });

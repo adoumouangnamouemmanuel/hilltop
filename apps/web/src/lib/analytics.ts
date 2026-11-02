@@ -3,9 +3,10 @@ import { isActive } from "./model";
 import type { Order } from "./types";
 
 /*
- * Seller analytics. Real numbers would come from an events table; until then,
- * daily views and saves are spread deterministically across each listing's life
- * from its totals, and revenue comes from the seller's real (mock) orders.
+ * Seller analytics. Totals (views, saves, orders, revenue) are real. Views and saves
+ * aren't recorded per day yet, so their day-by-day curves are estimated: each
+ * listing's real total is spread deterministically across its life. The dashboard
+ * labels those charts as estimates.
  */
 
 export const DAY = 86_400_000;

@@ -38,7 +38,7 @@ const payoutCopy = {
 
 export function OrderCard({ order, onReport, onReview }: { order: Order; onReport: (o: Order) => void; onReview: (o: Order) => void }) {
   const { allListings, confirmCollection, markReady, markHandedOver, withdrawDispute, cancelOrder } = useStore();
-  const { brand, disputes, features, protection } = useConfig();
+  const { disputes, features, protection } = useConfig();
   const now = useNow();
   const [confirming, setConfirming] = useState(false);
   // The listing may have changed or been deleted since; the order keeps its own title and spot.
@@ -119,7 +119,8 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
           </p>
           {order.dispute.details && <p className="mt-1 text-ink-700">&ldquo;{order.dispute.details}&rdquo;</p>}
           <p className="mt-1 text-ink-500">
-            Hilltop support replies within {disputes.responseHours} hours. The payment stays frozen until then.
+            Hilltop support replies within {disputes.responseHours} hours.{" "}
+            {held ? "The payment stays frozen until then." : "The order is on hold until then."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {!selling && (
@@ -166,11 +167,11 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                     type="button"
                     onClick={() => {
                       markHandedOver(order.id);
-                      toast(held ? `Handover recorded. ${first} can confirm or report a problem.` : "Order complete", { tone: "success" });
+                      toast(`Handover recorded. ${first} confirms collection to complete the order.`, { tone: "success" });
                     }}
                     className={buttonClass("dark", "sm")}
                   >
-                    <Handshake className="size-3.5" aria-hidden /> {held ? "I've handed it over" : "Collected and paid"}
+                    <Handshake className="size-3.5" aria-hidden /> {held ? "I've handed it over" : "Handed over and paid"}
                   </button>
                 ) : (
                   <span className="flex items-center gap-1.5 text-xs font-medium text-ink-700">
@@ -196,18 +197,9 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {!held && <CancelOrder order={order} onCancel={cancelOrder} />}
-                  {held ? (
-                    <button type="button" onClick={() => onReport(order)} className={buttonClass("ghost", "sm")}>
-                      Report a problem
-                    </button>
-                  ) : (
-                    <a
-                      href={`mailto:${brand.supportEmail}?subject=${encodeURIComponent(`Problem with order ${order.id}`)}`}
-                      className={buttonClass("ghost", "sm")}
-                    >
-                      Get help
-                    </a>
-                  )}
+                  <button type="button" onClick={() => onReport(order)} className={buttonClass("ghost", "sm")}>
+                    Report a problem
+                  </button>
                   <button type="button" onClick={() => setConfirming(true)} className={buttonClass("dark", "sm")}>
                     I&rsquo;ve collected it
                   </button>

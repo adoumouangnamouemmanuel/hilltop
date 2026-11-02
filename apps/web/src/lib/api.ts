@@ -1,5 +1,5 @@
 import type { Listing, Seller } from "./data";
-import { getMarket, getReviews } from "./market-server";
+import { getMarket, getReviews, getSellerProfile } from "./market-server";
 import { paginate, queryListings, type ListingQuery } from "./queries";
 import { applyFilters, type Filters } from "./search";
 
@@ -27,7 +27,7 @@ export async function searchListings(filters: Filters, opts: { page?: number; pa
 }
 
 export async function getSeller(id: string): Promise<Seller | null> {
-  return (await getMarket()).sellers.find((s) => s.id === id) ?? null;
+  return (await getMarket()).sellers.find((s) => s.id === id) ?? (await getSellerProfile(id));
 }
 
 export async function getSellerReviews(seller: Seller) {

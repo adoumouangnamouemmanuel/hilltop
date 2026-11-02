@@ -101,7 +101,7 @@ export function SellerDashboard() {
       </div>
 
       {!summary ? (
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }, (_, i) => (
             <Bone key={i} className="h-32 rounded-2xl" />
           ))}
@@ -137,8 +137,12 @@ export function SellerDashboard() {
             />
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-            <Card title="Views" subtitle={`Across your ${active} active ${active === 1 ? "listing" : "listings"}`}>
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+            {/* Totals are real; the day-by-day split is estimated until views are recorded per day (see lib/analytics.ts). */}
+            <Card
+              title="Views"
+              subtitle={`Estimated by day from the real totals of your ${active} active ${active === 1 ? "listing" : "listings"}`}
+            >
               <AreaChart
                 points={summary.series.map((p) => ({ x: p.day, y: p.views }))}
                 label={`Daily listing views, last ${period} days`}
@@ -149,7 +153,7 @@ export function SellerDashboard() {
             </Card>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <Card title="Payouts" subtitle="Released to you when buyers confirm collection">
               <ColumnChart
                 points={summary.series.map((p) => ({ x: p.day, y: p.revenue }))}
