@@ -10,7 +10,8 @@ import type { Database } from "@hilltop/shared/database.types";
  * conversations and messages, offers, reviews, reports, saved items and searches,
  * notifications and email. Their photos are removed from R2 and their sign-in from
  * Supabase Auth. Records are kept: orders keep both names (copied when placed) and
- * the audit log is never rewritten.
+ * the audit log is never rewritten. Each step can be repeated, so if one fails,
+ * deleting again finishes the job.
  */
 
 type PhotoBucket = {
@@ -52,10 +53,27 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/us
   const { data: member } = await server.from("admin_members").select("id").eq("profile_id", id).maybeSingle();
   if (member) return fail(409, "Remove them from the admin team first.");
 
-  // Photos are stored under the account id (see the marketplace's /api/photos).
+  // Who's deleting, for the audit log (written here, with the server key, since the browser can't).
+  const { data: caller } = await server.auth.getUser(token);
+  const { data: actor } = caller.user
+    ? await server.from("profiles").select("name, admin_members(name)").eq("user_id", caller.user.id).maybeSingle()
+    : { data: null };
+  const membership = actor?.admin_members as { name: string } | { name: string }[] | null | undefined;
+  const actorName = (Array.isArray(membership) ? membership[0]?.name : membership?.name) ?? actor?.name ?? "Admin";
+
+  // The sign-in goes first: if that fails nothing else has changed, and if a later
+  // step fails the account can't sign in and running this again finishes the job.
   if (profile.user_id) {
-    const bucket = await photoBucket();
-    if (bucket) {
+    const { error } = await server.auth.admin.deleteUser(profile.user_id);
+    if (error && !/not found/i.test(error.message))
+      return fail(500, `Couldn't delete their sign-in, so nothing was changed: ${error.message}`);
+  }
+
+  // Photos: everything under the account's folder, plus any recorded upload (which
+  // still finds them on a retry, after the sign-in id is gone).
+  const bucket = await photoBucket();
+  if (bucket) {
+    if (profile.user_id) {
       let cursor: string | undefined;
       do {
         const page = await bucket.list({ prefix: `listings/${profile.user_id}/`, cursor });
@@ -63,6 +81,8 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/us
         cursor = page.truncated ? page.cursor : undefined;
       } while (cursor);
     }
+    const { data: uploads } = await server.from("photo_uploads").select("key").eq("profile_id", id);
+    for (let i = 0; uploads && i < uploads.length; i += 500) await bucket.delete(uploads.slice(i, i + 500).map((u) => u.key));
   }
 
   // Other people's notifications about chats with them quote their messages.
@@ -77,12 +97,11 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/us
       );
 
   const removed = await server.from("profiles").delete().eq("id", id);
-  if (removed.error) return fail(500, `Couldn't delete their data: ${removed.error.message}`);
+  if (removed.error) return fail(500, `Their sign-in is gone but their data isn't yet. Try again: ${removed.error.message}`);
 
-  if (profile.user_id) {
-    const { error } = await server.auth.admin.deleteUser(profile.user_id);
-    if (error) return fail(500, `Their data is gone, but the sign-in couldn't be deleted: ${error.message}`);
-  }
+  await server
+    .from("audit_log")
+    .insert({ permission: "users.delete", action: "Deleted account and data", target: profile.name, actor_name: actorName });
 
   return Response.json({ deleted: profile.name });
 }

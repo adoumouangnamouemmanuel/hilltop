@@ -32,7 +32,8 @@ export async function loadOperations(): Promise<Operations | null> {
       .select(
         "id, title, description, condition, pickup, stock, price, category, seller_id, status, promoted_until, views, saves, posted_at, listing_photos(url, position)",
       )
-      .order("posted_at", { ascending: false }),
+      .order("posted_at", { ascending: false })
+      .limit(2000),
     client
       .from("reports")
       .select("id, listing_id, reason, created_at, status, reporter:profiles!reports_reporter_id_fkey(name)")
@@ -42,11 +43,14 @@ export async function loadOperations(): Promise<Operations | null> {
       .select(
         "id, listing_id, listing_title, buyer_id, seller_id, buyer_name, seller_name, quantity, slot, amount, fee, payment_kind, paid_in_app, pickup, status, placed_at, handed_over_at, listing:listings(category), order_events(status, at)",
       )
+      // The queues work on recent orders; older ones are in the nightly backup and the database.
       .order("placed_at", { ascending: false })
-      .limit(2000),
+      .limit(500),
     client
       .from("disputes")
-      .select("id, order_id, reason, details, state, opened_at, resolved_at, resolution_note, dispute_messages(role, body, at)"),
+      .select("id, order_id, reason, details, state, opened_at, resolved_at, resolution_note, dispute_messages(role, body, at)")
+      .order("opened_at", { ascending: false })
+      .limit(300),
   ]);
   const failed = [profiles, emails, ratings, listings, reports, orders, disputes].find((r) => r.error);
   if (failed) {

@@ -10,7 +10,7 @@ import { useDetail } from "@/components/details";
 import { RowMenu } from "@/components/row-menu";
 import { downloadCsv } from "@/lib/csv";
 import { refundOrder, releaseOrder } from "@/lib/model";
-import { perform, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
+import { performRemote, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
 import { useQueryState } from "@/lib/use-query";
 import type { AdminOrder, OrderStatus } from "@/lib/types";
 import { autoReleaseAt, type PaymentKind } from "@hilltop/shared/payments";
@@ -262,8 +262,18 @@ function OrdersInner() {
         onConfirm={() => {
           if (!confirm) return;
           const { order, kind } = confirm;
-          if (kind === "refund") perform((st, now) => refundOrder(st, order.id, now), "Buyer refunded");
-          else perform((st, now) => releaseOrder(st, order.id, now), "Payout released");
+          if (kind === "refund")
+            void performRemote(
+              (st, now) => refundOrder(st, order.id, now),
+              (db) => db.rpc("settle_order", { p_order: order.id, p_action: "refund" }),
+              "Buyer refunded",
+            );
+          else
+            void performRemote(
+              (st, now) => releaseOrder(st, order.id, now),
+              (db) => db.rpc("settle_order", { p_order: order.id, p_action: "release" }),
+              "Payout released",
+            );
         }}
       />
     </>

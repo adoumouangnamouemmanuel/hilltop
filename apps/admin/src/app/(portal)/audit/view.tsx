@@ -68,7 +68,7 @@ function AuditInner() {
           Export
         </button>
       </PageHeader>
-      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_180px_180px]">
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_180px_180px]">
         <SearchField value={q} onChange={setQ} placeholder="Search actions and targets" />
         <Select aria-label="Admin" value={actor} onChange={(e) => setActor(e.target.value)}>
           <option value="">Everyone</option>

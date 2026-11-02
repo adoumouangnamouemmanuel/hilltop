@@ -9,7 +9,7 @@ import { Avatar, buttonClass, cn } from "@hilltop/ui/ui";
 import { Badge, Card, EmptyState, Gate, PageHeader, Segmented, TextArea } from "@/components/kit";
 import { disputeDue } from "@/lib/metrics";
 import { resolveDispute } from "@/lib/model";
-import { perform, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
+import { performRemote, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
 import { useQueryState } from "@/lib/use-query";
 import type { AdminDispute } from "@/lib/types";
 
@@ -62,7 +62,7 @@ function DisputesInner() {
         title="Disputes"
         description={`Buyers raise a dispute when something goes wrong. The payout stays frozen until you decide. Target response time: ${config.disputes.responseHours} hours.`}
       />
-      <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cn(selected && "hidden lg:block")}>
           <Segmented
             label="Dispute status"
@@ -164,11 +164,21 @@ function DisputeDetail({ dispute: d, reason, hours, now }: { dispute: AdminDispu
   const [note, setNote] = useState("");
   const o = s.orders.find((x) => x.id === d.orderId);
 
-  const resolve = (outcome: "refunded" | "released") =>
-    perform(
+  const resolve = async (outcome: "refunded" | "released") => {
+    const pickup = o?.payment === "pickup";
+    const done = await performRemote(
       (st, t) => resolveDispute(st, d.id, outcome, note.trim(), t),
-      outcome === "refunded" ? "Buyer refunded" : "Payout released to seller",
-    ) && setNote("");
+      (db) => db.rpc("resolve_dispute", { p_dispute: d.id, p_outcome: outcome, p_note: note.trim() }),
+      outcome === "refunded"
+        ? pickup
+          ? "Settled for the buyer. The order is cancelled."
+          : "Buyer refunded"
+        : pickup
+          ? "Settled for the seller"
+          : "Payout released to seller",
+    );
+    if (done) setNote("");
+  };
 
   return (
     <Card>

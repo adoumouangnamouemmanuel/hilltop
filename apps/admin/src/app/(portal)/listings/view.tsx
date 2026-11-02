@@ -141,7 +141,7 @@ function ListingsInner() {
           />
         </Card>
       ) : (
-        <motion.ul layout className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <motion.ul layout className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence initial={false}>
             {rows.map((l) => (
               <motion.li

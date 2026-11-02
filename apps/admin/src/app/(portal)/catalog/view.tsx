@@ -100,7 +100,7 @@ function CatalogInner() {
         )}
       </PageHeader>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         <Card className={cn(showEditor && "hidden lg:block")}>
           <CardHeader
             title={`${cats.length} categories`}
@@ -294,7 +294,7 @@ function CategoryEditor({
         )}
       </CardHeader>
       <fieldset disabled={!canEdit} className="min-w-0 space-y-6 p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Name" error={errors.get("label")}>
             {(id) => (
               <TextInput
@@ -392,7 +392,7 @@ function CategoryEditor({
             <ul className="space-y-2.5">
               {cat.attributes.map((a, i) => (
                 <motion.li layout key={i} className="rounded-xl border border-line p-3">
-                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_150px_auto]">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px_auto]">
                     <TextInput
                       aria-label="Field name"
                       placeholder="Name, e.g. Size"

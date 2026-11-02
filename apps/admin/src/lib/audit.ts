@@ -5,18 +5,11 @@ import { supabase } from "./supabase";
 import type { AuditEntry } from "./types";
 
 /*
- * The audit log lives in the database. The server attributes each entry to the
- * signed-in admin (by the name the team knows them by) and nobody can edit or
- * delete entries.
+ * The audit log lives in the database, which writes every entry itself when an
+ * admin changes something (triggers and functions in the audit migration). Entries
+ * are attributed to the signed-in admin, sealed with a hash chain, and nobody can
+ * write, edit or delete them from the portal.
  */
-
-export function recordAudit(permission: string, action: string, target?: string) {
-  supabase()
-    ?.from("audit_log")
-    // actor_name is replaced by the server; it's only required by the table.
-    .insert({ permission, action, target: target ?? null, actor_name: "-" })
-    .then(({ error }) => error && console.error("Audit entry not saved", error));
-}
 
 async function loadAudit(limit: number): Promise<AuditEntry[]> {
   const client = supabase();

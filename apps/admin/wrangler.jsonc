@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "hilltop-admin",
-  "account_id": "5355b49c1a233e2cb0db485b587408fd",
+  // The account comes from CLOUDFLARE_ACCOUNT_ID (a CI variable), not this file.
   "main": "worker.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -14,6 +14,9 @@
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "hilltop-photos" }],
   // Secrets set in the Cloudflare dashboard (Settings → Variables and Secrets):
   //   SUPABASE_SECRET_KEY  lets /api/users/[id] delete accounts.
+  //   CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD (vars) make the Worker check Cloudflare
+  //   Access's token on every request too, so the portal stays closed if Access is
+  //   ever switched off by mistake (see src/proxy.ts and docs/RUNBOOK.md).
   "routes": [{ "pattern": "admin.hilltop.lumavok.com", "custom_domain": true }],
   // Sentry reads the DSN from here and the release from the version metadata.
   "vars": { "SENTRY_DSN": "https://aa160f658007a70234883d5280ef854f@o4509836470386688.ingest.us.sentry.io/4512357467947008" },

@@ -12,12 +12,16 @@ import { usePublished, type SessionMember } from "./session";
 import { supabase } from "./supabase";
 import type { AdminState } from "./types";
 
+type Db = NonNullable<ReturnType<typeof supabase>>;
+
 /*
  * Client store for the portal. Students, listings, reports, orders and disputes are
  * loaded from Supabase (operations.ts); the session, team, published config and
  * audit log too (session.tsx). Every change goes through `perform`, which checks
- * the admin's permission, records it in the audit log, writes it to the database
- * and surfaces problems as toasts. Only the shared draft is cached in the browser.
+ * the admin's permission, writes it to the database and surfaces problems as
+ * toasts. Changes that move money or settle disputes go through `performRemote`,
+ * which only shows them once the database has made them. The database writes the
+ * audit log itself; the browser never does. Only the shared draft is cached here.
  */
 
 const KEY = "hilltop-admin-v3";
@@ -103,6 +107,44 @@ export function perform(change: (s: AdminState, now: number) => AdminState, succ
   }
 }
 
+/**
+ * For changes the database makes itself (refunds, payout releases, settling disputes):
+ * the model checks the permission and rules first, then the database function runs,
+ * and only when it succeeds does the screen change and the success toast show.
+ */
+export async function performRemote(
+  change: (s: AdminState, now: number) => AdminState,
+  remote: (db: Db) => PromiseLike<{ error: { message?: string } | null }>,
+  success?: string,
+) {
+  const before = getState();
+  let next: AdminState;
+  try {
+    next = change(before, Date.now());
+  } catch (e) {
+    if (e instanceof Forbidden) toast("You don't have permission to do that.");
+    else if (e instanceof Rejected) toast(e.message);
+    else throw e;
+    return false;
+  }
+  const client = supabase();
+  if (!client) {
+    toast("Not connected. Check your connection and try again.");
+    return false;
+  }
+  const { error } = await remote(client);
+  if (error) {
+    toast(error.message || "Couldn't save that change. Try again.");
+    void refreshOperations();
+    return false;
+  }
+  setState(next);
+  if (success) toast(success, { tone: "success" });
+  // What the database stored, including any history it added.
+  void refreshOperations();
+  return true;
+}
+
 let operationsLoadedAt = 0;
 
 /** Loads students, listings, reports, orders and disputes from the database. */
@@ -112,9 +154,9 @@ export async function refreshOperations() {
   if (ops) setState({ ...getState(), ...ops });
 }
 
-/** Refreshes when the admin comes back to the tab, at most once a minute (it's seven queries). */
+/** Refreshes when the admin comes back to the tab, at most every three minutes (it's seven queries). */
 export function refreshOperationsIfStale() {
-  if (Date.now() - operationsLoadedAt > 60_000) void refreshOperations();
+  if (Date.now() - operationsLoadedAt > 180_000) void refreshOperations();
 }
 
 /** Puts the signed-in admin and their role into the local model, so its checks use real permissions. */
@@ -156,16 +198,9 @@ async function syncToDatabase(before: AdminState, after: AdminState) {
       ? // The row's id is fixed by the table (a single draft), so only the config is sent.
         client.from("config_draft").upsert({ config: after.draft as unknown as { [key: string]: Json } }, { onConflict: "id" })
       : client.from("config_draft").delete().eq("id", true));
-    // Nothing changed, so nothing goes in the audit log.
     if (error) return toast("Couldn't save the draft. Check your connection and try again.");
   }
-  const entry = after.audit[0];
-  if (entry && entry.id !== before.audit[0]?.id) {
-    const { error } = await client
-      .from("audit_log")
-      .insert({ permission: entry.permission, action: entry.action, target: entry.target ?? null, actor_name: entry.actor });
-    if (error) console.error("Audit entry not saved", error);
-  }
+  // The database records each of these changes in the audit log as it makes them.
 }
 
 export { useCan, usePublished, useSession } from "./session";

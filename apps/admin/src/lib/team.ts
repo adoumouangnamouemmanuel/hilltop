@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { OWNER_ROLE, type Permission, type Role } from "@hilltop/shared/permissions";
 import { toast } from "@hilltop/ui/toast";
-import { recordAudit } from "./audit";
 import { supabase } from "./supabase";
 import type { Member } from "./types";
 
@@ -19,7 +18,8 @@ type DbError = { message?: string; code?: string } | null;
 function fail(error: DbError, fallback: string): Result {
   const text = error?.message ?? "";
   if (/at least one active owner/i.test(text)) toast("The team needs at least one owner.");
-  else if (/Built-in roles/i.test(text)) toast(text);
+  // The database's own explanation (built-in roles, owners only, permissions you don't hold).
+  else if (/Built-in roles|owner|permissions you hold|your own role/i.test(text)) toast(text);
   else if (error?.code === "23505") toast("Someone with that email is already on the team.");
   else if (error?.code === "42501") toast("You don't have permission to do that.");
   else toast(fallback);
@@ -68,12 +68,10 @@ export function useTeam() {
     };
   }, [apply]);
 
-  const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? id;
-
-  async function run(write: PromiseLike<{ error: DbError }>, audit: { action: string; target?: string }, fallback: string) {
+  // The database records each change in the audit log.
+  async function run(write: PromiseLike<{ error: DbError }>, fallback: string) {
     const { error } = await write;
     if (error) return fail(error, fallback);
-    recordAudit("team.manage", audit.action, audit.target);
     await refresh();
     return { ok: true } as Result;
   }
@@ -88,21 +86,11 @@ export function useTeam() {
     invite: (input: { name: string; email: string; roleId: string }) =>
       run(
         db().from("admin_members").insert({ name: input.name.trim(), email: input.email.trim().toLowerCase(), role_id: input.roleId }),
-        { action: "Invited admin", target: input.name.trim() },
         "Couldn't send the invite.",
       ),
     changeRole: (member: Member, roleId: string) =>
-      run(
-        db().from("admin_members").update({ role_id: roleId }).eq("id", member.id),
-        { action: `Changed role to ${roleName(roleId)}`, target: member.name },
-        "Couldn't change the role.",
-      ),
-    remove: (member: Member) =>
-      run(
-        db().from("admin_members").delete().eq("id", member.id),
-        { action: "Removed admin", target: member.name },
-        "Couldn't remove them.",
-      ),
+      run(db().from("admin_members").update({ role_id: roleId }).eq("id", member.id), "Couldn't change the role."),
+    remove: (member: Member) => run(db().from("admin_members").delete().eq("id", member.id), "Couldn't remove them."),
     saveRole: (role: Role, isNew: boolean) =>
       run(
         isNew
@@ -111,27 +99,18 @@ export function useTeam() {
               .from("admin_roles")
               .update({ name: role.name, description: role.description, permissions: role.permissions })
               .eq("id", role.id),
-        { action: isNew ? "Created role" : "Updated role", target: role.name },
         "Couldn't save the role.",
       ),
     togglePermission: (role: Role, permission: Permission) => {
       if (role.id === OWNER_ROLE) return Promise.resolve({ ok: false } as Result);
       const has = role.permissions.includes(permission);
       const permissions = has ? role.permissions.filter((p) => p !== permission) : [...role.permissions, permission];
-      return run(
-        db().from("admin_roles").update({ permissions }).eq("id", role.id),
-        { action: `${has ? "Removed" : "Granted"} ${permission}`, target: role.name },
-        "Couldn't update the permission.",
-      );
+      return run(db().from("admin_roles").update({ permissions }).eq("id", role.id), "Couldn't update the permission.");
     },
     deleteRole: async (role: Role, fallbackId: string) => {
       const moved = await db().from("admin_members").update({ role_id: fallbackId }).eq("role_id", role.id);
       if (moved.error) return fail(moved.error, "Couldn't move the role's members.");
-      return run(
-        db().from("admin_roles").delete().eq("id", role.id),
-        { action: "Deleted role", target: role.name },
-        "Couldn't delete the role.",
-      );
+      return run(db().from("admin_roles").delete().eq("id", role.id), "Couldn't delete the role.");
     },
   };
 }

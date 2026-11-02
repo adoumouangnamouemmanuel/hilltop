@@ -121,7 +121,7 @@ function SettingsInner() {
           You can view settings. Editing needs the settings.edit permission.
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="Settings sections"
           className="-mx-4 no-scrollbar flex gap-1 overflow-x-auto px-4 lg:sticky lg:top-24 lg:mx-0 lg:flex-col lg:self-start lg:px-0"
@@ -301,7 +301,7 @@ function General({ value: c, set, err }: SectionProps) {
   return (
     <>
       <Group title="Brand">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Marketplace name" error={err("brand.name")}>
             {(id) => <TextInput id={id} value={c.brand.name} onChange={(e) => set({ brand: { ...c.brand, name: e.target.value } })} />}
           </Field>
@@ -348,7 +348,7 @@ function Payments({ value: c, set, err }: SectionProps) {
   return (
     <>
       <Group title="Fees" description="Rates apply to new orders as soon as the change is published.">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             label="Buyer protection fee"
             error={err("fees.buyerProtectionRate")}
@@ -454,7 +454,7 @@ function Payments({ value: c, set, err }: SectionProps) {
           {plans.map((p, i) => (
             <li
               key={i}
-              className="grid grid-cols-[1fr_auto] gap-2 rounded-xl border border-line p-2 sm:grid-cols-[1fr_120px_1.4fr_auto_auto] sm:items-center"
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-xl border border-line p-2 sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1.4fr)_auto_auto] sm:items-center"
             >
               <TextInput
                 aria-label="Plan name"
@@ -499,7 +499,7 @@ function Listings({ value: c, set, err }: SectionProps) {
   return (
     <>
       <Group title="Keeping the marketplace fresh" description="Old and excess listings are the main source of clutter.">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             label="Listings expire after"
             error={err("listings.expiryDays")}
@@ -513,7 +513,7 @@ function Listings({ value: c, set, err }: SectionProps) {
         </div>
       </Group>
       <Group title="Saved" description="How much each student can keep. 0 means no limit.">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Saved items per student" error={err("saved.maxItems")}>
             {(id) => (
               <NumberInput
@@ -580,7 +580,7 @@ function Listings({ value: c, set, err }: SectionProps) {
       </Group>
 
       <Group title="Limits">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Photos per listing" error={err("listings.maxPhotos")}>
             {(id) => <NumberInput id={id} value={l.maxPhotos} onChange={num("maxPhotos")} min={1} max={20} />}
           </Field>
@@ -680,7 +680,7 @@ function Rules({ value: c, set, err }: SectionProps) {
   return (
     <>
       <Group title="Offers">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Lowest offer allowed" error={err("offers.minRatio")} hint="As a share of the asking price.">
             {(id) => (
               <NumberInput
@@ -801,7 +801,7 @@ function Events({ value: c, set, err }: SectionProps) {
       <Row title="End-of-semester sale" description="Adds a sale page, badges on tagged listings and a banner on the home page.">
         <Switch label="End-of-semester sale" checked={e.enabled} onChange={(v) => update({ enabled: v })} />
       </Row>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Name" error={err("events.moveOut.name")}>
           {(id) => <TextInput id={id} value={e.name} onChange={(x) => update({ name: x.target.value })} />}
         </Field>
@@ -859,7 +859,7 @@ function Announcement({ value: c, set, err }: SectionProps) {
           />
         )}
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Style">
           {(id) => (
             <Select id={id} value={a.tone} onChange={(e) => update({ tone: e.target.value as typeof a.tone })}>
@@ -917,7 +917,7 @@ function Protection({ value: c, set, err }: SectionProps) {
   return (
     <>
       <Group title="When to hold payments">
-        <div role="radiogroup" aria-label="Protection mode" className="grid gap-2 sm:grid-cols-3">
+        <div role="radiogroup" aria-label="Protection mode" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {modes.map((m) => (
             <button
               key={m.id}
@@ -946,7 +946,7 @@ function Protection({ value: c, set, err }: SectionProps) {
           ))}
         </div>
         {p.mode === "hybrid" && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Protect orders from" error={err("protection.threshold")} hint="Orders at or above this total are always held.">
               {(id) => <NumberInput id={id} value={p.threshold} onChange={(v) => update({ threshold: v })} prefix="GH₵" min={0} />}
             </Field>
@@ -1118,7 +1118,7 @@ function Ranking({ value: c, set, err }: SectionProps) {
       >
         <ul className="space-y-4">
           {signals.map((sig) => (
-            <li key={sig.key} className="grid items-center gap-x-4 gap-y-1 sm:grid-cols-[180px_1fr_40px]">
+            <li key={sig.key} className="grid grid-cols-1 items-center gap-x-4 gap-y-1 sm:grid-cols-[180px_minmax(0,1fr)_40px]">
               <div>
                 <p className="text-[13.5px] font-medium text-ink-950">{sig.label}</p>
                 <p className="text-xs text-ink-500">{sig.help}</p>

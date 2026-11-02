@@ -8,7 +8,7 @@ import { SafeImage } from "@hilltop/ui/safe-image";
 import { Sheet } from "@hilltop/ui/sheet";
 import { Avatar, buttonClass, cn, Verified } from "@hilltop/ui/ui";
 import { deleteUser, dismissReports, refundOrder, releaseOrder, setListingState, setSuspended, setVerified } from "@/lib/model";
-import { perform, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
+import { perform, performRemote, useAdmin, useCan, useWorkingConfig } from "@/lib/store";
 import { useQueryState } from "@/lib/use-query";
 import type { AdminOrder, AdminUser, ListingState, ModListing, OrderStatus } from "@/lib/types";
 import { Badge, Confirm } from "./kit";
@@ -495,9 +495,11 @@ function OrderDetail({ order: o }: { order: AdminOrder }) {
         }
         confirmLabel={confirm === "refund" ? "Refund" : "Release"}
         onConfirm={() =>
-          confirm === "refund"
-            ? perform((st, now) => refundOrder(st, o.id, now), "Buyer refunded")
-            : perform((st, now) => releaseOrder(st, o.id, now), "Payout released")
+          void performRemote(
+            (st, now) => (confirm === "refund" ? refundOrder(st, o.id, now) : releaseOrder(st, o.id, now)),
+            (db) => db.rpc("settle_order", { p_order: o.id, p_action: confirm === "refund" ? "refund" : "release" }),
+            confirm === "refund" ? "Buyer refunded" : "Payout released",
+          )
         }
       />
     </>
