@@ -1,0 +1,11 @@
+# Secret scanning (CI "secrets" job): gitleaks' default rules, minus values that are
+# public by design and built into the pages every browser downloads: Supabase
+# publishable keys (sb_publishable_...) and the Web Push VAPID public key (an
+# 87-character key starting with "B"). Server secrets never go in the repository;
+# see docs/RUNBOOK.md.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public browser keys"
+regexes = ['''^sb_publishable_[A-Za-z0-9_-]+$''', '''^B[A-Za-z0-9_-]{86}$''']
