@@ -57,6 +57,13 @@ export async function storePhoto(key: string, body: ArrayBuffer, type: string, o
     const local = /^(localhost|127\.0\.0\.1)$/.test(new URL(origin).hostname);
     return publicUrl && !local ? `${publicUrl}/${key}` : `${origin}/api/photos/${key}`;
   }
+  if (
+    process.env.NODE_ENV === "production" &&
+    !(process.env.ALLOW_MEMORY_PHOTOS === "true" && /^(localhost|127\.0\.0\.1)$/.test(new URL(origin).hostname))
+  ) {
+    console.error("Photo storage binding PHOTOS is unavailable");
+    throw new Error("Photo storage is temporarily unavailable. Try again shortly.");
+  }
   memory.set(key, { body, type });
   return `${origin}/api/photos/${key}`;
 }

@@ -10,7 +10,7 @@ import { useConfig } from "@/lib/config";
 import { formatCedi } from "@/lib/format";
 import { useBodyScrollLock, useMediaQuery, useNow } from "@/lib/hooks";
 import { findListing, useStore } from "@/lib/store";
-import { EDIT_WINDOW_MS, joinTyping } from "@/lib/social";
+import { EDIT_WINDOW_MS, joinTyping, readMessageDraft, saveMessageDraft } from "@/lib/social";
 import type { Conversation, Message } from "@/lib/types";
 import { RelativeTime } from "@/components/controls";
 import { Avatar, buttonClass, cn } from "@/components/ui";
@@ -19,7 +19,7 @@ export function InboxView() {
   const router = useRouter();
   const pathname = usePathname();
   const selectedId = useSearchParams().get("c");
-  const { user, conversations } = useStore();
+  const { user, conversations, moreConversations, loadMoreSocial, unreadMessages } = useStore();
   const { features } = useConfig();
   const [filter, setFilter] = useState("");
   const isPhone = useMediaQuery("(max-width: 767px)");
@@ -53,7 +53,7 @@ export function InboxView() {
   const visible = q
     ? conversations.filter((c) => c.sellerName.toLowerCase().includes(q) || c.messages.some((m) => m.text.toLowerCase().includes(q)))
     : conversations;
-  const unread = conversations.reduce((n, c) => n + c.unread, 0);
+  const unread = unreadMessages ?? conversations.reduce((n, c) => n + c.unread, 0);
 
   return (
     <div className="md:grid md:h-[calc(100dvh-11rem)] md:min-h-[520px] md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden md:rounded-2xl md:border md:border-line">
@@ -87,6 +87,11 @@ export function InboxView() {
               <ConversationRow key={c.id} convo={c} active={c.id === selectedId} onSelect={() => select(c.id)} />
             ))}
           </ul>
+        )}
+        {moreConversations && (
+          <button type="button" onClick={() => loadMoreSocial("conversations")} className={buttonClass("ghost", "sm")}>
+            Load older conversations
+          </button>
         )}
       </aside>
 
@@ -208,10 +213,10 @@ function groupMessages(messages: Message[]) {
 }
 
 function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) {
-  const { allListings, sendMessage, readConversation, editMessage, deleteMessage, user } = useStore();
+  const { allListings, sendMessage, readConversation, editMessage, deleteMessage, user, loadMoreSocial, closeMessageHistory } = useStore();
   const listing = findListing(allListings, convo.listingId);
   const selling = convo.role === "selling";
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => readMessageDraft(user?.profileId, convo.id));
   // The message whose actions are open, and the one being edited.
   const [picked, setPicked] = useState<string | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
@@ -234,6 +239,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
       typing.current = null;
     };
   }, [convo.id, user?.profileId]);
+  useEffect(() => () => closeMessageHistory(), [convo.id, closeMessageHistory]);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const awaitingReply = convo.messages.at(-1)?.from === "me";
@@ -250,18 +256,42 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [convo.messages.length, awaitingReply]);
 
-  function send(body: string) {
-    if (!body.trim()) return;
-    if (editing) {
-      if (body.trim() !== editing.text) editMessage(convo.id, editing.id, body);
-      setEditing(null);
-    } else {
-      if (!listing) return;
-      sendMessage(listing, convo.sellerName, body.trim(), convo.id);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const retryMessage = useRef<{ body: string; id: string } | null>(null);
+  async function send(body: string) {
+    if (!body.trim() || sending) return;
+    setSending(true);
+    setSendError("");
+    try {
+      if (editing) {
+        if (body.trim() !== editing.text && !(await editMessage(convo.id, editing.id, body))) {
+          setSendError("Your edit wasn't saved. Your text is kept below. Try again.");
+          return;
+        }
+        setEditing(null);
+      } else {
+        if (!listing) {
+          setSendError("This listing is unavailable. Your message has been kept.");
+          return;
+        }
+        if (retryMessage.current?.body !== body.trim()) retryMessage.current = { body: body.trim(), id: crypto.randomUUID() };
+        const result = await sendMessage(listing, convo.sellerName, body.trim(), convo.id, retryMessage.current.id);
+        if (!result) {
+          setSendError("Your message wasn't confirmed. Your text is kept below. Try again.");
+          return;
+        }
+        retryMessage.current = null;
+      }
+      setText("");
+      saveMessageDraft(user?.profileId, convo.id, "");
+      setTheyType(false);
+      if (input.current) input.current.style.height = "";
+    } catch {
+      setSendError("Couldn't save your message. Your text is kept below. Try again.");
+    } finally {
+      setSending(false);
     }
-    setText("");
-    setTheyType(false);
-    if (input.current) input.current.style.height = "";
   }
 
   function startEditing(m: Message) {
@@ -406,6 +436,11 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
             ),
           )}
         </AnimatePresence>
+        {convo.hasMoreMessages && (
+          <button type="button" className={buttonClass("ghost", "sm")} onClick={() => loadMoreSocial("messages", convo.id)}>
+            Load older messages
+          </button>
+        )}
         {theyType && (
           <p className="mt-3 text-xs text-ink-500" aria-live="polite">
             {convo.sellerName.split(" ")[0]} is typing…
@@ -413,6 +448,11 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
         )}
       </div>
 
+      {sendError && (
+        <p role="alert" className="px-4 py-2 text-sm text-warning">
+          {sendError}
+        </p>
+      )}
       {confirmDelete && picked && (
         <div className="flex items-center justify-between gap-3 border-t border-line bg-maroon-50 px-4 py-2.5 text-[13px] md:px-5">
           <span className="text-ink-950">Delete this message for everyone?</span>
@@ -481,8 +521,10 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
             ref={input}
             id={`composer-${convo.id}`}
             value={text}
+            disabled={sending}
             onChange={(e) => {
               setText(e.target.value);
+              if (!editing) saveMessageDraft(user?.profileId, convo.id, e.target.value);
               if (!editing) typing.current?.typing();
               // Grow with the text up to a few lines.
               e.target.style.height = "auto";
@@ -502,7 +544,7 @@ function Thread({ convo, onBack }: { convo: Conversation; onBack: () => void }) 
           <motion.button
             type="submit"
             whileTap={{ scale: 0.9 }}
-            disabled={!text.trim()}
+            disabled={!text.trim() || sending}
             aria-label="Send"
             className="grid size-11 shrink-0 place-items-center rounded-full bg-maroon-700 text-white transition-opacity disabled:opacity-40"
           >

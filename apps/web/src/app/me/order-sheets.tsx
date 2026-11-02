@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { getSeller } from "@/lib/data";
@@ -8,6 +9,7 @@ import { useConfig } from "@/lib/config";
 import { findListing, useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { isHeld } from "@/lib/model";
+import { loadDisputeMessages, hasMoreDisputeMessages, replyToDispute, type DisputeMessage } from "@/lib/orders";
 import type { DisputeReason, Order } from "@/lib/types";
 import { Confetti } from "@/components/confetti";
 import { Stars } from "@/components/controls";
@@ -106,6 +108,7 @@ export function ReviewSheet({ order, onClose }: { order: Order | null; onClose: 
   const [tags, setTags] = useState<string[]>([]);
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
+  const [posting, setPosting] = useState(false);
   const listing = order ? findListing(allListings, order.listingId) : null;
   const sellerId = listing?.sellerId ?? "";
   const name = order?.counterpart.split(" ")[0] ?? "the seller";
@@ -120,10 +123,15 @@ export function ReviewSheet({ order, onClose }: { order: Order | null; onClose: 
     }, 300);
   }
 
-  function submit() {
-    if (!order || !rating) return;
-    addReview({ sellerId: getSeller(sellerId)?.id ?? sellerId, orderId: order.id, rating, tags, text: text.trim() });
-    setDone(true);
+  async function submit() {
+    if (!order || !rating || posting) return;
+    setPosting(true);
+    try {
+      if (await addReview({ sellerId: getSeller(sellerId)?.id ?? sellerId, orderId: order.id, rating, tags, text: text.trim() }))
+        setDone(true);
+    } finally {
+      setPosting(false);
+    }
   }
 
   return (
@@ -137,7 +145,7 @@ export function ReviewSheet({ order, onClose }: { order: Order | null; onClose: 
             Done
           </button>
         ) : (
-          <button type="button" disabled={!rating} onClick={submit} className={buttonClass("dark", "lg", "w-full")}>
+          <button type="button" disabled={!rating || posting} onClick={submit} className={buttonClass("dark", "lg", "w-full")}>
             Post review
           </button>
         )
@@ -160,7 +168,7 @@ export function ReviewSheet({ order, onClose }: { order: Order | null; onClose: 
         </div>
       ) : (
         <>
-          <p className="text-sm text-ink-500">Payment released. How was the meet-up with {name}?</p>
+          <p className="text-sm text-ink-500">How was the meet-up with {name}?</p>
           <div className="mt-5 flex justify-center">
             <Stars value={rating} onChange={setRating} size={34} />
           </div>
@@ -191,5 +199,137 @@ export function ReviewSheet({ order, onClose }: { order: Order | null; onClose: 
         </>
       )}
     </Sheet>
+  );
+}
+
+/** A case remains readable after resolution; new replies require an open case. */
+export function DisputeConversation({ order }: { order: Order }) {
+  const params = useSearchParams();
+  const [open, setOpen] = useState(() => params.get("case") === order.dispute?.id);
+  const [messages, setMessages] = useState<DisputeMessage[]>([]);
+  const [error, setError] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const id = order.dispute?.id;
+  async function refresh() {
+    if (!id) return;
+    setBusy(true);
+    setError("");
+    try {
+      setMessages(await loadDisputeMessages(id));
+    } catch {
+      setError("Couldn't load the case conversation. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    if (!open || !id) return;
+    let active = true;
+    const load = () =>
+      loadDisputeMessages(id)
+        .then((next) => {
+          if (active) {
+            setMessages(next);
+            setError("");
+          }
+        })
+        .catch(() => {
+          if (active) setError("Couldn't refresh the conversation. Try again.");
+        });
+    void load();
+    const timer = setInterval(load, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [open, id]);
+  if (!id) return null;
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={buttonClass("outline", "sm", "mt-3")}>
+        View dispute conversation
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Dispute conversation">
+        <p className="text-sm text-ink-500">
+          Buyer, seller and support can follow the case here. {order.dispute?.state !== "open" && "This case is closed."}
+        </p>
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-warning">
+            {error}
+          </p>
+        )}
+        <button type="button" disabled={busy} onClick={refresh} className={buttonClass("ghost", "sm", "mt-2")}>
+          {busy ? "Loading…" : "Refresh conversation"}
+        </button>
+        <ol className="my-4 space-y-3" aria-label="Case messages">
+          {messages.map((message) => (
+            <li key={message.id} className="rounded-xl bg-surface p-3">
+              <p className="text-xs text-ink-500 capitalize">
+                {message.role} · {new Date(message.at).toLocaleString()}
+              </p>
+              <p className="mt-1 text-sm whitespace-pre-wrap text-ink-950">{message.body}</p>
+            </li>
+          ))}
+        </ol>
+        {hasMoreDisputeMessages(id) && (
+          <button
+            type="button"
+            disabled={busy}
+            className={buttonClass("outline", "sm")}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                setMessages(await loadDisputeMessages(id, true));
+              } catch {
+                setError("Could not load older replies. Try again.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Load older replies
+          </button>
+        )}
+        {messages.length === 0 && !error && <p className="my-4 text-sm text-ink-500">No replies yet.</p>}
+        {order.dispute?.state === "open" && (
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!body.trim() || busy) return;
+              setBusy(true);
+              setError("");
+              try {
+                const failure = await replyToDispute(id, body.trim());
+                if (failure) setError(failure);
+                else {
+                  setBody("");
+                  await refresh();
+                }
+              } catch {
+                setError("Couldn't confirm your reply. Check the conversation before retrying.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label className="block text-sm font-medium">
+              Your reply
+              <textarea
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                maxLength={2000}
+                rows={4}
+                disabled={busy}
+                className="mt-2 w-full rounded-xl border border-line-strong p-3"
+              />
+            </label>
+            <button type="submit" disabled={busy || !body.trim()} className={buttonClass("dark", "md", "mt-3")}>
+              {busy ? "Sending…" : "Send reply"}
+            </button>
+          </form>
+        )}
+      </Sheet>
+    </>
   );
 }

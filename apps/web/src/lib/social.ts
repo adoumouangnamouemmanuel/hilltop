@@ -1,5 +1,7 @@
 "use client";
 
+import { z } from "zod";
+import { accountPage, cursorPager } from "./pagination";
 import { problem } from "./mine";
 import { supabase } from "./supabase";
 import type { AppNotification, Conversation, IncomingOffer, NotificationKind, Offer } from "./types";
@@ -14,56 +16,137 @@ export type Social = {
   offers: Record<string, Offer>;
   incomingOffers: IncomingOffer[];
   notifications: AppNotification[];
+  unreadMessages?: number;
+  moreConversations?: boolean;
+  moreNotifications?: boolean;
+  moreIncoming?: boolean;
 };
 
 type Person = { handle: string; name: string } | null;
 
-const MESSAGES_PER_THREAD = 150;
+const drafts = new Map<string, string>();
+export const readMessageDraft = (profileId: string | undefined, conversationId: string) =>
+  drafts.get(`${profileId}:${conversationId}`) ?? "";
+export function saveMessageDraft(profileId: string | undefined, conversationId: string, text: string) {
+  const key = `${profileId}:${conversationId}`;
+  if (text) drafts.set(key, text);
+  else drafts.delete(key);
+  const oldest = drafts.keys().next().value;
+  if (drafts.size > 50 && oldest !== undefined) drafts.delete(oldest);
+}
+const messageSchema = z.object({
+  id: z.string(),
+  sender_id: z.string().nullable(),
+  body: z.string(),
+  created_at: z.string(),
+  read_at: z.string().nullable(),
+  edited_at: z.string().nullable(),
+  deleted_at: z.string().nullable(),
+});
+const personSchema = z.object({ handle: z.string(), name: z.string() }).nullable();
+const conversationSchema = z.object({
+  id: z.string(),
+  listing_id: z.string().nullable(),
+  buyer_id: z.string().nullable(),
+  last_message_at: z.string(),
+  buyer: personSchema,
+  seller: personSchema,
+  messages: z.array(messageSchema),
+});
+const notificationSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  title: z.string(),
+  body: z.string(),
+  href: z.string(),
+  read_at: z.string().nullable(),
+  created_at: z.string(),
+});
+const offerSchema = z.object({
+  id: z.string(),
+  listing_id: z.string(),
+  amount: z.number(),
+  status: z.enum(["pending", "accepted", "declined", "withdrawn"]),
+  created_at: z.string(),
+  buyer: z.object({ name: z.string() }).nullable().optional(),
+  listing: z.object({ title: z.string() }).nullable().optional(),
+});
+const conversationsPager = cursorPager((cursor) => accountPage("conversations", conversationSchema, cursor, 30));
+const notificationsPager = cursorPager((cursor) => accountPage("notifications", notificationSchema, cursor, 50));
+const offersPager = cursorPager((cursor) => accountPage("offers", offerSchema, cursor, 100));
+const incomingPager = cursorPager((cursor) => accountPage("incoming", offerSchema, cursor, 50));
+let activeThread: string | null = null;
+const messagesPager = cursorPager((cursor) => accountPage("messages", messageSchema, cursor, 100, activeThread ?? undefined));
+const ownOffers = new Map<string, Offer>();
+const visitedOffers = new Set<string>();
+let generation = 0;
+export function closeMessageHistory() {
+  activeThread = null;
+  messagesPager.reset();
+}
+export function resetSocialLimits() {
+  generation++;
+  drafts.clear();
+  ownOffers.clear();
+  visitedOffers.clear();
+  closeMessageHistory();
+  for (const pager of [conversationsPager, notificationsPager, offersPager, incomingPager]) pager.reset();
+}
+export async function expandSocialHistory(
+  kind: "conversations" | "notifications" | "incoming" | "messages",
+  profileId: string,
+  conversationId?: string,
+) {
+  if (kind === "messages") {
+    if (!conversationId) return;
+    if (activeThread !== conversationId) {
+      messagesPager.reset();
+      activeThread = conversationId;
+      await messagesPager.read(profileId);
+    } else await messagesPager.read(profileId, true);
+  } else {
+    const pager = kind === "conversations" ? conversationsPager : kind === "notifications" ? notificationsPager : incomingPager;
+    await pager.read(profileId, true);
+  }
+}
 
 export async function loadSocial(profileId: string): Promise<Social | null> {
   const client = supabase();
+  const ticket = generation;
   if (!client) return null;
-  const [convos, mine, incoming, notes] = await Promise.all([
-    client
-      .from("conversations")
-      .select(
-        "id, listing_id, buyer_id, buyer:profiles!conversations_buyer_id_fkey(handle, name), seller:profiles!conversations_seller_id_fkey(handle, name), messages(id, sender_id, body, created_at, read_at, edited_at, deleted_at)",
-      )
-      .order("last_message_at", { ascending: false })
-      // The newest messages of each conversation, so a long thread doesn't grow every load.
-      .order("created_at", { referencedTable: "messages", ascending: false })
-      .limit(MESSAGES_PER_THREAD, { referencedTable: "messages" })
-      .limit(60),
-    client.from("offers").select("listing_id, amount, status, created_at").eq("buyer_id", profileId).order("created_at"),
-    client
-      .from("offers")
-      .select(
-        "id, listing_id, amount, status, created_at, buyer:profiles!offers_buyer_id_fkey(name), listing:listings!inner(seller_id, title)",
-      )
-      .eq("listing.seller_id", profileId)
-      .order("created_at", { ascending: false })
-      .limit(100),
-    client
-      .from("notifications")
-      .select("id, kind, title, body, href, read_at, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50),
+  const [convos, mine, incoming, notes, counts] = await Promise.all([
+    conversationsPager.read(profileId),
+    offersPager.read(profileId),
+    incomingPager.read(profileId),
+    notificationsPager.read(profileId),
+    client.rpc("message_unread_counts"),
   ]);
-  if (convos.error || mine.error || incoming.error || notes.error) return null;
+  if (counts.error || ticket !== generation) return null;
+  if (visitedOffers.size) {
+    const latest = await client.rpc("latest_offers", { p_listings: [...visitedOffers] });
+    if (latest.error || ticket !== generation) return null;
+    const rows = z.array(offerSchema).parse(latest.data);
+    ownOffers.clear();
+    for (const row of rows)
+      if (row.status !== "withdrawn")
+        ownOffers.set(row.listing_id, { amount: row.amount, status: row.status, at: Date.parse(row.created_at) });
+  }
+  const history = activeThread ? await messagesPager.read(profileId) : null;
+  const unreadCounts = counts.data && typeof counts.data === "object" && !Array.isArray(counts.data) ? counts.data : {};
+  const unreadFor = (id: string) => (typeof unreadCounts[id] === "number" ? unreadCounts[id] : 0);
 
-  const conversations: Conversation[] = convos.data.flatMap((c) => {
+  const conversations: Conversation[] = convos.items.flatMap((c) => {
     const iAmBuyer = c.buyer_id === profileId;
     // The other person: the seller when buying, the buyer when selling.
     const other = (iAmBuyer ? c.seller : c.buyer) as Person;
-    if (!c.listing_id) return [];
     return [
       {
         id: c.id,
-        listingId: c.listing_id,
+        listingId: c.listing_id ?? "",
         sellerId: other?.handle ?? "",
         sellerName: other?.name ?? "A student",
         role: iAmBuyer ? "buying" : "selling",
-        messages: [...c.messages].reverse().map((m) => ({
+        messages: [...(activeThread === c.id && history ? history.items : c.messages.slice(0, 30))].reverse().map((m) => ({
           id: m.id,
           from: m.sender_id === profileId ? "me" : "them",
           text: m.body,
@@ -72,30 +155,37 @@ export async function loadSocial(profileId: string): Promise<Social | null> {
           edited: !!m.edited_at,
           deleted: !!m.deleted_at,
         })),
-        unread: c.messages.filter((m) => m.sender_id !== profileId && !m.read_at).length,
+        hasMoreMessages: activeThread === c.id && history ? !!history.next : c.messages.length > 30,
+        unread: unreadFor(c.id),
       } satisfies Conversation,
     ];
   });
 
-  // The latest offer per listing is the one that counts.
   const offers: Record<string, Offer> = {};
-  for (const o of mine.data) {
-    if (o.status === "withdrawn") continue;
-    offers[o.listing_id] = { amount: Number(o.amount), status: o.status, at: Date.parse(o.created_at) };
+  const handled = new Set<string>();
+  for (const o of mine.items) {
+    if (handled.has(o.listing_id)) continue;
+    handled.add(o.listing_id);
+    if (o.status !== "withdrawn") offers[o.listing_id] = { amount: o.amount, status: o.status, at: Date.parse(o.created_at) };
   }
+  for (const [id, offer] of ownOffers) offers[id] = offer;
 
   return {
+    unreadMessages: Object.keys(unreadCounts).reduce((sum, id) => sum + unreadFor(id), 0),
+    moreConversations: !!convos.next,
+    moreNotifications: !!notes.next,
+    moreIncoming: !!incoming.next,
     conversations,
     offers,
-    incomingOffers: incoming.data.map((o) => ({
+    incomingOffers: incoming.items.map((o) => ({
       id: o.id,
       listingId: o.listing_id,
-      buyerName: (o.buyer as { name: string } | null)?.name ?? "A student",
+      buyerName: o.buyer?.name ?? "A student",
       amount: Number(o.amount),
       status: o.status,
       at: Date.parse(o.created_at),
     })),
-    notifications: notes.data.map((n) => ({
+    notifications: notes.items.map((n) => ({
       id: n.id,
       kind: (n.kind === "system" ? "alert" : n.kind) as NotificationKind,
       title: n.title,
@@ -115,6 +205,7 @@ export async function sendMessageRemote(
   listing: { id: string; sellerProfileId: string },
   conversationId: string | undefined,
   text: string,
+  messageId = crypto.randomUUID(),
 ): Promise<{ conversationId: string } | { error: string }> {
   const client = supabase();
   if (!client) return { error: "Messaging isn't available right now." };
@@ -129,11 +220,28 @@ export async function sendMessageRemote(
       .insert({ listing_id: listing.id, buyer_id: profileId, seller_id: listing.sellerProfileId })
       .select("id")
       .single();
-    if (created.error) return { error: problem(created.error, "Couldn't start the conversation.")! };
-    id = created.data.id;
+    if (created.error) {
+      if (created.error.code !== "23505") return { error: problem(created.error, "Couldn't start the conversation.")! };
+      const concurrent = await client.from("conversations").select("id").eq("listing_id", listing.id).eq("buyer_id", profileId).single();
+      if (!concurrent.data) return { error: "Couldn't start the conversation. Try again." };
+      id = concurrent.data.id;
+    } else id = created.data.id;
   }
-  const sent = await client.from("messages").insert({ conversation_id: id, sender_id: profileId, body: text });
-  if (sent.error) return { error: problem(sent.error, "Your message didn't send. Try again.")! };
+  const sent = await client.from("messages").insert({ id: messageId, conversation_id: id, sender_id: profileId, body: text });
+  if (sent.error) {
+    if (sent.error.code === "23505") {
+      const previous = await client
+        .from("messages")
+        .select("id")
+        .eq("id", messageId)
+        .eq("sender_id", profileId)
+        .eq("conversation_id", id)
+        .eq("body", text)
+        .maybeSingle();
+      if (previous.data) return { conversationId: id };
+    }
+    return { error: problem(sent.error, "Your message didn't send. Try again.")! };
+  }
   return { conversationId: id };
 }
 
@@ -141,13 +249,17 @@ export async function sendMessageRemote(
 export const EDIT_WINDOW_MS = 15 * 60_000;
 
 export async function editMessageRemote(messageId: string, body: string) {
-  const { error } = (await supabase()?.from("messages").update({ body }).eq("id", messageId)) ?? {};
+  const { error } = (await supabase()?.from("messages").update({ body }).eq("id", messageId)) ?? {
+    error: { message: "Not connected", code: "OFFLINE" },
+  };
   return problem(error, "Couldn't edit the message. Try again.");
 }
 
 /** Deletes a message for everyone. The team keeps what it said, for disputes. */
 export async function deleteMessageRemote(messageId: string) {
-  const { error } = (await supabase()?.from("messages").update({ deleted_at: new Date().toISOString() }).eq("id", messageId)) ?? {};
+  const { error } = (await supabase()?.from("messages").update({ deleted_at: new Date().toISOString() }).eq("id", messageId)) ?? {
+    error: { message: "Not connected", code: "OFFLINE" },
+  };
   return problem(error, "Couldn't delete the message. Try again.");
 }
 
@@ -177,25 +289,26 @@ export async function readConversationRemote(profileId: string, conversationId: 
   const client = supabase();
   if (!client) return;
   const now = new Date().toISOString();
-  await Promise.all([
+  const results = await Promise.all([
     client.from("messages").update({ read_at: now }).eq("conversation_id", conversationId).neq("sender_id", profileId).is("read_at", null),
     client.from("notifications").update({ read_at: now }).eq("href", `/inbox?c=${conversationId}`).is("read_at", null),
   ]);
+  return results.some((result) => result.error) ? "Could not sync read receipts. Try again." : null;
 }
 
 // Offers -------------------------------------------------------------------------------------
 
 export async function makeOfferRemote(profileId: string, listingId: string, amount: number) {
-  const { error } = (await supabase()?.from("offers").insert({ listing_id: listingId, buyer_id: profileId, amount })) ?? {};
+  const { error } = (await supabase()?.from("offers").insert({ listing_id: listingId, buyer_id: profileId, amount })) ?? {
+    error: { message: "Not connected", code: "OFFLINE" },
+  };
   return problem(error, "Your offer didn't send. Try again.");
 }
 
 export async function answerOfferRemote(offerId: string, accepted: boolean) {
-  const { error } =
-    (await supabase()
-      ?.from("offers")
-      .update({ status: accepted ? "accepted" : "declined" })
-      .eq("id", offerId)) ?? {};
+  const { error } = (await supabase()?.rpc("answer_offer", { p_offer: offerId, p_status: accepted ? "accepted" : "declined" })) ?? {
+    error: { message: "Not connected", code: "OFFLINE" },
+  };
   return problem(error, "Couldn't answer the offer. Try again.");
 }
 
@@ -203,7 +316,8 @@ export async function answerOfferRemote(offerId: string, accepted: boolean) {
 
 export async function markReadRemote(id?: string) {
   const query = supabase()?.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
-  await (id ? query?.eq("id", id) : query);
+  const result = await (id ? query?.eq("id", id) : query);
+  return !result || result.error ? "Could not sync notification read status. Try again." : null;
 }
 
 /**
@@ -222,4 +336,23 @@ export function watchSocial(profileId: string, onChange: () => void, onLive: (li
   return () => {
     client.removeChannel(channel);
   };
+}
+
+/** A detail page reads its own offer even when it is older than the initial history page. */
+export async function loadListingOffer(profileId: string, listingId: string) {
+  const client = supabase();
+  if (!client) return undefined;
+  const ticket = generation;
+  const { data, error } = await client.rpc("latest_offers", { p_listings: [listingId] });
+  if (error) throw new Error("Could not load your offer. Retry before ordering.");
+  if (ticket !== generation) return undefined;
+  visitedOffers.add(listingId);
+  const oldest = visitedOffers.values().next().value;
+  if (visitedOffers.size > 50 && oldest !== undefined) visitedOffers.delete(oldest);
+  const row = z.array(offerSchema).parse(data)[0];
+  const offer: Offer | undefined =
+    row && row.status !== "withdrawn" ? { amount: row.amount, status: row.status, at: Date.parse(row.created_at) } : undefined;
+  if (offer) ownOffers.set(listingId, offer);
+  else ownOffers.delete(listingId);
+  return offer;
 }

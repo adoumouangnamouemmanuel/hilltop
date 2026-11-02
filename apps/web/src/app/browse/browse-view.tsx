@@ -7,10 +7,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { BellPlus, BellRing, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { formatCedi } from "@/lib/format";
-import { rankScore } from "@hilltop/shared/ranking";
-import { getSeller } from "@/lib/data";
+import { useMarketPage } from "@/lib/use-market-page";
 import {
-  applyFilters,
   countActive,
   emptyFilters,
   filterableAttributes,
@@ -33,61 +31,35 @@ import { Sheet } from "@/components/sheet";
 import { buttonClass, cn } from "@/components/ui";
 import { FilterPanel } from "./filter-panel";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 24;
 
 export function BrowseView() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   // Only listings that are on sale; drafts and sold items never show in search.
-  const { activeListings: allListings, savedSearches, saveSearch, removeSearch } = useStore();
+  const { savedSearches, saveSearch, removeSearch } = useStore();
   const config = useConfig();
   const { events, features } = config;
   const saleName = events.moveOut.name;
   const catalog = useCatalog();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
 
   const filters = useMemo(() => parseFilters(new URLSearchParams(params.toString())), [params]);
   const labelOf = (id: string) => catalog.get(id).label;
-  const results = useMemo(
-    () =>
-      applyFilters(
-        allListings,
-        filters,
-        (id) => catalog.get(id).label,
-        (l) =>
-          rankScore(l, config, (id) => {
-            const seller = getSeller(id);
-            return seller?.reviews ? seller.rating : undefined;
-          }),
-      ),
-    [allListings, filters, catalog, config],
-  );
+  const { page, loading: loadingMore, error, loadMore, retry } = useMarketPage(filters, PAGE_SIZE);
+  const results = page?.listings ?? [];
+  const total = page?.total ?? 0;
   const active = countActive(filters);
   const current = filters.category ? catalog.get(filters.category) : null;
 
-  // Back to the first page whenever the filters change.
-  const queryKey = filtersToQuery({ ...filters, sort: "relevance" });
-  const [lastQuery, setLastQuery] = useState(queryKey);
-  if (lastQuery !== queryKey) {
-    setLastQuery(queryKey);
-    setPage(1);
-  }
-  const shown = results.slice(0, page * PAGE_SIZE);
-  const hasMore = shown.length < results.length;
+  const shown = results;
+  const hasMore = !!page?.next;
   useInView(
     sentinel,
     () => {
-      if (loadingMore) return;
-      setLoadingMore(true);
-      // Mirrors fetching the next page from the API.
-      setTimeout(() => {
-        setPage((p) => p + 1);
-        setLoadingMore(false);
-      }, 350);
+      if (!loadingMore && !error) void loadMore();
     },
     hasMore,
   );
@@ -156,7 +128,8 @@ export function BrowseView() {
 
   const panel = (
     <FilterPanel
-      all={allListings}
+      all={[]}
+      facets={page?.facets}
       filters={filters}
       update={update}
       replace={replace}
@@ -199,7 +172,7 @@ export function BrowseView() {
         <div>
           <h1 className="text-2xl font-semibold tracking-[-0.025em] text-ink-950 sm:text-3xl">{title}</h1>
           <p className="mt-0.5 text-sm text-ink-500" aria-live="polite">
-            {results.length} {results.length === 1 ? "item" : "items"}
+            {total} {total === 1 ? "item" : "items"}
             {current?.blurb && !filters.q && <> · {current.blurb}</>}
             {filters.q && (
               <>
@@ -313,7 +286,21 @@ export function BrowseView() {
             <GuideTip where="results" />
           </div>
 
-          {results.length > 0 ? (
+          {error && (
+            <p role="alert" className="mt-4 rounded-xl bg-warning-bg p-3 text-sm text-warning">
+              {error}{" "}
+              <button type="button" className="underline" onClick={page?.next ? loadMore : retry}>
+                Retry
+              </button>
+            </p>
+          )}
+          {loadingMore && results.length === 0 ? (
+            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <ListingCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : results.length > 0 ? (
             <motion.div
               layout
               className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6"
@@ -337,7 +324,7 @@ export function BrowseView() {
             <EmptyState hasFilters={active > 0} onClear={clearAll} />
           )}
 
-          {hasMore && (
+          {hasMore && !error && (
             <div
               ref={sentinel}
               className="mt-8 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 sm:gap-x-4 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6"
@@ -348,9 +335,14 @@ export function BrowseView() {
               ))}
             </div>
           )}
-          {results.length > PAGE_SIZE && (
+          {hasMore && (
+            <button type="button" disabled={loadingMore} onClick={loadMore} className={buttonClass("outline", "md", "mx-auto mt-6 flex")}>
+              {loadingMore ? "Loading…" : "Load more items"}
+            </button>
+          )}
+          {total > PAGE_SIZE && (
             <p className="mt-8 text-center text-xs text-ink-500" aria-live="polite">
-              Showing {shown.length} of {results.length}
+              Showing {shown.length} of {total}
             </p>
           )}
         </div>
@@ -369,7 +361,7 @@ export function BrowseView() {
         }
         footer={
           <button type="button" onClick={() => setSheetOpen(false)} className={buttonClass("dark", "lg", "w-full")}>
-            Show {results.length} {results.length === 1 ? "item" : "items"}
+            Show {total} {total === 1 ? "item" : "items"}
           </button>
         }
       >

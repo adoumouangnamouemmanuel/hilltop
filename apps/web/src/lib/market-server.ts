@@ -12,32 +12,19 @@ export async function getMarket(): Promise<Market> {
     return await fetchMarket(cached);
   } catch (e) {
     console.error("Couldn't load listings", e);
-    return { listings: [], sellers: [], loadedAt: 0 };
+    return { listings: [], sellers: [], loadedAt: 0, error: "Listings are temporarily unavailable. Check your connection and retry." };
   }
 }
 
 export async function getReviews(seller: Seller): Promise<PlatformReview[]> {
-  try {
-    return await fetchReviews(seller, cached);
-  } catch {
-    return [];
-  }
+  return fetchReviews(seller, cached);
 }
 
-/** One listing in full for its page; the market only carries what cards need. */
+/** Failed requests propagate to the route error boundary; only real misses return null. */
 export async function getFullListing(id: string): Promise<Listing | null> {
-  try {
-    return await fetchListing(id, cached);
-  } catch {
-    return null;
-  }
+  return fetchListing(id, cached);
 }
 
-/** A seller with nothing live right now isn't in the market, but still has a public page. */
 export async function getSellerProfile(handle: string): Promise<Seller | null> {
-  try {
-    return await fetchSeller(handle, cached);
-  } catch {
-    return null;
-  }
+  return fetchSeller(handle, cached);
 }

@@ -17,7 +17,7 @@
   "durable_objects": { "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
   // Daily at 03:17 UTC: delete photos no listing uses (worker.ts).
-  "triggers": { "crons": ["17 3 * * *"] },
+  "triggers": { "crons": ["17 3 * * *", "* * * * *"] },
   "r2_buckets": [
     // Cached pages and "use cache" results. Create it once: wrangler r2 bucket create hilltop-web-opennext-cache
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "hilltop-web-opennext-cache" },

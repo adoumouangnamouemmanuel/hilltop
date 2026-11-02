@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, BellRing, MessageCircle, Package, Search, ShieldAlert, Star, Tag, Wallet, type LucideIcon } from "lucide-react";
 import { useDismiss, useOnNavigate } from "@/lib/hooks";
 import { unreadCount } from "@/lib/model";
-import { enableNotifications, notificationPermission } from "@/lib/push";
+import { enableNotifications, notificationPermission, PUSH_STATE_EVENT, pushRegisteredFor } from "@/lib/push";
 import { useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import type { AppNotification, NotificationKind } from "@/lib/types";
@@ -94,32 +94,94 @@ export function NotificationBell() {
   );
 }
 
-const noop = () => () => {};
+const subscribePush = (listener: () => void) => {
+  window.addEventListener(PUSH_STATE_EVENT, listener);
+  window.addEventListener("focus", listener);
+  return () => {
+    window.removeEventListener(PUSH_STATE_EVENT, listener);
+    window.removeEventListener("focus", listener);
+  };
+};
 
 /** Prompt to turn on system notifications, hidden once decided. */
-export function PushPrompt() {
-  const permission = useSyncExternalStore(noop, notificationPermission, () => "unsupported" as const);
-  // The answer from this session wins; until then follow the browser's current permission.
-  const [decided, setState] = useState<string | null>(null);
+export function PushPrompt({ floating = false }: { floating?: boolean }) {
   const { user } = useStore();
-  if ((decided ?? permission) !== "default") return null;
+  const state = useSyncExternalStore(
+    subscribePush,
+    () =>
+      notificationPermission() === "granted" && user?.profileId && pushRegisteredFor(user.profileId)
+        ? "registered"
+        : notificationPermission(),
+    () => "unsupported",
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [dismissed, setDismissed] = useState(false);
+  const [show, setShow] = useState(!floating);
+  useEffect(() => {
+    if (!floating || !user?.profileId) return;
+    const timer = setTimeout(() => {
+      try {
+        if (Date.now() - Number(localStorage.getItem(`hilltop-push-dismissed:${user.profileId}`)) < 7 * 86400000) return;
+      } catch {}
+      setShow(true);
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [floating, user?.profileId]);
+  if (!user?.profileId || !show || dismissed || state === "registered" || state === "unsupported" || (floating && state === "denied"))
+    return null;
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-surface p-3.5">
+    <div
+      role="region"
+      aria-label="Notification settings"
+      className={cn(
+        "flex flex-wrap items-center gap-3 rounded-xl bg-surface p-3.5",
+        floating && "fixed right-3 bottom-24 left-3 z-50 border border-line bg-elevated shadow-pop sm:left-auto sm:w-96 md:bottom-5",
+      )}
+    >
       <BellRing className="size-5 shrink-0 text-ink-950" aria-hidden />
       <p className="flex-1 text-[13px] text-ink-700">
-        Get a heads-up when someone messages you, answers your offer or orders from you, even when Hilltop is closed.
+        {state === "denied"
+          ? "Notifications are blocked. Allow them in your browser's site settings, then try again."
+          : "Get alerts for messages, offers, orders and disputes, even when Hilltop is closed."}
       </p>
+      {error && (
+        <p role="alert" className="w-full text-sm text-warning">
+          {error}
+        </p>
+      )}
       <button
         type="button"
+        disabled={busy}
         onClick={async () => {
+          setBusy(true);
+          setError("");
           const result = await enableNotifications(user?.profileId);
-          setState(result);
+          setBusy(false);
           if (result === "granted") toast("Notifications on", { tone: "success" });
+          else if (result === "failed") setError("Couldn't turn on notifications. Check your connection, reload and try again.");
+          else if (result === "denied") setError("Allow notifications in your browser's site settings to continue.");
+          else if (result === "unsupported")
+            setError("This browser doesn't support push. On iPhone, add Hilltop to your Home Screen and open it there.");
         }}
         className={buttonClass("dark", "sm")}
       >
-        Turn on
+        {busy ? "Turning on…" : state === "granted" ? "Retry setup" : "Turn on"}
       </button>
+      {floating && (
+        <button
+          type="button"
+          className={buttonClass("ghost", "sm")}
+          onClick={() => {
+            setDismissed(true);
+            try {
+              localStorage.setItem(`hilltop-push-dismissed:${user.profileId}`, String(Date.now()));
+            } catch {}
+          }}
+        >
+          Not now
+        </button>
+      )}
     </div>
   );
 }
@@ -133,7 +195,7 @@ export function NotificationList({
   compact?: boolean;
   unreadOnly?: boolean;
 }) {
-  const { notifications, markRead, markAllRead } = useStore();
+  const { notifications, markRead, markAllRead, moreNotifications, loadMoreSocial } = useStore();
   const router = useRouter();
   const items = (unreadOnly ? notifications.filter((n) => !n.read) : notifications).slice(0, limit);
   const unread = unreadCount({ notifications });
@@ -153,6 +215,11 @@ export function NotificationList({
           </button>
         )}
       </div>
+      {!compact && moreNotifications && (
+        <button type="button" onClick={() => loadMoreSocial("notifications")} className={buttonClass("ghost", "sm", "mb-3")}>
+          Load older notifications
+        </button>
+      )}
       {items.length === 0 ? (
         <p className={cn("text-center text-sm text-ink-500", compact ? "px-4 py-10" : "py-16")}>
           {unreadOnly ? "You're all caught up." : "Nothing yet. Activity on your orders, offers and chats shows up here."}

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, Eye, Heart, Share } from "lucide-react";
-import type { Listing } from "@/lib/data";
+import type { Listing, Seller } from "@/lib/data";
 import { discountPercent, firstName, formatCedi, postedLabel } from "@/lib/format";
 import { isActive, isSoldOut } from "@/lib/model";
 import { factsFor, sellerFor, specsFor } from "@/lib/specs";
@@ -28,8 +28,12 @@ import { Gallery } from "./gallery";
  * `initial` is the server-rendered listing (platform listings). Listings the user created
  * only exist in their browser in the mock, so those are looked up client-side.
  */
-export function ListingDetail({ id, initial }: { id: string; initial: Listing | null }) {
+export function ListingDetail({ id, initial, initialSeller }: { id: string; initial: Listing | null; initialSeller?: Seller | null }) {
   const { allListings, saved, toggleSaved, user, offers, reviews, recordView } = useStore();
+  const { loadListingOffer } = useStore();
+  useEffect(() => {
+    if (user?.profileId) void loadListingOffer(id);
+  }, [id, user?.profileId, loadListingOffer]);
   const config = useConfig();
   const { features } = config;
   const catalog = useCatalog();
@@ -37,7 +41,9 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
   const [panel, setPanel] = useState<Panel>(null);
   const [copied, setCopied] = useState(false);
 
-  const found = findListing(allListings, id);
+  const found = initial
+    ? findListing(allListings, id)
+    : allListings.find((listing) => listing.id === id && listing.sellerId === user?.handle);
   // The browser's copy of the market only has what cards need; the server sent the description and specs in full.
   const listing =
     found && initial?.id === found.id
@@ -56,7 +62,8 @@ export function ListingDetail({ id, initial }: { id: string; initial: Listing | 
 
   if (!listing || !visible) return <NotFound />;
 
-  const seller = sellerFor(listing, user);
+  // The server's copy of the seller is fresh; whether it's the viewer is only known here.
+  const seller = initialSeller ? { ...initialSeller, isMe: !!user?.handle && listing.sellerId === user.handle } : sellerFor(listing, user);
   const category = catalog.get(listing.category);
   const specs = specsFor(listing, category);
   const highlights = specs.filter((s) => s.highlight).slice(0, 4);

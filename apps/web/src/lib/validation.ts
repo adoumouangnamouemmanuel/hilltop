@@ -150,6 +150,7 @@ export function toListing(
   const original = Number(v.originalPrice) || 0;
   return {
     id: meta.id,
+    revision: meta.previous?.revision,
     title: v.title.trim(),
     price,
     originalPrice: original > price ? original : undefined,

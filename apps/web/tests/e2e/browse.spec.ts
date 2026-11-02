@@ -6,6 +6,8 @@ const cards = (page: import("@playwright/test").Page) => page.locator("main arti
 test("category filters narrow results and live in the URL", async ({ page }) => {
   await open(page, "/browse?category=jewellery");
   await expect(page.getByRole("heading", { level: 1, name: "Jewellery & watches" })).toBeVisible();
+  // Results are loaded from the database a page at a time.
+  await expect(cards(page).first()).toBeVisible();
   const all = await cards(page).count();
   expect(all).toBeGreaterThan(5);
 

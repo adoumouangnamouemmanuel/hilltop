@@ -19,7 +19,7 @@ export default function Error({ error, retry }: { error: unknown; retry: () => v
       </span>
       <h1 className="mt-5 text-2xl font-semibold tracking-[-0.025em] text-ink-950">Something went wrong</h1>
       <p className="mt-2 max-w-sm text-sm text-ink-500">
-        This page hit a problem. Your orders and payments are safe. Try again, or head back home.
+        We couldn&rsquo;t load this page. Check your connection and try again, or head back home.
       </p>
       <div className="mt-6 flex gap-2">
         <button type="button" onClick={() => retry()} className={buttonClass("dark", "md")}>

@@ -28,11 +28,12 @@ function fail(error: DbError, fallback: string): Result {
 
 async function loadTeam(): Promise<{ members: Member[]; roles: Role[] }> {
   const client = supabase();
-  if (!client) return { members: [], roles: [] };
+  if (!client) throw new Error("Team data is unavailable. Check your connection.");
   const [m, r] = await Promise.all([
     client.from("admin_members").select("id, name, email, role_id, status, invited_at, last_active_at").order("invited_at"),
     client.from("admin_roles").select("id, name, description, permissions, system").order("created_at"),
   ]);
+  if (m.error || r.error) throw new Error("Could not load team and roles. Try again.");
   return {
     members: (m.data ?? []).map((x) => ({
       id: x.id,
@@ -51,18 +52,30 @@ export function useTeam() {
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
 
   const apply = useCallback((next: { members: Member[]; roles: Role[] }) => {
+    setError("");
     setMembers(next.members);
     setRoles(next.roles);
     setLoaded(true);
   }, []);
 
-  const refresh = useCallback(async () => apply(await loadTeam()), [apply]);
+  const refresh = useCallback(async () => {
+    try {
+      apply(await loadTeam());
+    } catch {
+      setError("Could not refresh team and roles. Try again.");
+    }
+  }, [apply]);
 
   useEffect(() => {
     let live = true;
-    loadTeam().then((next) => live && apply(next));
+    loadTeam()
+      .then((next) => live && apply(next))
+      .catch(() => {
+        if (live) setError("Could not load team and roles. Try again.");
+      });
     return () => {
       live = false;
     };
@@ -82,6 +95,7 @@ export function useTeam() {
     members,
     roles,
     loaded,
+    error,
     refresh,
     invite: (input: { name: string; email: string; roleId: string }) =>
       run(

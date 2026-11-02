@@ -53,7 +53,14 @@ export async function verifyCode(email: string, token: string) {
 }
 
 export async function signOutEverywhere() {
-  await supabase()?.auth.signOut();
+  const client = supabase();
+  if (!client) return "Sign-out is unavailable. Reload and try again.";
+  try {
+    const { error } = await client.auth.signOut();
+    return error ? "Couldn't sign out securely. Reconnect and try again." : null;
+  } catch {
+    return "Couldn't sign out securely. Reconnect and try again.";
+  }
 }
 
 /** The app's view of a signed-in person. */

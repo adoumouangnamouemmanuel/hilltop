@@ -27,7 +27,7 @@ export function MyMarket() {
   const pathname = usePathname();
   const tabParam = useSearchParams().get("tab");
   const tab: Tab = tabParam === "selling" || tabParam === "settings" ? tabParam : "purchases";
-  const { user, orders } = useStore();
+  const { user, orders, loadMoreOrders, moreOrders } = useStore();
   const { features } = useConfig();
   const [reporting, setReporting] = useState<Order | null>(null);
   const [reviewing, setReviewing] = useState<Order | null>(null);
@@ -233,6 +233,11 @@ export function MyMarket() {
         </motion.div>
       </AnimatePresence>
 
+      {moreOrders && tab !== "settings" && (
+        <button type="button" onClick={loadMoreOrders} className={buttonClass("ghost", "md", "mt-4")}>
+          Load older orders
+        </button>
+      )}
       <DisputeSheet order={reporting} onClose={() => setReporting(null)} />
       <ReviewSheet order={reviewing} onClose={() => setReviewing(null)} />
     </>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
 import type { CategoryDef } from "@/lib/catalog";
+import type { MarketFacets } from "@/lib/market-page-schema";
 import type { Listing } from "@/lib/data";
 import { useConfig } from "@/lib/config";
 import { formatCedi } from "@/lib/format";
@@ -13,6 +14,7 @@ import { cn } from "@/components/ui";
 
 type Props = {
   all: Listing[];
+  facets?: MarketFacets;
   filters: Filters;
   update: (patch: Partial<Filters>) => void;
   replace: (next: Filters) => void;
@@ -21,7 +23,7 @@ type Props = {
   labelOf: (id: string) => string;
 };
 
-export function FilterPanel({ all, filters, update, replace, categories, current, labelOf }: Props) {
+export function FilterPanel({ all, facets, filters, update, replace, categories, current, labelOf }: Props) {
   const { conditions: conditionList, pickupSpots, events } = useConfig();
   const conditions = conditionList.map((c) => c.value);
   const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -34,14 +36,14 @@ export function FilterPanel({ all, filters, update, replace, categories, current
         <CategoryList
           categories={categories}
           selected={filters.category}
-          countFor={(id) => count({ ...withCategory(filters, id) })}
+          countFor={(id) => (facets ? (id ? (facets.categories[id] ?? 0) : facets.all) : count({ ...withCategory(filters, id) }))}
           onSelect={(id) => replace(withCategory(filters, id))}
         />
       </Section>
 
       {/* Category-specific filters, generated from the category's schema */}
       {attrs.map((a) => {
-        const facet = attributeFacet(all, filters, a.key, labelOf);
+        const facet = facets ? new Map(Object.entries(facets.attrs[a.key] ?? {})) : attributeFacet(all, filters, a.key, labelOf);
         const selected = filters.attrs[a.key] ?? [];
         if (a.type === "boolean") {
           return (
@@ -71,6 +73,7 @@ export function FilterPanel({ all, filters, update, replace, categories, current
       <Section title="Price">
         <PriceRange
           all={applyFilters(all, { ...filters, min: null, max: null }, labelOf)}
+          stats={facets?.price}
           min={filters.min}
           max={filters.max}
           onChange={(min, max) => update({ min, max })}
@@ -80,7 +83,7 @@ export function FilterPanel({ all, filters, update, replace, categories, current
       {!current?.noCondition && (
         <Section title="Condition">
           <OptionList
-            options={conditions.map((c) => ({ value: c, count: count({ conditions: [c] }) }))}
+            options={conditions.map((c) => ({ value: c, count: facets ? (facets.conditions[c] ?? 0) : count({ conditions: [c] }) }))}
             selected={filters.conditions}
             onToggle={(v) => update({ conditions: toggle(filters.conditions, v) })}
           />
@@ -89,7 +92,7 @@ export function FilterPanel({ all, filters, update, replace, categories, current
 
       <Section title="Pickup spot">
         <OptionList
-          options={pickupSpots.map((p) => ({ value: p, count: count({ pickup: [p] }) }))}
+          options={pickupSpots.map((p) => ({ value: p, count: facets ? (facets.pickup[p] ?? 0) : count({ pickup: [p] }) }))}
           selected={filters.pickup}
           onToggle={(v) => update({ pickup: toggle(filters.pickup, v) })}
         />
@@ -97,9 +100,19 @@ export function FilterPanel({ all, filters, update, replace, categories, current
 
       <Section title="Deals" compact>
         {events.moveOut.enabled && (
-          <Toggle label={events.moveOut.name} count={count({ sale: true })} checked={filters.sale} onChange={(v) => update({ sale: v })} />
+          <Toggle
+            label={events.moveOut.name}
+            count={facets?.sale ?? count({ sale: true })}
+            checked={filters.sale}
+            onChange={(v) => update({ sale: v })}
+          />
         )}
-        <Toggle label="Price drops" count={count({ deals: true })} checked={filters.deals} onChange={(v) => update({ deals: v })} />
+        <Toggle
+          label="Price drops"
+          count={facets?.deals ?? count({ deals: true })}
+          checked={filters.deals}
+          onChange={(v) => update({ deals: v })}
+        />
       </Section>
     </div>
   );
@@ -278,25 +291,29 @@ const BUCKETS = 24;
 /** Histogram of current prices with a dual-thumb slider, like flight and stay search. */
 function PriceRange({
   all,
+  stats,
   min,
   max,
   onChange,
 }: {
   all: Listing[];
+  stats?: MarketFacets["price"];
   min: number | null;
   max: number | null;
   onChange: (min: number | null, max: number | null) => void;
 }) {
   const ceiling = useMemo(() => {
+    if (stats) return stats.ceiling;
     const top = Math.max(100, ...all.map((l) => l.price));
     const step = top > 2000 ? 500 : top > 500 ? 100 : 10;
     return Math.ceil(top / step) * step;
-  }, [all]);
+  }, [all, stats]);
   const bars = useMemo(() => {
+    if (stats) return stats.bins;
     const b = Array<number>(BUCKETS).fill(0);
     for (const l of all) b[Math.min(BUCKETS - 1, Math.floor((l.price / ceiling) * BUCKETS))]++;
     return b;
-  }, [all, ceiling]);
+  }, [all, ceiling, stats]);
   const peak = Math.max(1, ...bars);
 
   const [lo, setLo] = useState(min ?? 0);

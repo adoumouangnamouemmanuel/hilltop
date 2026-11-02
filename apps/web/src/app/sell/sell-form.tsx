@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,6 +38,12 @@ export function SellForm() {
   const boostPlans = config.payments.inApp ? enabledBoostPlans(config) : [];
   const editing = editId ? myListings.find((l) => l.id === editId) : undefined;
   const [status, setStatus] = useState<"idle" | "publishing" | "done">("idle");
+  const [photosBusy, setPhotosBusy] = useState(false);
+  const newListingId = useRef<string | null>(null);
+  const [saveError, setSaveError] = useState("");
+  useEffect(() => {
+    newListingId.current = null;
+  }, [editId]);
 
   // The schema follows whichever category is picked, so its fields are validated too.
   const resolver: Resolver<ListingFormValues> = (values, ctx, opts) =>
@@ -99,19 +105,22 @@ export function SellForm() {
 
   const publish = handleSubmit(
     async (v) => {
+      if (photosBusy || status !== "idle") return;
       if (atCap) {
         toast(`You can have ${cap} active listings at a time. Mark one as sold, or save this as a draft.`);
         return;
       }
+      setSaveError("");
       setStatus("publishing");
       const listing = toListing(
         v,
-        { id: editing?.id ?? listingIdFor(v.title), status: "active", previous: editing },
+        { id: editing?.id ?? (newListingId.current ??= listingIdFor(v.title)), status: "active", previous: editing },
         category?.noCondition,
       );
       const result = await saveListing(listing);
       if ("error" in result) {
         setStatus("idle");
+        setSaveError(result.error);
         toast(result.error);
         return;
       }
@@ -128,17 +137,24 @@ export function SellForm() {
   );
 
   async function saveDraft() {
+    if (photosBusy || status !== "idle") return;
     const v = getValues();
     const problem = draftProblem(v);
     if (problem) {
       setError("title", { message: problem });
       return;
     }
-    const listing = toListing(v, { id: editing?.id ?? listingIdFor(v.title), status: "draft", previous: editing }, category?.noCondition);
+    const listing = toListing(
+      v,
+      { id: editing?.id ?? (newListingId.current ??= listingIdFor(v.title)), status: "draft", previous: editing },
+      category?.noCondition,
+    );
+    setSaveError("");
     setStatus("publishing");
     const result = await saveListing(listing);
     setStatus("idle");
     if ("error" in result) {
+      setSaveError(result.error);
       toast(result.error);
       return;
     }
@@ -158,6 +174,11 @@ export function SellForm() {
       </p>
       {!editing && <SellGuide values={values} />}
 
+      {saveError && (
+        <p role="alert" className="mt-4 rounded-xl bg-warning-bg p-3 text-sm text-warning">
+          {saveError}
+        </p>
+      )}
       <form onSubmit={publish} noValidate className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
         <div className="divide-y divide-line">
           <Section
@@ -168,7 +189,7 @@ export function SellForm() {
             <Controller
               control={control}
               name="photos"
-              render={({ field }) => <PhotoPicker value={field.value} onChange={field.onChange} />}
+              render={({ field }) => <PhotoPicker value={field.value} onChange={field.onChange} onBusyChange={setPhotosBusy} />}
             />
           </Section>
 
@@ -412,7 +433,11 @@ export function SellForm() {
               later.
             </p>
           )}
-          <button type="submit" disabled={status !== "idle"} className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}>
+          <button
+            type="submit"
+            disabled={status !== "idle" || photosBusy}
+            className={buttonClass("primary", "lg", "mt-5 w-full disabled:bg-maroon-700")}
+          >
             {status === "publishing" ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden /> Publishing
@@ -428,7 +453,12 @@ export function SellForm() {
             )}
           </button>
           {(!editing || isDraft) && (
-            <button type="button" onClick={saveDraft} disabled={status !== "idle"} className={buttonClass("ghost", "md", "mt-2 w-full")}>
+            <button
+              type="button"
+              onClick={saveDraft}
+              disabled={status !== "idle" || photosBusy}
+              className={buttonClass("ghost", "md", "mt-2 w-full")}
+            >
               Save as draft
             </button>
           )}

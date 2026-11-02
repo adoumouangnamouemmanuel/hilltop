@@ -22,6 +22,7 @@ type Env = {
   SUPABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
   PHOTOS?: PhotoBucket;
+  PUSH_WEBHOOK_SECRET?: string;
 };
 
 // The revalidation queue lives in a Durable Object, so queued work survives the Worker restarting.
@@ -65,8 +66,25 @@ export default Sentry.withSentry(
   }),
   {
     fetch: handler.fetch,
-    async scheduled(_controller: unknown, env: Env, ctx: { waitUntil(promise: Promise<unknown>): void }) {
-      ctx.waitUntil(removeUnusedPhotos(env));
+    async scheduled(_controller: { cron: string }, env: Env, ctx: { waitUntil(promise: Promise<unknown>): void }) {
+      if (_controller.cron === "17 3 * * *") ctx.waitUntil(removeUnusedPhotos(env));
+      if (_controller.cron === "* * * * *" && env.PUSH_WEBHOOK_SECRET) {
+        ctx.waitUntil(
+          handler
+            .fetch(
+              new Request("https://hilltop.lumavok.com/api/push", {
+                method: "POST",
+                headers: { "content-type": "application/json", "x-hilltop-webhook": env.PUSH_WEBHOOK_SECRET },
+                body: "{}",
+              }),
+              env,
+              ctx,
+            )
+            .then((response: Response) => {
+              if (!response.ok) throw new Error(`Push queue drain failed: ${response.status}`);
+            }),
+        );
+      }
     },
   } as Parameters<typeof Sentry.withSentry<Env>>[1],
 );

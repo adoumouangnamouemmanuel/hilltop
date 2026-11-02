@@ -65,10 +65,11 @@ async function ProductJsonLd({ id }: { id: string }) {
 async function Detail({ params }: { params: PageProps<"/listing/[id]">["params"] }) {
   const { id } = await params;
   const initial = await getListing(id);
+  const initialSeller = initial ? await getSeller(initial.sellerId) : null;
   return (
     <>
       <ProductJsonLd id={id} />
-      <ListingDetail id={id} initial={initial} />
+      <ListingDetail id={id} initial={initial} initialSeller={initialSeller} />
     </>
   );
 }

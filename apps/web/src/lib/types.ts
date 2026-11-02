@@ -27,10 +27,12 @@ export type OrderStatus = "paid" | "ready" | "collected" | "disputed" | "refunde
 export type DisputeReason = string;
 
 export type Dispute = {
+  id?: string;
+  canWithdraw?: boolean;
   reason: DisputeReason;
   details: string;
   openedAt: number;
-  state: "open" | "withdrawn" | "refunded";
+  state: "open" | "withdrawn" | "refunded" | "released";
 };
 
 export type { PaymentKind };
@@ -101,6 +103,7 @@ export type Message = {
 };
 
 export type Conversation = {
+  hasMoreMessages?: boolean;
   id: string;
   listingId: string;
   /** The other person in the conversation (the seller, or the buyer when you're selling). */
@@ -151,6 +154,12 @@ export type ListingReport = { listingId: string; reason: string; details: string
 export type ListingOverride = { stock?: number; status?: ListingStatus };
 
 export type State = {
+  syncError?: string;
+  mineSyncError?: string;
+  unreadMessages?: number;
+  moreConversations?: boolean;
+  moreNotifications?: boolean;
+  moreIncoming?: boolean;
   user: User | null;
   saved: string[];
   recentSearches: string[];

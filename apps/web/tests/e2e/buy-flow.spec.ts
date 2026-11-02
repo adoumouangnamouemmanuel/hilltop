@@ -29,11 +29,10 @@ test("reserve an item, the seller hands it over, then review them", async ({ bro
   const order = buyer.locator("li").filter({ hasText: "Rechargeable desk fan" }).first();
   await order.getByRole("button", { name: /collected it/ }).click();
   await order.getByRole("button", { name: "Yes, collected and paid" }).click();
-  await expect(order.getByText("Completed")).toBeVisible();
-  // Confirming opens the review sheet; close it to use the card's own button.
-  await buyer.keyboard.press("Escape");
-  await order.getByRole("button", { name: /Leave a review/ }).click();
+  // Once the database confirms collection, the review sheet opens.
   const review = buyer.getByRole("dialog", { name: /Review/ });
+  await expect(review).toBeVisible();
+  await expect(order.getByText("Completed")).toBeVisible();
   await review.getByRole("radio", { name: "5 stars" }).click();
   await review.getByRole("button", { name: "Post review" }).click();
   await expect(buyer.getByRole("dialog", { name: "Thanks!" })).toBeVisible();

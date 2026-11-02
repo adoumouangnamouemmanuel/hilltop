@@ -21,7 +21,7 @@ export function AuditView() {
 }
 
 function AuditInner() {
-  const { entries } = useAuditLog();
+  const { entries, error, refresh } = useAuditLog();
   const [q, setQ] = useQueryState<string>("q", "");
   const [actor, setActor] = useQueryState<string>("actor", "");
   const [area, setArea] = useQueryState<string>("area", "");
@@ -47,6 +47,14 @@ function AuditInner() {
 
   return (
     <>
+      {error && (
+        <p role="alert" className="mb-4 text-sm text-warning">
+          {error}{" "}
+          <button type="button" onClick={refresh} className="underline">
+            Retry
+          </button>
+        </p>
+      )}
       <PageHeader title="Audit log" description="Every action taken in the portal, by whom and when. Entries can't be edited or deleted.">
         <button
           type="button"

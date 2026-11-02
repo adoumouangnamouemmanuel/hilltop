@@ -1,4 +1,6 @@
 import type { Listing, ListingStatus, Seller } from "@hilltop/shared/seed";
+import { marketPageSchema, type MarketCursor, type MarketFacets } from "./market-page-schema";
+import type { Filters } from "./search";
 import { relativeTime } from "@hilltop/shared/format";
 
 /*
@@ -14,6 +16,8 @@ import { relativeTime } from "@hilltop/shared/format";
  */
 
 export type Market = {
+  error?: string;
+  categoryCounts?: Record<string, number>;
   listings: Listing[];
   sellers: Seller[];
   loadedAt: number;
@@ -29,11 +33,8 @@ const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 const DAY = 86_400_000;
 
 const SELLER_COLUMNS = "id, handle, name, shop_name, specialty, class_of, major, response_time, sales, verified, created_at";
-const CARD_COLUMNS =
-  "id, title, description, price, original_price, category, condition, attributes, pickup, stock, food, move_out, promoted_until, " +
-  "status, posted_at, updated_at, views, saves, seller_id, photos";
 const LISTING_COLUMNS =
-  "id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
+  "id, revision, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
   `promoted_until, status, posted_at, views, saves, seller:profiles!listings_seller_id_fkey(${SELLER_COLUMNS}), listing_photos(url, position)`;
 
 type SellerRow = {
@@ -51,6 +52,7 @@ type SellerRow = {
 };
 
 export type ListingRow = {
+  revision?: number;
   id: string;
   title: string;
   description: string;
@@ -87,6 +89,8 @@ function fromCard(row: CardRow, seller: SellerRow | undefined, now: number): Lis
 export function toListing(row: ListingRow, now = Date.now()): Listing {
   return {
     id: row.id,
+    sellerProfileId: row.seller?.id,
+    revision: row.revision,
     title: row.title,
     price: Number(row.price),
     originalPrice: row.original_price === null ? undefined : Number(row.original_price),
@@ -131,7 +135,7 @@ function toSeller(row: SellerRow, rating?: RatingRow): Seller {
 async function rest<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
-    headers: { accept: "application/json", apikey: SUPABASE_KEY },
+    headers: { accept: "application/json", "content-type": "application/json", apikey: SUPABASE_KEY },
     // A slow database must never hold a page up.
     signal: AbortSignal.timeout(5000),
   });
@@ -141,70 +145,73 @@ async function rest<T>(path: string, init?: RequestInit): Promise<T> {
 
 const emptyMarket = (): Market => ({ listings: [], sellers: [], loadedAt: 0 });
 
-const PAGE = 1000;
-const MAX_LISTINGS = 10_000;
-
-/** Every live and sold listing, a page at a time, so none silently go missing past a fixed limit. */
-async function cardPages(filter: string, init?: RequestInit) {
-  const rows: CardRow[] = [];
-  for (let offset = 0; offset < MAX_LISTINGS; offset += PAGE) {
-    const page = await rest<CardRow[]>(
-      `market_listings?select=${CARD_COLUMNS}${filter}&order=posted_at.desc,id&limit=${PAGE}&offset=${offset}`,
-      init,
-    );
-    rows.push(...page);
-    if (page.length < PAGE) return rows;
-  }
-  console.error(`The market has more than ${MAX_LISTINGS} listings; move browsing to database queries (audit PERF-001).`);
-  return rows;
+export type MarketFilters = Omit<Partial<Filters>, "sort"> & { sort?: Filters["sort"] | "deals" } & {
+  categories?: string[];
+  ids?: string[];
+  sellerId?: string;
+  includeSold?: boolean;
+  postedWithinDays?: number;
+};
+export type MarketPage = { listings: Listing[]; sellers: Seller[]; next: MarketCursor | null; total: number; facets: MarketFacets };
+export async function fetchMarketPage(
+  filters: MarketFilters = {},
+  cursor: MarketCursor | null = null,
+  limit = 24,
+  init?: RequestInit,
+): Promise<MarketPage> {
+  if (!SUPABASE_URL) throw new Error("The marketplace is not configured.");
+  const raw = await rest<unknown>("rpc/market_page", {
+    ...init,
+    method: "POST",
+    body: JSON.stringify({ p_filters: filters, p_cursor: cursor, p_limit: limit }),
+  });
+  const page = marketPageSchema.parse(raw);
+  const sellers = new Map<string, Seller>();
+  const listings = page.items.flatMap((row) => {
+    if (!row.seller) return [];
+    sellers.set(row.seller.handle, toSeller(row.seller, row.rating ?? undefined));
+    return [fromCard(row, row.seller, Date.now())];
+  });
+  return { listings, sellers: [...sellers.values()], next: page.next, total: page.total, facets: page.facets };
 }
 
-function build(rows: CardRow[], sellerRows: SellerRow[], ratings: RatingRow[], now: number) {
-  const ratingOf = new Map(ratings.map((r) => [r.seller_id, r]));
-  const sellerById = new Map(sellerRows.map((s) => [s.id, s]));
-  const listings = rows.filter((r) => sellerById.has(r.seller_id)).map((r) => fromCard(r, sellerById.get(r.seller_id), now));
-  const sellers = sellerRows.map((s) => toSeller(s, ratingOf.get(s.id)));
-  return { listings, sellers };
-}
-
-/** Loads live and sold listings with their sellers. `init` lets the server cache the requests. */
+/** Only the initial feed is hydrated; browse, saved items and seller pages request their own bounded pages. */
 export async function fetchMarket(init?: RequestInit): Promise<Market> {
   if (!SUPABASE_URL) return emptyMarket();
-  const [rows, sellerRows, ratings] = await Promise.all([
-    cardPages("", init),
-    rest<SellerRow[]>(`market_sellers?select=${SELLER_COLUMNS}`, init),
-    rest<RatingRow[]>("seller_ratings?select=seller_id,rating,reviews", init),
-  ]);
+  const page = await fetchMarketPage({ sort: "newest" }, null, 60, init);
   const now = Date.now();
-  return { ...build(rows, sellerRows, ratings, now), loadedAt: now, fullAt: now };
+  return { listings: page.listings, sellers: page.sellers, categoryCounts: page.facets.categories, loadedAt: now, fullAt: now };
+}
+/** The first page is small, so refreshing reloads it rather than merging changes. */
+export async function refreshMarket(): Promise<Market> {
+  return fetchMarket();
 }
 
-const FULL_EVERY_MS = 30 * 60_000;
+const rememberedListings = new Map<string, Listing>();
+const rememberedSellers = new Map<string, Seller>();
+export function rememberMarketPage(page: Pick<MarketPage, "listings" | "sellers">) {
+  for (const listing of page.listings) rememberedListings.set(listing.id, listing);
+  for (const seller of page.sellers) rememberedSellers.set(seller.id, seller);
+  for (const cache of [rememberedListings, rememberedSellers]) {
+    while (cache.size > 500) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+  }
+}
 
 /**
- * Brings a market up to date: just the listings changed since it was loaded (and
- * their sellers), or everything every half hour, which also drops listings that
- * were hidden or deleted (those don't show up as changes).
+ * Re-reads one listing after the student changed its availability (ordered it, cancelled),
+ * so its page and cards update even when it's older than the first page the browser holds.
  */
-export async function refreshMarket(current: Market): Promise<Market> {
-  const now = Date.now();
-  if (!current.fullAt || now - current.fullAt > FULL_EVERY_MS) return fetchMarket();
-  // A little overlap, so clock differences can't skip a change.
-  const since = new Date(current.loadedAt - 60_000).toISOString();
-  const changed = await cardPages(`&updated_at=gt.${since}`);
-  if (!changed.length) return { ...current, loadedAt: now };
-  const ids = [...new Set(changed.map((r) => r.seller_id))];
-  const [sellerRows, ratings] = await Promise.all([
-    rest<SellerRow[]>(`market_sellers?select=${SELLER_COLUMNS}&id=in.(${ids.join(",")})`),
-    rest<RatingRow[]>(`seller_ratings?select=seller_id,rating,reviews&seller_id=in.(${ids.join(",")})`),
-  ]);
-  const fresh = build(changed, sellerRows, ratings, now);
-  const byId = new Map(current.listings.map((l) => [l.id, l]));
-  for (const l of fresh.listings) byId.set(l.id, l);
-  const sellers = new Map(current.sellers.map((s) => [s.id, s]));
-  for (const s of fresh.sellers) sellers.set(s.id, s);
-  const listings = [...byId.values()].sort((a, b) => a.postedDaysAgo - b.postedDaysAgo);
-  return { listings, sellers: [...sellers.values()], loadedAt: now, fullAt: current.fullAt };
+export async function refreshListing(id: string) {
+  const fresh = await fetchListing(id);
+  if (!fresh) return;
+  rememberedListings.set(id, fresh);
+  const listings = market.listings.some((l) => l.id === id)
+    ? market.listings.map((l) => (l.id === id ? fresh : l))
+    : [...market.listings, fresh];
+  setMarket({ ...market, listings });
 }
 
 /** One listing in full (description, specs), for its page. Drafts and hidden listings aren't public. */
@@ -286,5 +293,5 @@ function indexOf(m: Market) {
   return index;
 }
 
-export const findSeller = (id: string) => indexOf(market).sellers.get(id);
-export const findMarketListing = (id: string) => indexOf(market).listings.get(id);
+export const findSeller = (id: string) => rememberedSellers.get(id) ?? indexOf(market).sellers.get(id);
+export const findMarketListing = (id: string) => rememberedListings.get(id) ?? indexOf(market).listings.get(id);

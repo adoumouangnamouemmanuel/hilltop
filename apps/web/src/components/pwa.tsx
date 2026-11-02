@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Share, X } from "lucide-react";
+import { readState } from "@/lib/store";
+import { syncPushSubscription } from "@/lib/push";
 import { runtimeConfig } from "@/lib/config";
 import { LogoMark } from "./logo";
 import { buttonClass } from "./ui";
@@ -30,7 +32,14 @@ export function Pwa() {
   useEffect(() => {
     // In development a caching service worker gets in the way of hot reload.
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).catch(() => {});
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/", updateViaCache: "none" })
+        .then(async () => {
+          await navigator.serviceWorker.ready;
+          const profileId = readState().user?.profileId;
+          if (profileId) await syncPushSubscription(profileId);
+        })
+        .catch(() => console.error("Service worker registration failed"));
     }
 
     const standalone = window.matchMedia("(display-mode: standalone)").matches;
@@ -39,7 +48,9 @@ export function Pwa() {
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setInstallEvent(e as InstallEvent);
-      setTimeout(() => setMode("native"), 12_000);
+      setTimeout(() => {
+        if (!document.querySelector('[aria-label="Notification settings"]')) setMode("native");
+      }, 16000);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
 

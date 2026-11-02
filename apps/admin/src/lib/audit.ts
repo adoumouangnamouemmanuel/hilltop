@@ -13,12 +13,13 @@ import type { AuditEntry } from "./types";
 
 async function loadAudit(limit: number): Promise<AuditEntry[]> {
   const client = supabase();
-  if (!client) return [];
-  const { data } = await client
+  if (!client) throw new Error("Audit log unavailable.");
+  const { data, error } = await client
     .from("audit_log")
     .select("id, at, actor_name, permission, action, target")
     .order("id", { ascending: false })
     .limit(limit);
+  if (error) throw new Error("Could not load audit log.");
   return (data ?? []).map((r) => ({
     id: String(r.id),
     at: Date.parse(r.at),
@@ -32,20 +33,31 @@ async function loadAudit(limit: number): Promise<AuditEntry[]> {
 export function useAuditLog(limit = 500) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
-    setEntries(await loadAudit(limit));
-    setLoaded(true);
+    try {
+      setEntries(await loadAudit(limit));
+      setLoaded(true);
+      setError("");
+    } catch {
+      setError("Could not load the audit log. Try again.");
+    }
   }, [limit]);
 
   useEffect(() => {
     let live = true;
     const load = () =>
-      loadAudit(limit).then((next) => {
-        if (!live) return;
-        setEntries(next);
-        setLoaded(true);
-      });
+      loadAudit(limit)
+        .then((next) => {
+          if (!live) return;
+          setError("");
+          setEntries(next);
+          setLoaded(true);
+        })
+        .catch(() => {
+          if (live) setError("Could not load the audit log. Try again.");
+        });
     load();
     // New entries from this or other admins show up when the tab is revisited.
     window.addEventListener("focus", load);
@@ -55,5 +67,5 @@ export function useAuditLog(limit = 500) {
     };
   }, [limit]);
 
-  return { entries, loaded, refresh };
+  return { entries, loaded, refresh, error };
 }

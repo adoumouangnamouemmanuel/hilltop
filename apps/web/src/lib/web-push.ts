@@ -115,6 +115,10 @@ export function isPushService(endpoint: string) {
 
 /** Delivers one message. Returns the push service's status; 404 and 410 mean the browser unsubscribed. */
 export async function sendPush(target: PushTarget, message: unknown, vapid: Vapid): Promise<number> {
+  return (await deliverPush(target, message, vapid)).status;
+}
+
+export async function deliverPush(target: PushTarget, message: unknown, vapid: Vapid): Promise<{ status: number; retrySeconds: number }> {
   const body = await encryptPayload(target, encoder.encode(JSON.stringify(message)));
   const res = await fetch(target.endpoint, {
     method: "POST",
@@ -126,6 +130,9 @@ export async function sendPush(target: PushTarget, message: unknown, vapid: Vapi
       urgency: "normal",
     },
     body,
+    signal: AbortSignal.timeout(10_000),
   });
-  return res.status;
+  const retry = res.headers.get("retry-after");
+  const retrySeconds = retry ? (/^\d+$/.test(retry) ? Number(retry) : Math.ceil((Date.parse(retry) - Date.now()) / 1000)) : 0;
+  return { status: res.status, retrySeconds: Number.isFinite(retrySeconds) ? Math.max(0, Math.min(86400, retrySeconds)) : 0 };
 }

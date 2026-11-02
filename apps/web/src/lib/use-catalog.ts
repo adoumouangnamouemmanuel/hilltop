@@ -5,6 +5,7 @@ import type { CategoryDef as Category } from "@hilltop/shared/catalog";
 import { visibleCategories } from "@hilltop/shared/config";
 import { findCategory } from "./catalog";
 import { useConfig } from "./config";
+import { useMarket } from "./use-market";
 import { useStore } from "./store";
 
 /**
@@ -14,18 +15,19 @@ import { useStore } from "./store";
 export function useCatalog() {
   const config = useConfig();
   const { allListings } = useStore();
+  const market = useMarket();
 
   return useMemo(() => {
     const visible = visibleCategories(config);
-    const counts: Record<string, number> = {};
-    for (const l of allListings) counts[l.category] = (counts[l.category] ?? 0) + 1;
+    const counts: Record<string, number> = { ...market.categoryCounts };
+    if (!market.categoryCounts) for (const l of allListings) counts[l.category] = (counts[l.category] ?? 0) + 1;
     return {
       categories: visible,
       counts,
       // Looks up hidden categories too, so existing listings still render.
       get: (id: string) => findCategory(config.categories, id),
     };
-  }, [config, allListings]);
+  }, [config, allListings, market.categoryCounts]);
 }
 
 export type Signals = {

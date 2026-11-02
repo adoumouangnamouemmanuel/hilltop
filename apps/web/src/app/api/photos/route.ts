@@ -45,6 +45,11 @@ export async function POST(request: Request) {
   }
 
   const stored = cleaned.bytes.buffer.slice(cleaned.bytes.byteOffset, cleaned.bytes.byteOffset + cleaned.bytes.byteLength) as ArrayBuffer;
-  const url = await storePhoto(key, stored, type, new URL(request.url).origin);
-  return Response.json({ url });
+  try {
+    const url = await storePhoto(key, stored, type, new URL(request.url).origin);
+    return Response.json({ url });
+  } catch {
+    console.error("Photo storage write failed");
+    return Response.json({ error: "Your photo couldn't be stored. Try again shortly." }, { status: 503 });
+  }
 }

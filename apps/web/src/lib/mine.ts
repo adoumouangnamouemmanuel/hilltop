@@ -12,7 +12,7 @@ import type { ListingReport, SavedSearch } from "./types";
  */
 
 const LISTING_COLUMNS =
-  "id, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
+  "id, revision, title, description, price, original_price, category, condition, attributes, extra, pickup, stock, food, move_out, " +
   "promoted_until, status, posted_at, views, saves, seller:profiles!listings_seller_id_fkey(id, handle, name, shop_name, specialty, class_of, major, response_time, sales, verified, created_at), listing_photos(url, position)";
 
 export type Mine = {
@@ -67,19 +67,27 @@ export async function loadMine(profileId: string): Promise<Mine | null> {
 // Browsing and search history ------------------------------------------------------------------
 
 export async function recordViewRemote(profileId: string, listingId: string) {
-  await supabase()?.from("browsing_history").upsert({ profile_id: profileId, listing_id: listingId, viewed_at: new Date().toISOString() });
+  const result = await supabase()
+    ?.from("browsing_history")
+    .upsert({ profile_id: profileId, listing_id: listingId, viewed_at: new Date().toISOString() });
+  return result ? problem(result.error, "Could not sync browsing history.") : "Browsing history could not sync.";
 }
 
 export async function recordSearchRemote(profileId: string, query: string) {
-  await supabase()?.from("search_history").upsert({ profile_id: profileId, query, searched_at: new Date().toISOString() });
+  const result = await supabase()?.from("search_history").upsert({ profile_id: profileId, query, searched_at: new Date().toISOString() });
+  return result ? problem(result.error, "Could not sync search history.") : "Search history could not sync.";
 }
 
 export async function clearHistoryRemote(kind: "views" | "searches", listingId?: string) {
   const client = supabase();
-  if (!client) return;
-  if (kind === "searches") await client.from("search_history").delete().neq("query", "");
-  else if (listingId) await client.from("browsing_history").delete().eq("listing_id", listingId);
-  else await client.from("browsing_history").delete().neq("listing_id", "");
+  if (!client) return "History is unavailable. Try again.";
+  const result =
+    kind === "searches"
+      ? await client.from("search_history").delete().neq("query", "")
+      : listingId
+        ? await client.from("browsing_history").delete().eq("listing_id", listingId)
+        : await client.from("browsing_history").delete().neq("listing_id", "");
+  return problem(result.error, "Could not clear your history. Try again.");
 }
 
 /** Adds what a visitor viewed and searched before signing in to their account, keeping the order. */
@@ -110,11 +118,34 @@ async function uploadOne(dataUrl: string, token: string): Promise<string> {
 }
 
 /** Uploads photos that are still in the browser (data URLs); ones already online are kept. */
+const uploaded = new Map<string, { url: Promise<string>; at: number }>();
+export function resetPhotoUploads() {
+  uploaded.clear();
+}
 export async function uploadPhotos(images: string[]): Promise<string[]> {
   const client = supabase();
-  const token = (await client?.auth.getSession())?.data.session?.access_token;
+  const session = (await client?.auth.getSession())?.data.session;
+  const token = session?.access_token;
   if (!token) throw new Error("Sign in again to add photos.");
-  return Promise.all(images.map((src) => (src.startsWith("data:") ? uploadOne(src, token) : src)));
+  // Reuse successful uploads when a listing-save response was lost. This cache is
+  // memory-only, account-scoped, bounded, and expires before orphan cleanup.
+  for (const [key, value] of uploaded) if (Date.now() - value.at > 3600000) uploaded.delete(key);
+  return Promise.all(
+    images.map((src) => {
+      if (!src.startsWith("data:")) return src;
+      const key = `${session.user.id}:${src}`;
+      const previous = uploaded.get(key);
+      if (previous) return previous.url;
+      const url = uploadOne(src, token).catch((error: unknown) => {
+        uploaded.delete(key);
+        throw error;
+      });
+      uploaded.set(key, { url, at: Date.now() });
+      const oldest = uploaded.keys().next().value;
+      if (uploaded.size > 20 && oldest !== undefined) uploaded.delete(oldest);
+      return url;
+    }),
+  );
 }
 
 // Listings -----------------------------------------------------------------------------
@@ -153,42 +184,39 @@ export async function saveListingRemote(listing: Listing, profileId: string, isN
     move_out: !!listing.moveOut,
     status: dbStatus(listing.status),
   };
-  const write = isNew
-    ? await client.from("listings").insert({ id: listing.id, seller_id: profileId, ...fields })
-    : await client.from("listings").update(fields).eq("id", listing.id);
-  const failed = problem(write.error, "Couldn't save your listing. Try again.");
+  if (!isNew && listing.revision === undefined) return "Reload this listing before saving changes.";
+  const { data, error } = await client.rpc("save_listing", {
+    p_id: listing.id,
+    p_fields: fields,
+    p_photos: listing.images,
+    p_expected_revision: isNew ? undefined : listing.revision,
+  });
+  const failed = problem(error, "Couldn't save your listing. Check your connection and try again.");
   if (failed) return failed;
+  if (data === null) return "Could not confirm the save. Reload your listings before retrying.";
+  listing.revision = data;
 
-  // Photos are replaced as a set, in the order the seller arranged them.
-  const removed = await client.from("listing_photos").delete().eq("listing_id", listing.id);
-  if (removed.error) return "Couldn't save your photos. Try again.";
-  if (listing.images.length) {
-    const added = await client
-      .from("listing_photos")
-      .insert(listing.images.map((url, position) => ({ listing_id: listing.id, url, position })));
-    if (added.error) return "Couldn't save your photos. Try again.";
-  }
   return null;
 }
 
 export async function setListingStatusRemote(id: string, status: ListingStatus) {
-  const { error } =
-    (await supabase()
-      ?.from("listings")
-      .update({ status: dbStatus(status) })
-      .eq("id", id)) ?? {};
+  const { error } = (await supabase()
+    ?.from("listings")
+    .update({ status: dbStatus(status) })
+    .eq("id", id)) ?? { error: { message: "Not connected", code: "OFFLINE" } };
   return problem(error, "Couldn't update the listing.");
 }
 
 /** Moves a listing back to the top and makes it live again. The database sets the time. */
 export async function renewListingRemote(id: string) {
-  const { error } =
-    (await supabase()?.from("listings").update({ status: "active", posted_at: new Date().toISOString() }).eq("id", id)) ?? {};
+  const { error } = (await supabase()?.from("listings").update({ status: "active", posted_at: new Date().toISOString() }).eq("id", id)) ?? {
+    error: { message: "Not connected", code: "OFFLINE" },
+  };
   return problem(error, "Couldn't renew the listing.");
 }
 
 export async function deleteListingRemote(id: string) {
-  const { error } = (await supabase()?.from("listings").delete().eq("id", id)) ?? {};
+  const { error } = (await supabase()?.from("listings").delete().eq("id", id)) ?? { error: { message: "Not connected", code: "OFFLINE" } };
   return problem(error, "Couldn't delete the listing.");
 }
 
@@ -196,7 +224,7 @@ export async function deleteListingRemote(id: string) {
 
 export async function setSavedRemote(profileId: string, listingId: string, saved: boolean) {
   const client = supabase();
-  if (!client) return null;
+  if (!client) return "Saved items are unavailable. Try again.";
   const { error } = saved
     ? await client.from("saved_listings").insert({ profile_id: profileId, listing_id: listingId })
     : await client.from("saved_listings").delete().eq("listing_id", listingId);
@@ -208,27 +236,30 @@ export async function saveSearchRemote(
   profileId: string,
   search: Pick<SavedSearch, "label" | "query" | "seenIds">,
 ): Promise<{ id: string; createdAt: number } | { error: string }> {
-  const { data, error } =
-    (await supabase()
-      ?.from("saved_searches")
-      .insert({ profile_id: profileId, label: search.label, query: search.query, seen_ids: search.seenIds })
-      .select("id, created_at")
-      .single()) ?? {};
+  const { data, error } = (await supabase()
+    ?.from("saved_searches")
+    .insert({ profile_id: profileId, label: search.label, query: search.query, seen_ids: search.seenIds })
+    .select("id, created_at")
+    .single()) ?? { error: { message: "Not connected", code: "OFFLINE" } };
   if (error || !data) return { error: problem(error, "Couldn't save this search. Try again.") ?? "Couldn't save this search. Try again." };
   return { id: data.id, createdAt: Date.parse(data.created_at) };
 }
 
 export async function updateSearchRemote(id: string, patch: { alerts?: boolean; seen_ids?: string[] }) {
-  await supabase()?.from("saved_searches").update(patch).eq("id", id);
+  const result = await supabase()?.from("saved_searches").update(patch).eq("id", id);
+  return result ? problem(result.error, "Could not update the saved search.") : "Saved searches are unavailable.";
 }
 
 export async function removeSearchRemote(id: string) {
-  await supabase()?.from("saved_searches").delete().eq("id", id);
+  const result = await supabase()?.from("saved_searches").delete().eq("id", id);
+  return result ? problem(result.error, "Could not remove the saved search.") : "Saved searches are unavailable.";
 }
 
 export async function reportRemote(profileId: string, r: Omit<ListingReport, "at">) {
-  const { error } =
-    (await supabase()?.from("reports").insert({ reporter_id: profileId, listing_id: r.listingId, reason: r.reason, details: r.details })) ??
-    {};
+  const { error } = (await supabase()
+    ?.from("reports")
+    .insert({ reporter_id: profileId, listing_id: r.listingId, reason: r.reason, details: r.details })) ?? {
+    error: { message: "Not connected", code: "OFFLINE" },
+  };
   return error && error.code !== "23505" ? "Couldn't send your report. Try again." : null;
 }

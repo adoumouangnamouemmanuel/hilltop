@@ -17,8 +17,10 @@ export function useMarketRefresh() {
     const refresh = async () => {
       if (document.visibilityState !== "visible" || Date.now() - readMarket().loadedAt < REFRESH_MS) return;
       try {
-        setMarket(await refreshMarket(readMarket()));
-      } catch {}
+        setMarket(await refreshMarket());
+      } catch {
+        setMarket({ ...readMarket(), error: "Couldn’t refresh listings. Showing the last loaded data." });
+      }
     };
     refresh();
     document.addEventListener("visibilitychange", refresh);

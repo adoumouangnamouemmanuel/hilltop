@@ -13,18 +13,11 @@ import { supabase } from "./supabase";
 import * as Mine from "./mine";
 import * as Social from "./social";
 import * as Orders from "./orders";
-import { readMarket, refreshMarket, setMarket } from "./market";
+import { refreshListing, refreshMarket, setMarket } from "./market";
 import { getSeller } from "./data";
 import type { DisputeReason, Order, OrderStatus, Review, SavedSearch, State, User } from "./types";
-
-/*
- * Client-side mock backend. State transitions live in model.ts; this file adds
- * persistence, ids, timestamps and the simulated "other side" (seller replies,
- * offer answers). Swap these actions for API calls once the backend exists.
- */
-
-// Keep the Ashesi demo separate from state saved against the previous catalog.
-const STORAGE_KEY = "hilltop-market:v5-ashesi";
+/** Client state mirrors authorized database operations; private data stays in memory. */
+const STORAGE_KEY = "hilltop-history:v1";
 
 const initialState = M.seedState();
 let state: State = initialState;
@@ -39,8 +32,13 @@ function load() {
   if (loaded || typeof window === "undefined") return;
   loaded = true;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) state = { ...initialState, ...JSON.parse(raw) };
+    localStorage.removeItem("hilltop-market:v5-ashesi");
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+    if (parsed && typeof parsed === "object" && "recentlyViewed" in parsed && "recentSearches" in parsed) {
+      const strings = (value: unknown) =>
+        Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length <= 100).slice(0, 20) : [];
+      state = { ...initialState, recentlyViewed: strings(parsed.recentlyViewed), recentSearches: strings(parsed.recentSearches) };
+    }
   } catch {}
 }
 
@@ -48,7 +46,8 @@ let warnedFull = false;
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (state.user) localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, JSON.stringify({ recentlyViewed: state.recentlyViewed, recentSearches: state.recentSearches }));
     warnedFull = false;
   } catch (e) {
     // Most likely the storage quota, usually from photos. Say so instead of failing silently.
@@ -69,7 +68,7 @@ function commit(update: (s: State) => State, silent = false) {
   state = update(state);
   persist();
   listeners.forEach((l) => l());
-  if (!silent) for (const n of state.notifications) if (!before.has(n.id) && !n.read) showSystemNotification(n);
+  if (!silent) for (const n of state.notifications) if (!before.has(n.id) && !n.read) void showSystemNotification(n).catch(() => {});
 }
 
 let releaseTimer: ReturnType<typeof setInterval> | null = null;
@@ -180,12 +179,19 @@ const refreshSocial = once(async () => {
   if (!profileId) return;
   const version = writes;
   lastSocial = Date.now();
-  const [social, orders] = await Promise.all([Social.loadSocial(profileId), Orders.loadOrders(profileId)]);
+  const [social, orders] = await Promise.all([
+    Social.loadSocial(profileId).catch(() => null),
+    Orders.loadOrders(profileId).catch(() => null),
+  ]);
   if (version !== writes) return void setTimeout(refreshSocial, 0);
-  if (!social || !orders || state.user?.profileId !== profileId) return;
+  if (state.user?.profileId !== profileId) return;
+  commit((s) => ({
+    ...s,
+    syncError: !social || !orders ? "Some account data couldn't refresh. Check your connection and retry." : undefined,
+  }));
   const first = socialLoadedFor !== profileId;
-  socialLoadedFor = profileId;
-  commit((s) => ({ ...s, ...social, orders }), first);
+  if (social) socialLoadedFor = profileId;
+  commit((s) => ({ ...s, ...(social ?? {}), ...(orders ? { orders } : {}) }), first);
 });
 
 let pending: ReturnType<typeof setTimeout> | null = null;
@@ -217,7 +223,14 @@ let writes = 0;
 /** Runs one load at a time per kind; calls while one is running share it. */
 function once(fn: () => Promise<void>) {
   let running: Promise<void> | null = null;
-  return () => (running ??= fn().finally(() => (running = null)));
+  const run = (): Promise<void> => {
+    const profileId = state.user?.profileId;
+    return (running ??= fn().finally(() => {
+      running = null;
+      if (state.user?.profileId && state.user.profileId !== profileId) void run();
+    }));
+  };
+  return run;
 }
 
 /** Reloads the student's listings, saved items, searches and reports from the database. */
@@ -225,12 +238,14 @@ const refreshMine = once(async () => {
   const profileId = state.user?.profileId;
   if (!profileId) return;
   const version = writes;
-  const mine = await Mine.loadMine(profileId);
+  const mine = await Mine.loadMine(profileId).catch(() => null);
+  if (!mine && state.user?.profileId === profileId)
+    commit((s) => ({ ...s, mineSyncError: "Your listings and saved items couldn’t refresh. Retry when connected." }));
   if (version !== writes) return void setTimeout(refreshMine, 0);
   // Ignore an answer for someone who has since signed out.
   if (mine && state.user?.profileId === profileId) {
     mineLoadedFor = profileId;
-    commit((s) => ({ ...s, ...mine }));
+    commit((s) => ({ ...s, ...mine, mineSyncError: undefined }));
   }
 });
 
@@ -246,18 +261,39 @@ function failed(message: string | null) {
 const me = () => state.user?.profileId;
 
 /** Moves an order: shown at once, then saved; the database decides if the move is allowed. */
-function moveOrder(orderId: string, status: OrderStatus, optimistic: (s: State) => State) {
+const pendingOrders = new Set<string>();
+async function moveOrder(
+  orderId: string,
+  status: OrderStatus,
+  optimistic: (s: State) => State,
+  remote = () => Orders.setOrderStatusRemote(orderId, status),
+): Promise<boolean> {
+  if (pendingOrders.has(orderId)) return false;
+  pendingOrders.add(orderId);
+  const profileId = me();
+  const previous = state.orders.find((order) => order.id === orderId);
   writes++;
   commit(optimistic);
-  Orders.setOrderStatusRemote(orderId, status).then((error) => {
+  try {
+    const error = await remote().catch(() => "Couldn't confirm the order update. Check your connection and retry.");
     writes++;
-    if (error) toast(error);
-    refreshSocial();
-    if (status === "cancelled")
-      refreshMarket(readMarket())
+    if (state.user?.profileId !== profileId) return false;
+    if (error) {
+      toast(error);
+      if (previous) commit((s) => ({ ...s, orders: s.orders.map((order) => (order.id === orderId ? previous : order)) }));
+    }
+    await refreshSocial();
+    if (status === "cancelled" && !error) {
+      // The item is back on the market.
+      if (previous?.listingId) void refreshListing(previous.listingId).catch(() => {});
+      void refreshMarket()
         .then(setMarket)
         .catch(() => {});
-  });
+    }
+    return !error;
+  } finally {
+    pendingOrders.delete(orderId);
+  }
 }
 
 export const actions = {
@@ -271,8 +307,30 @@ export const actions = {
     // A visitor signing in brings what they browsed into their account.
     const arriving = switched && !state.user?.profileId && !!user?.profileId;
     const visitorHistory = { viewed: state.recentlyViewed, searches: state.recentSearches };
-    if (!same) commit((s) => ({ ...s, user, ...(switched ? noMine : {}), ...(otherPerson ? noHistory : {}) }), true);
+    if (!same)
+      commit(
+        (s) => ({
+          ...s,
+          user,
+          ...(switched
+            ? {
+                ...noMine,
+                unreadMessages: 0,
+                moreNotifications: false,
+                moreConversations: false,
+                syncError: undefined,
+                mineSyncError: undefined,
+              }
+            : {}),
+          ...(otherPerson ? noHistory : {}),
+        }),
+        true,
+      );
     if (switched) {
+      pendingOrders.clear();
+      Mine.resetPhotoUploads();
+      Social.resetSocialLimits();
+      Orders.resetOrderLimit();
       mineLoadedFor = null;
       socialLoadedFor = null;
       watch(user?.profileId);
@@ -289,12 +347,59 @@ export const actions = {
   },
   refreshMine,
   refreshSocial,
+  closeMessageHistory: Social.closeMessageHistory,
+  async loadListingOffer(listingId: string) {
+    const profileId = me();
+    if (!profileId) return;
+    try {
+      const offer = await Social.loadListingOffer(profileId, listingId);
+      if (me() !== profileId) return;
+      commit((s) => {
+        const offers = { ...s.offers };
+        if (offer) offers[listingId] = offer;
+        else delete offers[listingId];
+        return { ...s, offers };
+      });
+    } catch {
+      toast("Couldn't refresh your offer. Check your connection before ordering.");
+    }
+  },
+  async loadMoreSocial(kind: "conversations" | "messages" | "notifications" | "incoming", conversationId?: string) {
+    const profileId = me();
+    if (!profileId) return;
+    try {
+      await Social.expandSocialHistory(kind, profileId, conversationId);
+      await refreshSocial();
+    } catch {
+      toast("Couldn't load older history. Your current data is kept. Try again.");
+    }
+  },
+  async loadMoreOrders() {
+    const profileId = me();
+    if (!profileId) return;
+    try {
+      await Orders.expandOrderHistory(profileId);
+      await refreshSocial();
+    } catch {
+      toast("Couldn't load older orders. Your current orders are kept. Try again.");
+    }
+  },
   async signOut() {
     // While still signed in, so the database lets us remove it.
-    await forgetPushSubscription().catch(() => {});
-    await signOutEverywhere();
+    await forgetPushSubscription().catch(() =>
+      toast("Notifications could not be disabled. Turn them off in this browser's site settings on a shared device."),
+    );
+    try {
+      localStorage.removeItem("hilltop-message-drafts");
+    } catch {}
+    const error = await signOutEverywhere();
+    if (error) {
+      toast(error);
+      return false;
+    }
     watch(undefined);
-    commit((s) => ({ ...s, user: null, ...noMine, ...noHistory }), true);
+    commit((s) => ({ ...s, user: null, ...noMine, ...noHistory, unreadMessages: 0, syncError: undefined, mineSyncError: undefined }), true);
+    return true;
   },
   /** Saves or unsaves a listing. Signed-out visitors are asked to sign in instead. */
   toggleSaved(id: string): "saved" | "removed" | "sign-in" {
@@ -315,31 +420,31 @@ export const actions = {
     await refreshSocial();
     // A load that was already running started before this order existed.
     if (!state.orders.some((o) => o.id === placed.id)) await refreshSocial();
-    // The item is reserved now, so others see it as sold or with less stock.
-    refreshMarket(readMarket())
+    // The item is reserved now: sold, or with less stock. Its own page updates first.
+    await refreshListing(input.listing.id).catch(() => {});
+    refreshMarket()
       .then(setMarket)
       .catch(() => {});
     const order = state.orders.find((o) => o.id === placed.id);
     return order ? { order } : { error: "Your order was placed. Find it under Your orders." };
   },
   markReady(orderId: string) {
-    moveOrder(orderId, "ready", (s) => M.markReady(s, orderId, Date.now()));
+    return moveOrder(orderId, "ready", (s) => M.markReady(s, orderId, Date.now()));
   },
   /** The seller records the meet-up. The buyer confirms collection, which completes the order. */
   markHandedOver(orderId: string) {
-    writes++;
-    commit((s) => M.markHandedOver(s, orderId, Date.now()));
-    Orders.markHandedOverRemote(orderId).then((error) => {
-      writes++;
-      if (error) toast(error);
-      refreshSocial();
-    });
+    return moveOrder(
+      orderId,
+      "ready",
+      (s) => M.markHandedOver(s, orderId, Date.now()),
+      () => Orders.markHandedOverRemote(orderId),
+    );
   },
   confirmCollection(orderId: string) {
-    moveOrder(orderId, "collected", (s) => M.confirmCollection(s, orderId, Date.now()));
+    return moveOrder(orderId, "collected", (s) => M.confirmCollection(s, orderId, Date.now()));
   },
   cancelOrder(orderId: string) {
-    moveOrder(orderId, "cancelled", (s) => ({
+    return moveOrder(orderId, "cancelled", (s) => ({
       ...s,
       orders: s.orders.map((o) =>
         o.id === orderId ? { ...o, status: "cancelled", timeline: [...o.timeline, { status: "cancelled", at: Date.now() }] } : o,
@@ -368,12 +473,13 @@ export const actions = {
   async addReview(r: Omit<Review, "id" | "at" | "author">) {
     writes++;
     const profileId = me();
-    if (!profileId) return;
+    if (!profileId) return false;
     commit((s) => M.addReview(s, { ...r, id: uid("rev"), at: Date.now(), author: s.user?.name ?? "You" }));
     const sellerProfileId = getSeller(r.sellerId)?.profileId ?? (await Orders.sellerOf(r.orderId));
     const error = sellerProfileId ? await Orders.addReviewRemote(profileId, sellerProfileId, r) : "Couldn't post your review.";
     if (error) toast(error);
     refreshSocial();
+    return !error;
   },
 
   // Listings: photos are uploaded first, then the listing and its photos are saved.
@@ -389,8 +495,12 @@ export const actions = {
       return { error: e instanceof Error ? e.message : "A photo didn't upload. Try again." };
     }
     const saved = { ...listing, images, sellerId: handle };
-    const error = await Mine.saveListingRemote(saved, profileId, isNew);
+    const error = await Mine.saveListingRemote(saved, profileId, isNew).catch(
+      () => "Couldn’t confirm your listing was saved. Check your listings before retrying.",
+    );
+    writes++;
     if (error) return { error };
+    if (me() !== profileId) return { error: "Your account changed. Sign in and reload your listings." };
     commit((s) => M.upsertListing(s, saved));
     return { listing: saved };
   },
@@ -432,7 +542,7 @@ export const actions = {
   },
 
   // Messages. `conversationId` is known when replying in the inbox.
-  async sendMessage(listing: Listing, sellerName: string, text: string, conversationId?: string) {
+  async sendMessage(listing: Listing, sellerName: string, text: string, conversationId?: string, messageId = crypto.randomUUID()) {
     writes++;
     const profileId = me();
     if (!profileId) return null;
@@ -447,18 +557,24 @@ export const actions = {
         sellerId: listing.sellerId,
         sellerName,
         text,
-        id: uid("m"),
+        id: messageId,
         now: Date.now(),
       }),
     );
     const result = await Social.sendMessageRemote(
       profileId,
-      { id: listing.id, sellerProfileId: getSeller(listing.sellerId)?.profileId ?? "" },
+      { id: listing.id, sellerProfileId: listing.sellerProfileId ?? getSeller(listing.sellerId)?.profileId ?? "" },
       existing?.id,
       text,
-    );
+      messageId,
+    ).catch(() => ({ error: "Couldn't confirm your message. Retry to check or send it safely." }));
+    writes++;
     if ("error" in result) {
       toast(result.error);
+      commit((s) => ({
+        ...s,
+        conversations: s.conversations.map((c) => ({ ...c, messages: c.messages.filter((m) => m.id !== messageId) })),
+      }));
       refreshSocial();
       return null;
     }
@@ -484,6 +600,7 @@ export const actions = {
     writes++;
     if (error) toast(error);
     refreshSocialSoon();
+    return !error;
   },
   async deleteMessage(conversationId: string, messageId: string) {
     writes++;
@@ -505,19 +622,38 @@ export const actions = {
     if (!state.conversations.find((c) => c.id === id)?.unread) return;
     commit((s) => M.readConversation(s, id));
     const profileId = me();
-    if (profileId) Social.readConversationRemote(profileId, id).then(() => writes++);
+    if (profileId)
+      Social.readConversationRemote(profileId, id).then((error) => {
+        writes++;
+        if (error) {
+          toast(error);
+          refreshSocialSoon();
+        }
+      });
   },
 
   // Notifications
   markAllRead() {
     writes++;
     commit(M.markAllRead);
-    Social.markReadRemote().then(() => writes++);
+    Social.markReadRemote().then((error) => {
+      writes++;
+      if (error) {
+        toast(error);
+        refreshSocialSoon();
+      }
+    });
   },
   markRead(id: string) {
     writes++;
     commit((s) => M.markRead(s, id));
-    Social.markReadRemote(id).then(() => writes++);
+    Social.markReadRemote(id).then((error) => {
+      writes++;
+      if (error) {
+        toast(error);
+        refreshSocialSoon();
+      }
+    });
   },
 
   // Search
@@ -528,23 +664,23 @@ export const actions = {
     const profileId = me();
     if (profileId) {
       writes++;
-      Mine.recordSearchRemote(profileId, q.slice(0, 100)).then(() => writes++);
+      Mine.recordSearchRemote(profileId, q.slice(0, 100)).then(failed);
     }
   },
   clearRecentSearches() {
     writes++;
     commit((s) => ({ ...s, recentSearches: [] }));
-    if (me()) Mine.clearHistoryRemote("searches").then(() => writes++);
+    if (me()) Mine.clearHistoryRemote("searches").then(failed);
   },
   clearRecentlyViewed() {
     writes++;
     commit((s) => ({ ...s, recentlyViewed: [] }));
-    if (me()) Mine.clearHistoryRemote("views").then(() => writes++);
+    if (me()) Mine.clearHistoryRemote("views").then(failed);
   },
   removeRecentlyViewed(id: string) {
     writes++;
     commit((s) => ({ ...s, recentlyViewed: s.recentlyViewed.filter((x) => x !== id) }));
-    if (me()) Mine.clearHistoryRemote("views", id).then(() => writes++);
+    if (me()) Mine.clearHistoryRemote("views", id).then(failed);
   },
   async saveSearch(search: Omit<SavedSearch, "id" | "createdAt" | "alerts">) {
     writes++;
@@ -557,20 +693,20 @@ export const actions = {
   removeSearch(id: string) {
     writes++;
     commit((s) => M.removeSearch(s, id));
-    Mine.removeSearchRemote(id).then(() => writes++);
+    Mine.removeSearchRemote(id).then(failed);
   },
   toggleAlerts(id: string) {
     writes++;
     commit((s) => M.toggleAlerts(s, id));
     const search = state.savedSearches.find((x) => x.id === id);
-    if (search) Mine.updateSearchRemote(id, { alerts: search.alerts }).then(() => writes++);
+    if (search) Mine.updateSearchRemote(id, { alerts: search.alerts }).then(failed);
   },
   markSearchSeen(id: string, matchIds: string[]) {
     writes++;
     const search = state.savedSearches.find((x) => x.id === id);
     if (!search || search.seenIds.join() === matchIds.join()) return;
     commit((s) => M.markSearchSeen(s, id, matchIds));
-    Mine.updateSearchRemote(id, { seen_ids: matchIds }).then(() => writes++);
+    Mine.updateSearchRemote(id, { seen_ids: matchIds }).then(failed);
   },
   reportListing(listingId: string, reason: string, details: string) {
     writes++;
@@ -584,7 +720,7 @@ export const actions = {
       const profileId = me();
       if (profileId) {
         writes++;
-        Mine.recordViewRemote(profileId, id).then(() => writes++);
+        Mine.recordViewRemote(profileId, id).then(failed);
       }
     }
     if (!counted.has(id)) {
@@ -608,7 +744,7 @@ export function useStore() {
   );
   const myListings = useMemo(() => withExpiry(snapshot.myListings, expiryDays), [snapshot.myListings, expiryDays]);
   const activeListings = useMemo(() => allListings.filter(M.isActive), [allListings]);
-  return { ...snapshot, ...actions, myListings, allListings, activeListings };
+  return { ...snapshot, ...actions, myListings, allListings, activeListings, moreOrders: Orders.hasMoreOrders() };
 }
 
 /** A listing by id, including the user's own and with their changes applied. */

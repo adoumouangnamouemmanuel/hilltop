@@ -13,6 +13,7 @@ import { useConfig } from "@/lib/config";
 import { findListing, useStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import type { Order } from "@/lib/types";
+import { DisputeConversation } from "./order-sheets";
 import { RelativeTime } from "@/components/controls";
 import { OrderTimeline } from "@/components/order-timeline";
 import { buttonClass, cn } from "@/components/ui";
@@ -41,6 +42,14 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
   const { disputes, features, protection } = useConfig();
   const now = useNow();
   const [confirming, setConfirming] = useState(false);
+  // One change at a time per order; success is only shown once the database has it.
+  const [busy, setBusy] = useState(false);
+  async function act(run: () => Promise<boolean>, success: string) {
+    setBusy(true);
+    const ok = await run();
+    setBusy(false);
+    if (ok) toast(success, { tone: "success" });
+  }
   // The listing may have changed or been deleted since; the order keeps its own title and spot.
   const found = findListing(allListings, order.listingId);
   const listing = {
@@ -114,8 +123,7 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
       {order.dispute?.state === "open" && (
         <div className="mt-4 rounded-xl border border-maroon-200 bg-maroon-50 p-3.5 text-[13px]">
           <p className="flex items-center gap-2 font-medium text-maroon-700">
-            <ShieldAlert className="size-4" aria-hidden /> {selling ? "The buyer reported a problem" : "You reported a problem"}:{" "}
-            {disputeLabel(disputes.reasons, order.dispute.reason)}
+            <ShieldAlert className="size-4" aria-hidden /> Problem reported: {disputeLabel(disputes.reasons, order.dispute.reason)}
           </p>
           {order.dispute.details && <p className="mt-1 text-ink-700">&ldquo;{order.dispute.details}&rdquo;</p>}
           <p className="mt-1 text-ink-500">
@@ -123,7 +131,7 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
             {held ? "The payment stays frozen until then." : "The order is on hold until then."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {!selling && (
+            {order.dispute.canWithdraw && (
               <button type="button" onClick={() => withdrawDispute(order.id)} className={buttonClass("outline", "sm")}>
                 Withdraw report
               </button>
@@ -132,6 +140,7 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
         </div>
       )}
 
+      {order.dispute && <DisputeConversation order={order} />}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div initial={false} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="mt-5 overflow-hidden">
@@ -154,10 +163,8 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                 order.status === "paid" ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      markReady(order.id);
-                      toast(`${order.counterpart.split(" ")[0]} has been told it's ready`, { tone: "success" });
-                    }}
+                    disabled={busy}
+                    onClick={() => act(() => markReady(order.id), `${first} has been told it's ready`)}
                     className={buttonClass("dark", "sm")}
                   >
                     <Check className="size-3.5" aria-hidden /> Mark ready for pickup
@@ -165,10 +172,10 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                 ) : !order.handedOverAt ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      markHandedOver(order.id);
-                      toast(`Handover recorded. ${first} confirms collection to complete the order.`, { tone: "success" });
-                    }}
+                    disabled={busy}
+                    onClick={() =>
+                      act(() => markHandedOver(order.id), `Handover recorded. ${first} confirms collection to complete the order.`)
+                    }
                     className={buttonClass("dark", "sm")}
                   >
                     <Handshake className="size-3.5" aria-hidden /> {held ? "I've handed it over" : "Handed over and paid"}
@@ -185,9 +192,8 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      confirmCollection(order.id);
-                      if (features.reviews) onReview(order);
+                    onClick={async () => {
+                      if ((await confirmCollection(order.id)) && features.reviews) onReview(order);
                     }}
                     className={buttonClass("dark", "sm")}
                   >
@@ -229,14 +235,13 @@ export function OrderCard({ order, onReport, onReview }: { order: Order; onRepor
 }
 
 /** Calls off a reservation that won't happen. The item goes back on the market. */
-function CancelOrder({ order, onCancel }: { order: Order; onCancel: (id: string) => void }) {
+function CancelOrder({ order, onCancel }: { order: Order; onCancel: (id: string) => Promise<boolean> }) {
   const [sure, setSure] = useState(false);
   return sure ? (
     <button
       type="button"
-      onClick={() => {
-        onCancel(order.id);
-        toast("Order cancelled. The item is back on the market.");
+      onClick={async () => {
+        if (await onCancel(order.id)) toast("Order cancelled. The item is back on the market.");
       }}
       className={buttonClass("outline", "sm", "border-maroon-600 text-maroon-700")}
     >

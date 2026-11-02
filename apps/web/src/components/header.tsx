@@ -299,9 +299,9 @@ function CountBadge({ count }: { count: number }) {
 }
 
 function HeaderActions() {
-  const { user, saved, conversations } = useStore();
+  const { user, saved, conversations, unreadMessages } = useStore();
   const { features } = useConfig();
-  const unreadChats = conversations.reduce((n, c) => n + c.unread, 0);
+  const unreadChats = unreadMessages ?? conversations.reduce((n, c) => n + c.unread, 0);
   const iconLink = "relative size-10 place-items-center rounded-xl text-ink-700 transition-colors hover:bg-surface hover:text-ink-950";
 
   return (

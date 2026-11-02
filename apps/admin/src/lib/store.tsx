@@ -7,7 +7,7 @@ import type { Role } from "@hilltop/shared/permissions";
 import { toast } from "@hilltop/ui/toast";
 import { Forbidden, Rejected } from "./model";
 import { loadOperations, saveOperations, type Operations } from "./operations";
-import { seedState } from "./seed";
+
 import { usePublished, type SessionMember } from "./session";
 import { supabase } from "./supabase";
 import type { AdminState } from "./types";
@@ -24,7 +24,18 @@ type Db = NonNullable<ReturnType<typeof supabase>>;
  * audit log itself; the browser never does. Only the shared draft is cached here.
  */
 
-const KEY = "hilltop-admin-v3";
+const KEY = "hilltop-admin-v4";
+const emptyState = (): AdminState => ({
+  draft: null,
+  roles: [],
+  team: [],
+  sessionId: null,
+  users: [],
+  listings: [],
+  orders: [],
+  disputes: [],
+  audit: [],
+});
 
 // Operational records come from the database, never from the browser's cache.
 const noOperations: Operations = { users: [], listings: [], orders: [], disputes: [] };
@@ -33,15 +44,16 @@ const listeners = new Set<() => void>();
 
 function load(): AdminState {
   try {
+    localStorage.removeItem("hilltop-admin-v3");
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AdminState;
-      if (Array.isArray(parsed.team) && Array.isArray(parsed.roles)) return { ...parsed, ...noOperations };
+      if (parsed.draft) return { ...emptyState(), draft: parsed.draft };
     }
   } catch {
     // Corrupt or blocked storage: start fresh.
   }
-  return { ...seedState(Date.now()), ...noOperations };
+  return emptyState();
 }
 
 function getState() {
@@ -51,7 +63,8 @@ function getState() {
 function setState(next: AdminState) {
   state = next;
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.removeItem("hilltop-admin-v3");
+    localStorage.setItem(KEY, JSON.stringify({ draft: next.draft }));
   } catch {
     // Storage full or blocked: changes last for this tab only.
   }
@@ -73,7 +86,7 @@ function subscribe(listener: () => void) {
 }
 
 let serverSnapshot: AdminState | null = null;
-const getServerState = () => (serverSnapshot ??= { ...seedState(0), ...noOperations });
+const getServerState = () => (serverSnapshot ??= { ...emptyState(), ...noOperations });
 
 const noop = () => () => {};
 

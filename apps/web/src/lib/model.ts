@@ -365,6 +365,9 @@ export function receiveMessage(s: State, conversationId: string, text: string, i
 export function readConversation(s: State, conversationId: string): State {
   return {
     ...s,
+    ...(s.unreadMessages === undefined
+      ? {}
+      : { unreadMessages: Math.max(0, s.unreadMessages - (s.conversations.find((c) => c.id === conversationId)?.unread ?? 0)) }),
     conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, unread: 0 } : c)),
     notifications: s.notifications.map((n) => (n.href === `/inbox?c=${conversationId}` ? { ...n, read: true } : n)),
   };

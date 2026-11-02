@@ -45,6 +45,14 @@ function TeamInner() {
 
   return (
     <TeamContext value={s}>
+      {data.error && (
+        <p role="alert" className="mb-4 text-sm text-warning">
+          {data.error}{" "}
+          <button type="button" onClick={data.refresh} className="underline">
+            Retry
+          </button>
+        </p>
+      )}
       <PageHeader title="Team & roles" description="Who can use the portal and exactly what each role is allowed to do.">
         {canManage &&
           (tab === "members" ? (
