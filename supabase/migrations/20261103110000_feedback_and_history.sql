@@ -36,8 +36,10 @@ alter table public.feedback enable row level security;
 grant insert (kind, message, page, device) on public.feedback to anon, authenticated;
 grant select, update (status) on public.feedback to authenticated;
 
+-- Who sent it and how often is checked by stamp_feedback(); here, only what was sent.
 create policy "Anyone sends feedback" on public.feedback
-  for insert to anon, authenticated with check (true);
+  for insert to anon, authenticated
+  with check (kind in ('bug', 'idea', 'other') and char_length(trim(message)) between 3 and 2000);
 create policy "The team reads feedback" on public.feedback
   for select to authenticated using (private.has_permission('feedback.view'));
 create policy "The team handles feedback" on public.feedback

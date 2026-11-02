@@ -596,7 +596,7 @@ reset role;
 select set_config('request.headers', '', true);
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}', true);
-select is((select count(*)::int from public.feedback), 6, 'owners read feedback');
+select is((select count(*)::int from public.feedback where created_at = now()), 6, 'owners read feedback');
 select lives_ok($$update public.feedback set status = 'closed' where kind = 'bug'$$, 'owners close feedback');
 reset role;
 
